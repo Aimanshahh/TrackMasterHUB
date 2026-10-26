@@ -1,0 +1,37 @@
+:root {
+  color-scheme: light;
+
+  /* Typography */
+  --font-display: 'Archivo Variable', 'Archivo', 'Inter Variable', system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Cascadia Mono', 'SFMono-Regular', 'Roboto Mono', Menlo, Consolas, monospace;
+
+  /* Brand palette — sampled from the official TrackMaster logo */
+  --ink: #12151a;
+  --ink-soft: #3c4048;
+  --muted: #6b6f76;
+  --paper: #f6f5f1;
+  --surface: #ffffff;
+  --line: #e0ddd5;
+  --line-strong: #c9c5bb;
+  --brand: #d7131b;
+  --brand-bright: #f22b2f;
+  --brand-deep: #a20f15;
+
+  /* Dark surfaces for the workflow band */
+  --night: #101317;
+  --night-line: #2a2f36;
+  --night-text: #f2f1ed;
+  --night-muted: #9aa1ab;
+
+  --ok: #1f7a4d;
+  --warn: #a9761a;
+
+  /* Layout */
+  --container: 1180px;
+  --gutter: clamp(20px, 4.5vw, 48px);
+  --section-y: clamp(64px, 8vw, 112px);
+  --header-height: 76px;
+  --radius: 2px;
+}

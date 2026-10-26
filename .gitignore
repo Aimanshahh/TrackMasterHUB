@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+.vite/
+
+# Local environment — examples are committed instead
+.env
+.env.*
+!.env.example
+
+# Logs
+.logs/
+*.log
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
