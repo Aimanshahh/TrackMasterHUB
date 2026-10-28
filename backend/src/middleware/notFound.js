@@ -1,9 +1,5 @@
-export function notFound(req, res) {
-  res.status(404).json({
-    error: {
-      code: 'ROUTE_NOT_FOUND',
-      message: `No route matches ${req.method} ${req.originalUrl}.`,
-      requestId: req.id,
-    },
-  });
+import { makeError } from './errors.js';
+
+export function notFound(req, res, next) {
+  return next(makeError('ROUTE_NOT_FOUND', 'No route matches ' + req.method + ' ' + req.originalUrl + '.', 404));
 }

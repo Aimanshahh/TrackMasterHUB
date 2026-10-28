@@ -1,6 +1,8 @@
-import { Router } from 'express';
+import express from 'express';
 import { getHealth } from './health.controller.js';
 
-export const healthRouter = Router();
+const router = express.Router();
+
+export const healthRouter = router;
 
 healthRouter.get('/', getHealth);

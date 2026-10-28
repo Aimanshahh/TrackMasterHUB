@@ -2,15 +2,14 @@ import { Link } from 'react-router-dom';
 
 import logoUrl from '../../assets/brand/trackmaster-logo.png';
 
-/**
- * Brand lockup: the official logo artwork plus the product name set in the
+/** Brand lockup: the official logo artwork plus the product name set in the
  * interface typeface. The supplied logo already contains the wordmark, so the
- * adjacent text names the product (TrackMaster Hub) rather than repeating it.
- */
+ * adjacent text names the product (TrackMaster Hub) rather than repeating it. */
 export default function Logo({
   size = 42,
   subtitle = 'CRM & operations',
   linked = true,
+  to = '/',
   className = '',
 }) {
   const content = (
@@ -36,7 +35,11 @@ export default function Logo({
   }
 
   return (
-    <Link to="/" className={`brand ${className}`.trim()} aria-label="TrackMaster Hub — home">
+    <Link
+      to={to}
+      className={`brand ${className}`.trim()}
+      aria-label="TrackMaster Hub — home"
+    >
       {content}
     </Link>
   );
