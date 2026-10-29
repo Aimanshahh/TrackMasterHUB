@@ -150,3 +150,108 @@ export function createCustomer(input) {
     body: JSON.stringify(input),
   });
 }
+
+/* ---------------- Operations, complaints and notifications ---------------- */
+
+function withQuery(path, params = {}) {
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+  }
+
+  const search = query.toString();
+  return search ? `${path}?${search}` : path;
+}
+
+function sendJson(path, method, input) {
+  return apiRequest(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchOperationsSummary({ signal } = {}) {
+  return apiRequest('/api/operations/summary', { signal });
+}
+
+export function fetchStockByStation({ signal } = {}) {
+  return apiRequest('/api/operations/stock-by-station', { signal });
+}
+
+export function fetchStockByTechnician({ signal } = {}) {
+  return apiRequest('/api/operations/stock-by-technician', { signal });
+}
+
+export function fetchJobs(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/operations/jobs', params), { signal });
+}
+
+export function createJobRecord(input) {
+  return sendJson('/api/operations/jobs', 'POST', input);
+}
+
+export function updateJobRecord(id, input) {
+  return sendJson(`/api/operations/jobs/${encodeURIComponent(id)}`, 'PATCH', input);
+}
+
+export function fetchTechnicians(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/operations/technicians', params), { signal });
+}
+
+export function createTechnicianRecord(input) {
+  return sendJson('/api/operations/technicians', 'POST', input);
+}
+
+export function updateTechnicianRecord(id, input) {
+  return sendJson(`/api/operations/technicians/${encodeURIComponent(id)}`, 'PATCH', input);
+}
+
+export function fetchDevices(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/operations/devices', params), { signal });
+}
+
+export function createDeviceRecord(input) {
+  return sendJson('/api/operations/devices', 'POST', input);
+}
+
+export function updateDeviceRecord(id, input) {
+  return sendJson(`/api/operations/devices/${encodeURIComponent(id)}`, 'PATCH', input);
+}
+
+export function fetchSims(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/operations/sims', params), { signal });
+}
+
+export function createSimRecord(input) {
+  return sendJson('/api/operations/sims', 'POST', input);
+}
+
+export function updateSimRecord(id, input) {
+  return sendJson(`/api/operations/sims/${encodeURIComponent(id)}`, 'PATCH', input);
+}
+
+export function fetchComplaints(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/complaints', params), { signal });
+}
+
+export function createComplaintRecord(input) {
+  return sendJson('/api/complaints', 'POST', input);
+}
+
+export function updateComplaintRecord(id, input) {
+  return sendJson(`/api/complaints/${encodeURIComponent(id)}`, 'PATCH', input);
+}
+
+export function fetchNotifications({ signal } = {}) {
+  return apiRequest('/api/notifications?limit=12', { signal });
+}
+
+export function markNotificationRead(id) {
+  return apiRequest(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+}
+
+export function markAllNotificationsRead() {
+  return apiRequest('/api/notifications/read-all', { method: 'POST' });
+}

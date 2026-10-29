@@ -1,4 +1,4 @@
-const groups = [
+const adminGroups = [
   {
     label: 'Workspace',
     items: [
@@ -32,8 +32,42 @@ const groups = [
   },
 ];
 
-export const navigationItems = groups.flatMap((group) =>
-  group.items.map((item) => ({ ...item, group: group.label })),
-);
+const operationsGroups = [
+  {
+    label: 'Operations',
+    items: [
+      { to: '/operations', label: 'Overview', icon: 'overview', end: true },
+      { to: '/operations/queue', label: 'Work queue', icon: 'operations' },
+      { to: '/operations/complaints', label: 'Complaints', icon: 'complaints' },
+    ],
+  },
+  {
+    label: 'Stock & field',
+    items: [
+      { to: '/operations/inventory', label: 'Inventory', icon: 'pricing' },
+      { to: '/operations/technicians', label: 'Technicians', icon: 'users' },
+    ],
+  },
+  {
+    label: 'Insight',
+    items: [
+      { to: '/operations/reports', label: 'Reports', icon: 'reports' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: '/operations/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
+];
 
-export { groups };
+/** Flat list used by the topbar to resolve the current section. */
+function flatten(groups) {
+  return groups.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label })));
+}
+
+export const adminNavigationItems = flatten(adminGroups);
+export const operationsNavigationItems = flatten(operationsGroups);
+
+export { adminGroups, operationsGroups };

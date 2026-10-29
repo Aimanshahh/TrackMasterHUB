@@ -36,7 +36,7 @@ async function issueSession(user) {
 async function getSessionUser(sessionToken) {
   if (!sessionToken) return null;
   const session = await Session.findOne({ token: sessionToken, expiresAt: { $gt: new Date() } })
-    .populate('user', 'id email name role active');
+    .populate('user', 'id email name role active createdAt updatedAt');
   if (!session?.user?.active) return null;
   return session.user;
 }

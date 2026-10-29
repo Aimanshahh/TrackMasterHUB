@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
 import { homeFor } from './app/roles.js';
+import { adminWorkspace, operationsWorkspace } from './app/workspaces.js';
 import AppLayout from './components/app/AppLayout.jsx';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import AuthSplash from './components/auth/AuthSplash.jsx';
@@ -22,6 +23,13 @@ import UsersPage from './pages/app/UsersPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import SignInPage from './pages/auth/SignInPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
+import OperationsComplaintsPage from './pages/operations/OperationsComplaintsPage.jsx';
+import OperationsInventoryPage from './pages/operations/OperationsInventoryPage.jsx';
+import OperationsOverviewPage from './pages/operations/OperationsOverviewPage.jsx';
+import OperationsQueuePage from './pages/operations/OperationsQueuePage.jsx';
+import OperationsReportsPage from './pages/operations/OperationsReportsPage.jsx';
+import OperationsSettingsPage from './pages/operations/OperationsSettingsPage.jsx';
+import OperationsTechniciansPage from './pages/operations/OperationsTechniciansPage.jsx';
 
 function RequireSession() {
   const auth = useAuth();
@@ -49,7 +57,7 @@ export default function App() {
       <Route path="/status" element={<PublicLayout />}><Route index element={<SystemStatusPage />} /></Route>
       <Route element={<RequireSession />}>
         <Route element={<RequireWorkspaceRole role="admin" />}>
-          <Route path="/admin" element={<AppLayout />}>
+          <Route path="/admin" element={<AppLayout workspace={adminWorkspace} />}>
             <Route index element={<OverviewPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/:customerId" element={<CustomerDetailPage />} />
@@ -72,7 +80,16 @@ export default function App() {
           <Route path="/manager" element={<RoleWorkspacePage role="manager" />} />
         </Route>
         <Route element={<RequireWorkspaceRole role="operations" />}>
-          <Route path="/operations" element={<RoleWorkspacePage role="operations" />} />
+          <Route path="/operations" element={<AppLayout workspace={operationsWorkspace} />}>
+            <Route index element={<OperationsOverviewPage />} />
+            <Route path="queue" element={<OperationsQueuePage />} />
+            <Route path="complaints" element={<OperationsComplaintsPage />} />
+            <Route path="inventory" element={<OperationsInventoryPage />} />
+            <Route path="technicians" element={<OperationsTechniciansPage />} />
+            <Route path="reports" element={<OperationsReportsPage />} />
+            <Route path="settings" element={<OperationsSettingsPage />} />
+            <Route path="*" element={<Navigate to="/operations" replace />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />
