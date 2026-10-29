@@ -1,46 +1,80 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
-import logoUrl from '../../assets/brand/trackmaster-logo.png';
+import { navigationItems } from '../../app/navigation.js';
+import { roleLabels } from '../../app/roles.js';
+import { useAuth } from '../../context/auth.js';
+import { useSystemHealth } from '../../context/systemHealth.js';
+import { NavIcon } from './NavIcon.jsx';
 
-/** Brand lockup: official logo artwork plus the product name in the interface
- * typeface. The supplied logo already contains the wordmark, so the adjacent
- * text names the product (TrackMaster Hub) rather than repeating it. */
-export default function Logo({
-  size = 42,
-  subtitle = 'CRM & operations',
-  linked = true,
-  to = '/',
-  className = '',
-}) {
-  const content = (
-    <>
-      <img
-        className="brand__logo"
-        src={logoUrl}
-        width={size}
-        height={size}
-        alt=""
-        loading="eager"
-        decoding="async"
-      />
-      <span className="brand__text">
-        <span className="brand__name">TrackMaster Hub</span>
-        {subtitle ? <span className="brand__sub">{subtitle}</span> : null}
-      </span>
-    </>
-  );
+function currentSection(pathname) {
+  return navigationItems
+    .filter((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))
+    .sort((a, b) => b.to.length - a.to.length)[0];
+}
 
-  if (!linked) {
-    return <div className={`brand ${className}`.trim()}>{content}</div>;
+export default function AppTopbar({ onOpenNav }) {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { status, data } = useSystemHealth();
+  const { user, logout } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  const section = currentSection(pathname);
+  const databaseStatus = data?.checks?.database;
+  const name = user?.name ?? 'Account';
+
+  useEffect(() => setProfileOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+    const closeOnOutside = (event) => {
+      if (!profileRef.current?.contains(event.target)) setProfileOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setProfileOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [profileOpen]);
+
+  async function signOut() {
+    await logout();
+    navigate('/sign-in', { replace: true });
   }
 
   return (
-    <Link
-      to={to}
-      className={`brand ${className}`.trim()}
-      aria-label="TrackMaster Hub — home"
-    >
-      {content}
-    </Link>
+    <header className="app-topbar">
+      <div className="app-topbar__left">
+        <button className="app-topbar__menu" type="button" onClick={onOpenNav} aria-label="Open navigation">
+          <NavIcon name="menu" size={19} />
+        </button>
+        <p className="app-crumb"><span>Admin</span><span aria-hidden="true">/</span><strong>{section?.label ?? 'Workspace'}</strong></p>
+      </div>
+      <div className="app-topbar__right">
+        <span className="app-topbar__date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span>
+        <Link to="/admin/settings" className="app-health" title={status === 'online' ? `API online · database ${databaseStatus ?? 'unknown'}` : 'API status unavailable'}>
+          <span className={`status-dot status-dot--${status === 'online' ? (databaseStatus === 'operational' ? 'online' : 'offline') : 'loading'}`} aria-hidden="true" />
+          <span>{databaseStatus === 'operational' ? 'Live data' : databaseStatus === 'disconnected' ? 'Database offline' : status === 'online' ? 'Database status unknown' : 'Checking'}</span>
+        </Link>
+        <div className="app-profile-wrap" ref={profileRef}>
+          <button type="button" className="app-profile" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen((open) => !open)}>
+            <span className="app-profile__avatar" aria-hidden="true">{name.trim().charAt(0).toUpperCase()}</span>
+            <span className="app-profile__text"><strong>{name}</strong><small>{roleLabels[user?.role] ?? 'Account'}</small></span>
+            <NavIcon name="chevron" size={14} />
+          </button>
+          {profileOpen ? <div className="app-menu" role="menu">
+            <div className="app-menu__head"><strong>{name}</strong><span>{user?.email}</span><small>Sessions expire after 7 days</small></div>
+            <Link className="app-menu__item" role="menuitem" to="/admin/settings">Workspace settings</Link>
+            <Link className="app-menu__item" role="menuitem" to="/status">System status</Link>
+            <button type="button" className="app-menu__item app-menu__action" role="menuitem" onClick={signOut}>Sign out</button>
+          </div> : null}
+        </div>
+      </div>
+    </header>
   );
 }

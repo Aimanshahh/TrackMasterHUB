@@ -3,42 +3,26 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchActivity } from '../lib/api.js';
 
 export function useActivity() {
-  const [state, setState] = useState({
-    status: 'loading',
-    rows: [],
-    error: null,
-    filter: 'all',
-    search: '',
-  });
-
-  const load = useCallback(async (signal, filter = state.filter, search = state.search) => {
-    setState((previous) => ({
-      ...previous,
-      status: 'loading',
-      filter,
-      search,
-    }));
-
-    try {
-      const params = new URLSearchParams();
-      if (filter !== 'all') params.set('type', filter);
-      if (search.trim()) params.set('q', search.trim());
-
-      const payload = await fetchActivity(params.toString(), { signal });
-      setState({ status: 'ready', rows: payload.data.activity, error: null });
-    } catch (error) {
-      if (error.name === 'AbortError') return;
-      setState((previous) => ({ ...previous, status: 'error', error: error.message }));
-    }
-  }, [state.filter, state.search]);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [state, setState] = useState({ status: 'loading', rows: [], error: null });
+  const [refreshIndex, setRefreshIndex] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    load(controller.signal);
+    const params = new URLSearchParams();
+    if (filter !== 'all') params.set('type', filter);
+    if (search.trim()) params.set('q', search.trim());
+
+    setState((previous) => ({ ...previous, status: previous.rows.length ? 'refreshing' : 'loading', error: null }));
+    fetchActivity(params, { signal: controller.signal })
+      .then((payload) => setState({ status: 'ready', rows: payload.data?.activity ?? payload.data ?? [], error: null }))
+      .catch((error) => {
+        if (error.name !== 'AbortError') setState((previous) => ({ ...previous, status: 'error', error: error.message }));
+      });
     return () => controller.abort();
-  }, [load]);
+  }, [filter, search, refreshIndex]);
 
-  const refresh = () => load();
-
-  return { ...state, refresh, setFilter: (filter) => load(null, filter), setSearch: (search) => load(null, null, search) };
+  const refresh = useCallback(() => setRefreshIndex((value) => value + 1), []);
+  return { ...state, filter, search, refresh, setFilter, setSearch };
 }

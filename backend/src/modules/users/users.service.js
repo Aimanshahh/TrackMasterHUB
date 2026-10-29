@@ -1,7 +1,11 @@
 import User from '../../models/User.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
-import { listUsers } from '../auth/auth.service.js';
+import { createUser as createAccount, listUsers } from '../auth/auth.service.js';
+
+async function createUser(input) {
+  return createAccount(input);
+}
 
 async function getUsers({ role, search }) {
   const filter = { active: true };
@@ -52,4 +56,4 @@ async function changeRole(input) {
   return user.toApiJson();
 }
 
-export { getUsers, getUserById, changeRole };
+export { createUser, getUsers, getUserById, changeRole };

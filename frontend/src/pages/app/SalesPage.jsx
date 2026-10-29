@@ -1,15 +1,8 @@
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
-import Panel from '../../components/app/Panel.jsx';
+import ModuleEmptyState from '../../components/app/ModuleEmptyState.jsx';
 
 export default function SalesPage() {
   useDocumentTitle('Sales');
 
-  return (
-    <Panel heading="Sales">
-      <p className="panel__note">
-        Headline: the sales queue. Details: quotations, approvals and pricing decisions are stored
-        per customer.
-      </p>
-    </Panel>
-  );
+  return <ModuleEmptyState eyebrow="Commercial workflow" title="Sales" description="Quotes, approvals and completed sales will be managed here when the sales records and workflow are connected." items={["Sales pipeline and status", "Quotes linked to customer records", "Approval history and outcomes"]} />;
 }

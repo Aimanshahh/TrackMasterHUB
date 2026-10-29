@@ -59,7 +59,9 @@ export default function SystemStatusPage() {
                 <h2 className="status-card__title">API health</h2>
                 <p className="status-card__subtitle">
                   {status === 'online'
-                    ? 'The Express service is responding normally.'
+                    ? data?.checks?.database === 'operational'
+                      ? 'The Express service and MongoDB are responding normally.'
+                      : 'The Express API is responding, but MongoDB is disconnected.'
                     : status === 'loading'
                       ? 'Contacting the service…'
                       : 'The web client could not reach the API.'}
@@ -103,6 +105,7 @@ export default function SystemStatusPage() {
                 label="Last checked"
                 value={checkedAt ? formatDateTime(checkedAt) : '—'}
               />
+              <DetailRow label="Database" value={data?.checks?.database ?? '—'} />
               <DetailRow label="Endpoint" value="/api/health" mono />
             </dl>
 
@@ -124,7 +127,7 @@ export default function SystemStatusPage() {
             <ul className="check-list">
               <li>
                 <span>Database connectivity</span>
-                <em>With the MongoDB connection</em>
+                <em>{data?.checks?.database ?? 'Not reported'}</em>
               </li>
               <li>
                 <span>Authentication service</span>

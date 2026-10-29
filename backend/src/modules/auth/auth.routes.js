@@ -1,18 +1,13 @@
 import express from 'express';
-import { parseSessionCookie } from '../../middleware/cookie.js';
-import { requireAuth, requireAdmin } from '../../middleware/auth.js';
+import { requireAdmin, requireAuth } from '../../middleware/auth.js';
 import { login, logout, getMe, setupStatus, bootstrap, listAllUsers } from './auth.controller.js';
 
 const router = express.Router();
-
-router.post('/login', parseSessionCookie, login);
-router.post('/logout', parseSessionCookie, logout);
-router.get('/me', parseSessionCookie, getMe);
+router.post('/login', login);
+router.post('/logout', requireAuth, logout);
+router.get('/me', getMe);
 router.get('/setup-status', setupStatus);
 router.post('/bootstrap', bootstrap);
-
-/** Admin-only endpoints. */
-router.use(requireAdmin);
-router.get('/users', listAllUsers);
+router.get('/users', requireAuth, requireAdmin, listAllUsers);
 
 export const authRouter = router;

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 
-export default function CustomerTable({ customers, onSelect }) {
+export default function CustomerTable({ customers, onSelect, showToolbar = true }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState(null);
 
@@ -40,7 +39,7 @@ export default function CustomerTable({ customers, onSelect }) {
 
   return (
     <div className="customer-table">
-      <div className="customer-table__toolbar">
+      {showToolbar ? <div className="customer-table__toolbar">
         <div className="customer-table__search">
           <span className="customer-table__search-icon" aria-hidden="true">
             <svg width={14} height={14} viewBox="0 0 14 14" fill="none">
@@ -70,7 +69,7 @@ export default function CustomerTable({ customers, onSelect }) {
             <option value="createdAt">Newest</option>
           </select>
         </div>
-      </div>
+      </div> : null}
 
       <div className="customer-table__body">
         <div className="customer-table__header">
@@ -82,8 +81,9 @@ export default function CustomerTable({ customers, onSelect }) {
         </div>
 
         {filtered.map((customer) => (
-          <div
+          <button
             key={customer.id}
+            type="button"
             className="customer-table__row"
             onClick={() => onSelect?.(customer.id)}
           >
@@ -94,8 +94,8 @@ export default function CustomerTable({ customers, onSelect }) {
             <div className="customer-table__cell customer-table__cell--muted">{customer.email}</div>
             <div className="customer-table__cell">{customer.category}</div>
             <div className="customer-table__cell">{customer.priority}</div>
-            <div className="customer-table__cell customer-table__cell--muted">{customer.createdAt}</div>
-          </div>
+            <div className="customer-table__cell customer-table__cell--muted">{customer.createdAt ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(customer.createdAt)) : '—'}</div>
+          </button>
         ))}
 
         {filtered.length === 0 ? (

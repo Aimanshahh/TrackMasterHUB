@@ -1,13 +1,9 @@
-import express from 'express';
 import { getDashboard } from './dashboard.service.js';
 
-async function getDashboardData(req, res, next) {
+async function getDashboardData(_req, res, next) {
   try {
-    const data = await getDashboard();
-    return res.json({ data });
-  } catch (error) {
-    next(error);
-  }
+    return res.json({ data: await getDashboard() });
+  } catch (error) { return next(error); }
 }
 
 export { getDashboardData };

@@ -3,6 +3,8 @@ import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { parseCookies } from './middleware/cookie.js';
+import { resolveUser } from './middleware/auth.js';
 import { notFound } from './middleware/notFound.js';
 import { requestId } from './middleware/requestId.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -25,6 +27,8 @@ export function createApp() {
   );
   app.use(express.json({ limit: '100kb' }));
   app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+  app.use(parseCookies);
+  app.use(resolveUser);
   app.use(requestId);
   app.use(requestLogger);
 

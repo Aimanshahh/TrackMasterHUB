@@ -6,109 +6,51 @@ export default function CreateUserDrawer({ open, onClose, onCreated }) {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('salesperson');
   const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   if (!open) return null;
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     setError(null);
+    if (name.trim().length < 2) return setError('Enter a name for the account.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setError('Enter a valid email address.');
+    if (password.length < 8) return setError('Password must be at least 8 characters.');
 
-    if (name.trim().length < 2) {
-      setError('Enter a name for the account.');
-      return;
+    setSaving(true);
+    try {
+      await onCreated({ name: name.trim(), email: email.trim(), password, role });
+      setName(''); setEmail(''); setPassword(''); setRole('salesperson');
+      onClose();
+    } catch (error_) {
+      setError(error_.message ?? 'The account could not be created.');
+    } finally {
+      setSaving(false);
     }
-
-    if (!email.trim()) {
-      setError('Enter an email address.');
-      return;
-    }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
-
-    onCreated({ name: name.trim(), email: email.trim(), password, role });
-    onClose();
   }
 
   return (
-    <div className="drawer-root">
-      <div className="drawer-backdrop" onClick={onClose} aria-hidden="true" />
-      <div className="drawer">
-        <div className="drawer__head">
-          <p className="drawer__eyebrow">New user</p>
-          <h2 className="drawer__title">Create account</h2>
-          <button type="button" className="drawer__close" onClick={onClose} aria-label="Close">
-            <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
+    <div className="drawer-root" role="presentation">
+      <button type="button" className="drawer-backdrop" onClick={onClose} aria-label="Close account form" />
+      <section className="drawer" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+        <header className="drawer__head">
+          <div><p className="drawer__eyebrow">Team access</p><h2 id="create-user-title" className="drawer__title">Create account</h2><p className="drawer__subtitle">Give a teammate secure access to the right workspace.</p></div>
+          <button type="button" className="drawer__close" onClick={onClose} aria-label="Close">×</button>
+        </header>
         <form className="drawer__form" onSubmit={handleSubmit}>
+          <div className="drawer__section-label">Personal details</div>
           <div className="field-grid">
-            <div className="field">
-              <label className="field__label" htmlFor="create-user-name">Name</label>
-              <input
-                id="create-user-name"
-                className="input"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Alex Rivera"
-              />
-            </div>
-
-            <div className="field">
-              <label className="field__label" htmlFor="create-user-email">Email</label>
-              <input
-                id="create-user-email"
-                className="input"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="alex@example.com"
-              />
-            </div>
-
-            <div className="field">
-              <label className="field__label" htmlFor="create-user-role">Role</label>
-              <select
-                id="create-user-role"
-                className="input input--select"
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-              >
-                <option value="salesperson">Salesperson</option>
-                <option value="manager">Manager</option>
-                <option value="operations">Operations</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-
-            <div className="field field--full">
-              <label className="field__label" htmlFor="create-user-password">Password</label>
-              <input
-                id="create-user-password"
-                className="input"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="At least 8 characters"
-              />
-            </div>
+            <label className="field field--full"><span className="field__label">Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required minLength={2} /></label>
+            <label className="field field--full"><span className="field__label">Email</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label>
+            <label className="field"><span className="field__label">Role</span><select className="input" value={role} onChange={(e) => setRole(e.target.value)}><option value="salesperson">Salesperson</option><option value="manager">Manager</option><option value="operations">Operations</option></select></label>
+            <label className="field"><span className="field__label">Temporary password</span><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} required /></label>
           </div>
-
-          {error ? (
-            <p className="form-alert" role="alert">{error}</p>
-          ) : null}
-
-          <div className="drawer__foot">
-            <button type="button" className="btn btn--outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn--primary">Create account</button>
-          </div>
+          <div className="drawer__section-label">Workspace access</div>
+          <p className="field__hint">Choose the staff role, then set a temporary password to share securely. The backend stores only its password hash.</p>
+          {error ? <p className="form-alert" role="alert">{error}</p> : null}
+          <footer className="drawer__foot"><button type="button" className="btn btn--outline" onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Creating…' : 'Create account'}</button></footer>
         </form>
-      </div>
+      </section>
     </div>
   );
 }

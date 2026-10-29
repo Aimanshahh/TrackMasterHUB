@@ -1,5 +1,4 @@
 import Customer from '../../models/Customer.js';
-import { ROLES } from '../../config/constants.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 
@@ -7,7 +6,8 @@ async function buildFilter({ q, category, priority, followUp, owner }) {
   const filter = {};
 
   if (q) {
-    const regex = new RegExp(q.trim(), 'i');
+    const escaped = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
     filter.$or = [
       { name: regex },
       { email: regex },
@@ -24,7 +24,11 @@ async function buildFilter({ q, category, priority, followUp, owner }) {
     filter.priority = priority;
   }
 
-  if (followUp) {
+  if (followUp === 'overdue') {
+    filter.followUp = { $lt: new Date(), $ne: null };
+  } else if (followUp === 'upcoming') {
+    filter.followUp = { $gte: new Date() };
+  } else if (followUp) {
     filter.followUp = followUp;
   }
 

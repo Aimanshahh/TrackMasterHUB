@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { isConnected } from '../../config/db.js';
 
 const startedAt = new Date();
 
@@ -19,6 +20,7 @@ export function getHealthSnapshot() {
     timestamp: new Date().toISOString(),
     checks: {
       api: 'operational',
+      database: isConnected() ? 'operational' : 'disconnected',
     },
   };
 }

@@ -1,15 +1,8 @@
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
-import Panel from '../../components/app/Panel.jsx';
+import ModuleEmptyState from '../../components/app/ModuleEmptyState.jsx';
 
 export default function PricingPage() {
   useDocumentTitle('Pricing');
 
-  return (
-    <Panel heading="Pricing">
-      <p className="panel__note">
-        Packages, standard rates and negotiated corporate rates are configured here. Below-minimum
-        pricing must be approved before it becomes a sale.
-      </p>
-    </Panel>
-  );
+  return <ModuleEmptyState eyebrow="Commercial controls" title="Pricing" description="Package rates and approved pricing rules will live here once the pricing data model and sales approval workflow are implemented." items={["Service packages and standard rates", "Customer-specific negotiated pricing", "Approval rules for exceptions"]} />;
 }

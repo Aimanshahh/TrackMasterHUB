@@ -2,9 +2,9 @@ import { getActivity } from './activity.service.js';
 
 async function getActivityHandler(req, res, next) {
   try {
-    return getActivity(req, res, next);
+    return await getActivity(req, res, next);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 

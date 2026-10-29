@@ -1,13 +1,12 @@
 import express from 'express';
-import { requireAuth } from '../../middleware/auth.js';
-import { getUsersList, getMe, changeUserRole } from './users.controller.js';
+import { requireAdmin, requireAuth } from '../../middleware/auth.js';
+import { createUserAccount, getUsersList, getMe, changeUserRole } from './users.controller.js';
 
 const router = express.Router();
-
 router.use(requireAuth);
-
-router.get('/', getUsersList);
 router.get('/me', getMe);
-router.patch('/:id/role', changeUserRole);
+router.get('/', requireAdmin, getUsersList);
+router.post('/', requireAdmin, createUserAccount);
+router.patch('/:id/role', requireAdmin, changeUserRole);
 
 export const usersRouter = router;

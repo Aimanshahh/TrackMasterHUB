@@ -1,5 +1,3 @@
-import { NavIcon } from './NavIcon.jsx';
-
 const groups = [
   {
     label: 'Workspace',

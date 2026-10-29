@@ -29,9 +29,9 @@ async function connectDatabase() {
     maxPoolSize: 20,
     socketTimeoutMS: 30000,
     serverSelectionTimeoutMS: 10000,
-  }).then((connection) => {
-    state.connection = connection;
-    return connection;
+  }).then(() => {
+    state.connection = mongoose.connection;
+    return state.connection;
   }).catch(async (error) => {
     state.connection = null;
     state.promise = null;

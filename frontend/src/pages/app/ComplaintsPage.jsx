@@ -1,15 +1,8 @@
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
-import Panel from '../../components/app/Panel.jsx';
+import ModuleEmptyState from '../../components/app/ModuleEmptyState.jsx';
 
 export default function ComplaintsPage() {
   useDocumentTitle('Complaints');
 
-  return (
-    <Panel heading="Complaints">
-      <p className="panel__note">
-        The customer service desk opens the queue, confirms the complaint and starts the resolution.
-        This screen is not yet connected to the ticket service.
-      </p>
-    </Panel>
-  );
+  return <ModuleEmptyState eyebrow="Customer care" title="Complaints" description="A shared service queue will let the team record customer issues and track each response through resolution. No complaint service is connected yet." items={["Issue records linked to customers", "Ownership and priority", "Resolution status and update history"]} />;
 }

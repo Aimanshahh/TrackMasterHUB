@@ -81,7 +81,11 @@ customerSchema.methods.toApiJson = function () {
     source: this.source,
     followUp: this.followUp?.toISOString(),
     notes: this.notes,
-    owner: this.owner?.toApiJson ? this.owner.toApiJson() : this.owner,
+    owner: this.owner?.toApiJson
+      ? this.owner.toApiJson()
+      : this.owner?._id
+        ? { id: this.owner._id.toString(), name: this.owner.name, email: this.owner.email, role: this.owner.role }
+        : this.owner,
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),
   };

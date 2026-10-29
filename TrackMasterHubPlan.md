@@ -146,9 +146,9 @@ Manager is the **invoice finalization authority**. Define permissions for refund
 - Manage complaints and resolution details.
 - View workload, delays, job history and operational reports.
 
-**Device/IMEI exclusion:** This CRM will not include device inventory, IMEI scanning, IMEI allocation, barcode stock management or device stock screens. Operations must not depend on those modules. Only display tracking/vehicle details returned by an authorized tracking API when genuinely needed.
+**Operations inventory and technician assignment (planned):** Operations staff will maintain device stock with IMEI identifiers and SIM stock, including stock-in/stock-out records and availability. They will add and manage technician accounts/profiles, then assign available devices and SIMs station-wise to technicians. Each assignment should record the station, technician, device IMEI, SIM identifier, assignment time, and return/transfer status so inventory remains auditable. Validate uniqueness and prevent assigning an item that is already assigned or unavailable. Define the actual fields, station list, stock reconciliation rules, and whether a device/SIM can be assigned together before implementing these workflows.
 
-Operations should see only the customer and business information required for its work.
+Operations should see only the customer and business information required for its work, plus the inventory and technician information needed to execute assignments.
 
 ---
 
@@ -290,7 +290,7 @@ Do not assume that every desired field exists in the tracking API.
 - Use HTTPS and least-privilege credentials.
 - Add timeouts, validation, error handling, sensible caching and rate limits.
 - Do not copy GPS history into CRM unless a clear requirement justifies it.
-- Avoid device/IMEI management workflows in this CRM.
+- Device IMEI and SIM inventory are in the Operations scope described above; keep this separate from the external tracking API integration and do not expose integration credentials.
 - Validate integration behavior against known examples before release.
 
 ---
@@ -410,7 +410,7 @@ These are useful additions to consider, but should not become a reason to delay 
 - Automated bulk marketing campaigns.
 - Advanced analytics beyond the initial operational and sales reports.
 
-Avoid adding these by default: device/IMEI inventory, barcode stock workflows, a duplicate CRM, or copying the tracking platform's entire functionality into TrackMaster Hub.
+Avoid adding these by default: barcode stock workflows, a duplicate CRM, or copying the tracking platform's entire functionality into TrackMaster Hub. Device IMEI and SIM stock are explicitly included in the Operations plan above.
 
 ---
 
@@ -576,10 +576,12 @@ Keep one shared Salesperson UI and backend. Confirm offline expectations before 
 - [ ] Separate Operations workspace.
 - [ ] Sales, renewal and redo/service work queues.
 - [ ] Assignment, scheduling and status progression.
+- [ ] Operations device stock with unique IMEI records and SIM inventory.
+- [ ] Operations can add/manage technicians and assign available devices/SIMs station-wise with an auditable handoff/return history.
 - [ ] OS Ticket System: ticketing, assignment, history and resolution.
 - [ ] Email AND WhatsApp messages for agreed ticket events, where the customer has valid contact details and consent.
 - [ ] Communication delivery log, retry/failure visibility and customer-safe templates.
-- [ ] No device/IMEI inventory or allocation module.
+- [ ] Device/SIM assignment and return history is auditable; unavailable or already-assigned stock cannot be allocated again.
 
 ### Manager and Tracking
 - [ ] Customer lookup.
@@ -615,7 +617,7 @@ Keep one shared Salesperson UI and backend. Confirm offline expectations before 
 - Below-minimum-price sales require Admin approval.
 - Salesperson needs renewal and redo/repeat/service request workflows.
 - Customers have categories and a separate priority classification, including High Priority.
-- No device inventory, IMEI, barcode, device allocation or stock-management screens.
+- Operations owns device IMEI and SIM inventory, technician records, and station-wise assignment with auditable stock movement.
 - General-purpose push notifications are **deferred for now**.
 - Both email and WhatsApp customer messaging are **required for the OS Ticket System only**; providers and exact event/template rules remain to be selected.
 - Ticket communication delivery logs, safe customer-facing templates, retries and failure visibility are in scope.
