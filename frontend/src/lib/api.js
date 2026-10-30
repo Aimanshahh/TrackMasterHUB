@@ -151,6 +151,14 @@ export function createCustomer(input) {
   });
 }
 
+export function updateCustomer(id, input) {
+  return apiRequest(`/api/customers/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
 /* ---------------- Operations, complaints and notifications ---------------- */
 
 function withQuery(path, params = {}) {
@@ -242,6 +250,34 @@ export function createComplaintRecord(input) {
 
 export function updateComplaintRecord(id, input) {
   return sendJson(`/api/complaints/${encodeURIComponent(id)}`, 'PATCH', input);
+}
+
+/* ---------------- Commercial: packages, quotes and approvals ---------------- */
+
+export function fetchPackages({ signal } = {}) {
+  return apiRequest('/api/packages', { signal });
+}
+
+export function updatePackagePricing(key, input) {
+  return sendJson(`/api/packages/${encodeURIComponent(key)}`, 'PATCH', input);
+}
+
+export function fetchApprovals(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/approvals', params), { signal });
+}
+
+export function decidePriceApproval(id, input) {
+  return sendJson(`/api/approvals/${encodeURIComponent(id)}/decision`, 'POST', input);
+}
+
+/* ---------------- Salesperson desk ---------------- */
+
+export function fetchSalespersonSummary({ signal } = {}) {
+  return apiRequest('/api/salesperson/summary', { signal });
+}
+
+export function fetchMyJobs(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/salesperson/jobs', params), { signal });
 }
 
 export function fetchNotifications({ signal } = {}) {

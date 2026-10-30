@@ -310,7 +310,7 @@ Avoid collecting unnecessary personal data. Define duplicate matching rules, suc
 ### Customer intake, vehicle records and security briefing
 - Customer/person or business profile: Store shared personal/business information once, including customer name, customer's own primary phone number, optional business name, applicable category, priority and salesperson ownership.
 - Follow-up intake: Required at creation: customer name and phone number. Business name is optional. Vehicle and installation fields are not required.
-- New installation intake: Required at creation: customer name, customer's own phone number, vehicle installation location, car name/label and car number/registration. Business name is optional where applicable.
+- New installation intake: Required at creation: customer name, customer's own phone number, vehicle installation location, car name/label and car number/registration. Business name is optional where applicable. The salesperson may also record the preferred installation date and time; that slot is a request passed to operations, which confirms it and assigns the technician.
 - Vehicle records (one-to-many): Each customer may have multiple vehicles. Each vehicle has its own car name/label, car number/registration, installation location/station, device IMEI, SIM identifier, technician assignment and installation/job history. Operations links the allocated IMEI and SIM to each vehicle; never treat one customer-level IMEI/SIM as covering every vehicle.
 - Manager security briefing fields: CNIC, date of birth (DOB), E-PIN, secondary user phone number, relationship of the secondary user to the customer, geofence address and vehicle station/location. Associate station/geofence details with the relevant vehicle where applicable.
 - Sensitive information: CNIC, DOB, E-PIN and secondary-user details are sensitive. Restrict access by role, mask values in lists, protect data in storage/transit, and avoid exposing these fields in salesperson views, general exports, notifications or ordinary activity logs. Confirm authorized viewers/editors and retention requirements before implementation.
@@ -1004,3 +1004,89 @@ Before coding full workflows:
 6. Then design the MongoDB models and API contracts.
 
 Build the smallest complete path first: **Salesperson creates customer → submits sale → Admin approval when needed → Operations processes work → Manager finalizes invoice.** Then extend the same foundations to renewals, redo requests, complaints and reporting.
+---
+
+## 19. Next Phase — Customer Communication, Call History and Customer Report
+
+This section records what the current build still owes the plan and the order in
+which it should be built. Nothing here is implemented yet except the in-app
+notifications described in section 3D.
+
+### 19.1 Customer messages for complaints (email + WhatsApp)
+
+- The complaint desk must be able to send the customer an update on the agreed
+  ticket events (logged, assigned, in progress, waiting for customer, resolved).
+- Email is delivered by the backend through **Nodemailer over SMTP**. Credentials
+  live only in `backend/.env` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`,
+  `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`); `.env.example` documents the keys with
+  no values. The browser never sees SMTP configuration.
+- WhatsApp still needs a provider decision (WhatsApp Business Platform vendor,
+  template approval, Pakistan availability, pricing). Until that is chosen and
+  approved, the channel is recorded as **not configured** rather than silently
+  skipped.
+- A status change must save even when delivery fails. Each attempt is written to
+  a delivery record (channel, recipient, template/event, provider message id,
+  state, error, attempt count, timestamps) so staff can see what the customer
+  actually received and can retry or follow up manually.
+- Every attempt that could contain customer data is logged without CNIC, DOB,
+  E-PIN or secondary-user details.
+
+### 19.2 Call history (fed by the dialer, not typed by staff)
+
+Staff dial from a dialer, so the CRM must not ask anyone to hand-log a call. A
+manual call log would be double entry, would drift from the dialer, and would be
+empty whenever people are busy. Call history is therefore **integration-fed**:
+
+- The dialer is the source of truth. Each call is imported as a record keyed by
+  its provider call id (idempotent: re-importing the same call never duplicates
+  it), carrying the dialed number, direction, started time, duration, the
+  disposition the provider reports (connected, no answer, busy, failed,
+  voicemail), the agent/extension that handled it, and a recording link when the
+  provider exposes one.
+- Customer matching happens on the normalized phone number at import time. A call
+  whose number matches no customer is kept for review rather than attached to the
+  wrong record.
+- Two ingestion shapes, chosen after seeing what the provider offers: a webhook
+  the dialer pushes to the backend (preferred, near real time) or a scheduled
+  pull of its call-detail records/export. Nothing is polled from the browser.
+- The customer report shows call totals, dispositions and last contact **only
+  when call records exist**. If no dialer is connected the section reads “Call
+  data not connected”, never a zero that looks like a measured count.
+- Recording URLs, if present, are staff-only and never placed in notifications,
+  exports shared with customers, or the salesperson APK.
+
+Open dependencies: which dialer/robocall platform the business uses, whether it
+exposes an API, webhook or only a CSV export, and whether recordings should be
+linked from the CRM.
+
+### 19.3 Customer history report
+
+One printable report per customer, readable by Admin and Manager and scoped for
+Salesperson to their own portfolio:
+
+- Header: customer identity, category, priority, owner, created date.
+- Installation history per vehicle: vehicle label, registration, station,
+  device IMEI, SIM, assigned technician, scheduled and completed dates.
+- Follow-ups and notes in chronological order.
+- Complaints with category, priority, each status change, resolution note and
+  the time taken to resolve.
+- Call history imported from the dialer, with outcomes and durations, when that
+  integration exists; otherwise one clear “not connected” line.
+- Email and WhatsApp attempts with their delivery state.
+- Totals: installations, resolved and open complaints, calls made and last
+  contact, each labelled with the source it came from.
+- Empty sections state plainly that nothing has been recorded, and a customer
+  with no history is not given placeholder rows or invented figures.
+
+### 19.4 Build order
+
+1. Dialer integration: call-record model, provider ingestion (webhook or
+   scheduled pull), phone-number matching and the read-only call list on the
+   customer record. No manual call entry.
+2. Customer history report (backend aggregate + print view), reusing existing
+   job, complaint and follow-up records.
+3. Nodemailer transport, delivery records and complaint email templates.
+4. WhatsApp provider selection, template approval and the second channel.
+5. Admin customer record brought to parity with the salesperson record
+   (timeline, requests, tickets) instead of the current field list.
+6. Manager workspace, then sales/pricing, then tests and CI.

@@ -108,7 +108,7 @@ async function updateComplaint(id, input, actor) {
       type: 'complaint.status_changed',
       title: `Complaint ${complaint.reference} · ${complaintStatusLabels[nextStatus]}`,
       body: `${complaint.customerName || 'Customer'} — ${complaint.title}`,
-      link: '/salesperson',
+      link: '/salesperson/complaints',
       meta: { reference: complaint.reference, recordId: complaint._id.toString(), status: nextStatus },
     });
   }

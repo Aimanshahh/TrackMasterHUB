@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['complaint.status_changed', 'installation.status_changed', 'stock.low'],
+      enum: ['complaint.status_changed', 'installation.status_changed', 'stock.low', 'approval.requested', 'approval.decided'],
       required: true,
     },
     title: {

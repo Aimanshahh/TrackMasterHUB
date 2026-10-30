@@ -25,6 +25,7 @@ const adminGroups = [
     label: 'Administration',
     items: [
       { to: '/admin/pricing', label: 'Pricing', icon: 'pricing' },
+      { to: '/admin/approvals', label: 'Approvals', icon: 'approvals' },
       { to: '/admin/users', label: 'Users', icon: 'users' },
       { to: '/admin/activity', label: 'Activity', icon: 'activity' },
       { to: '/admin/settings', label: 'Settings', icon: 'settings' },
@@ -62,12 +63,52 @@ const operationsGroups = [
   },
 ];
 
+const salespersonGroups = [
+  {
+    label: 'My desk',
+    items: [
+      { to: '/salesperson', label: 'Overview', icon: 'overview', end: true },
+      { to: '/salesperson/customers', label: 'My customers', icon: 'customers' },
+      { to: '/salesperson/follow-ups', label: 'Follow-ups', icon: 'followup' },
+    ],
+  },
+  {
+    label: 'Requests',
+    items: [
+      { to: '/salesperson/requests', label: 'Installations', icon: 'operations' },
+      { to: '/salesperson/complaints', label: 'Complaints', icon: 'complaints' },
+    ],
+  },
+  {
+    label: 'Sales',
+    items: [
+      { to: '/salesperson/sales', label: 'Sales & renewals', icon: 'sales' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: '/salesperson/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
+];
+
+/** Phone-sized primary navigation for the field workspace. */
+const salespersonTabs = [
+  { to: '/salesperson', label: 'Home', icon: 'overview', end: true },
+  { to: '/salesperson/customers', label: 'Customers', icon: 'customers' },
+  { to: '/salesperson/requests', label: 'Requests', icon: 'operations' },
+  { to: '/salesperson/complaints', label: 'Tickets', icon: 'complaints' },
+  { to: '/salesperson/sales', label: 'Sales', icon: 'sales' },
+];
+
 /** Flat list used by the topbar to resolve the current section. */
 function flatten(groups) {
   return groups.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label })));
 }
 
 export const adminNavigationItems = flatten(adminGroups);
+export const salespersonNavigationItems = flatten(salespersonGroups);
 export const operationsNavigationItems = flatten(operationsGroups);
 
-export { adminGroups, operationsGroups };
+export { adminGroups, operationsGroups, salespersonGroups, salespersonTabs };

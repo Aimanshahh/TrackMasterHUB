@@ -7,7 +7,9 @@ import Technician from '../../models/Technician.js';
 import User from '../../models/User.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
+import { createApprovalForJob } from '../approvals/approvals.service.js';
 import { notifyUser } from '../notifications/notifications.service.js';
+import { CURRENCY, getPackagePricing } from '../pricing/pricing.service.js';
 
 /** A station is flagged when it has fewer available devices than this. */
 export const LOW_STOCK_THRESHOLD = 3;
@@ -80,6 +82,49 @@ async function createJob(input, actor) {
     }
   }
 
+  // A slot requested at intake is stored, not confirmed: operations still
+  // assigns the technician and may move the appointment.
+  let scheduledAt = null;
+  if (input.scheduledAt) {
+    scheduledAt = new Date(input.scheduledAt);
+    if (Number.isNaN(scheduledAt.getTime())) {
+      throw makeError(errorCodes.VALIDATION_ERROR, 'Enter a valid installation date and time.');
+    }
+  }
+
+  /* Package and price. The rate is the admin's; the salesperson may quote at
+     that rate, or below it when a discount needs approval. */
+  let packageKey = null;
+  let listPrice = null;
+  let quotedPrice = null;
+  let approvalStatus = 'not_required';
+
+  if (requestType === 'new_installation') {
+    if (!input.packageKey) {
+      throw makeError(errorCodes.VALIDATION_ERROR, 'Choose the package the customer is buying.');
+    }
+
+    const pricing = await getPackagePricing(input.packageKey);
+    packageKey = pricing.key;
+    listPrice = pricing.price;
+
+    const quote = Number(input.quotedPrice);
+    if (!Number.isFinite(quote) || quote <= 0) {
+      throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the price you quoted the customer.');
+    }
+
+    quotedPrice = Math.round(quote * 100) / 100;
+
+    if (quotedPrice > listPrice) {
+      throw makeError(
+        errorCodes.VALIDATION_ERROR,
+        `The quoted price cannot be above the ${pricing.name} package rate of ${CURRENCY} ${listPrice.toLocaleString()}.`,
+      );
+    }
+
+    approvalStatus = quotedPrice < listPrice ? 'pending' : 'not_required';
+  }
+
   const job = new Job({
     customer: customer._id,
     customerName: customer.name,
@@ -87,12 +132,50 @@ async function createJob(input, actor) {
     requestType,
     vehicle,
     priority: input.priority ?? 'normal',
+    scheduledAt,
     notes: input.notes?.trim(),
+    packageKey,
+    listPrice,
+    quotedPrice,
+    approvalStatus,
     createdBy: actor.id,
-    history: [{ status: 'unassigned', note: 'Job created and added to the operations queue.', at: new Date(), by: actor.id }],
+    history: [
+      {
+        status: 'unassigned',
+        note: scheduledAt
+          ? 'Job created with a requested installation slot; operations confirms it.'
+          : 'Job created and added to the operations queue.',
+        at: new Date(),
+        by: actor.id,
+      },
+    ],
   });
 
   await job.save();
+
+  if (approvalStatus === 'pending') {
+    const approval = await createApprovalForJob(
+      {
+        job,
+        customerName: customer.name,
+        packageKey,
+        listPrice,
+        quotedPrice,
+        reason: input.approvalReason,
+      },
+      actor,
+    );
+
+    job.approval = approval._id;
+    job.history.push({
+      status: 'unassigned',
+      note: `Quoted below the ${packageKey} package rate; sent to the admin for price approval.`,
+      at: new Date(),
+      by: actor.id,
+    });
+    await job.save();
+  }
+
   return job.toApiJson();
 }
 
@@ -199,6 +282,19 @@ async function updateJob(id, input, actor) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Assign a technician before moving this job forward.');
   }
 
+  /* A discount is never completed on trust: the price must be approved first.
+     Checked before stock so the desk sees the commercial blocker, not a
+     downstream one. */
+  if (nextStatus === 'completed' && ['pending', 'rejected'].includes(job.approvalStatus)) {
+    throw makeError(
+      errorCodes.CONFLICT,
+      job.approvalStatus === 'pending'
+        ? 'The quoted price is still waiting for the admin. This installation cannot be completed until it is approved.'
+        : 'The quoted price was rejected. The salesperson must resubmit this request with an approved price.',
+      409,
+    );
+  }
+
   if (nextStatus === 'completed' && job.requestType === 'new_installation' && (!job.deviceImei || !job.simNumber)) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Record the device IMEI and SIM number before completing the installation.');
   }
@@ -254,7 +350,7 @@ async function updateJob(id, input, actor) {
       type: 'installation.status_changed',
       title: `Installation ${job.reference} · ${jobStatusLabels[nextStatus]}`,
       body: `${job.customerName || 'Customer'}${job.vehicle?.label ? ` — ${job.vehicle.label}` : ''}`,
-      link: '/salesperson',
+      link: '/salesperson/requests',
       meta: { reference: job.reference, recordId: job._id.toString(), status: nextStatus },
     });
   }

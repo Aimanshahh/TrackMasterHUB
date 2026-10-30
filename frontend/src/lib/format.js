@@ -17,6 +17,15 @@ export function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+export function formatMoney(value, currency = 'PKR') {
+  if (value === null || value === undefined || value === '') return '—';
+
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '—';
+
+  return `${currency} ${number.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
 export function formatUptime(seconds) {
   if (!Number.isFinite(seconds)) return '—';
 

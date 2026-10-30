@@ -3,6 +3,9 @@ import {
   adminNavigationItems,
   operationsGroups,
   operationsNavigationItems,
+  salespersonGroups,
+  salespersonNavigationItems,
+  salespersonTabs,
 } from './navigation.js';
 
 /**
@@ -18,7 +21,8 @@ const adminPages = [
   { match: /^\/admin\/operations/, title: 'Operations queue', description: 'Installation work items, technician assignment and station-level stock allocation.' },
   { match: /^\/admin\/complaints/, title: 'Complaints', description: 'Recorded service tickets and their resolution progress.' },
   { match: /^\/admin\/reports/, title: 'Reports', description: 'Business summaries will be available as verified records are collected.' },
-  { match: /^\/admin\/pricing/, title: 'Pricing', description: 'Manage package and pricing rules in a future connected workflow.' },
+  { match: /^\/admin\/pricing/, title: 'Pricing', description: 'The package rates every installation quote starts from.' },
+  { match: /^\/admin\/approvals/, title: 'Price approvals', description: 'Installations quoted below the package rate, waiting on your decision.' },
   { match: /^\/admin\/users/, title: 'User access', description: 'Create and review accounts for Admin, Salesperson, Manager and Operations roles.' },
   { match: /^\/admin\/activity/, title: 'Activity log', description: 'A trace of changes recorded by the backend.' },
   { match: /^\/admin\/settings/, title: 'Settings', description: 'Workspace access and service health.' },
@@ -34,6 +38,17 @@ const operationsPages = [
   { match: /^\/operations\/settings/, title: 'Settings', description: 'Your workspace access and how operational data is protected.' },
 ];
 
+const salespersonPages = [
+  { match: /^\/salesperson\/?$/, title: 'My day', description: 'Your portfolio, follow-ups and requests, scoped to your own account.' },
+  { match: /^\/salesperson\/customers\/[^/]+$/, title: 'Customer record', description: 'The full profile, follow-up plan and work history for this customer.' },
+  { match: /^\/salesperson\/customers/, title: 'My customers', description: 'Every customer you own, with follow-up dates and priority.' },
+  { match: /^\/salesperson\/follow-ups/, title: 'Follow-ups', description: 'Customers due for a call or visit, ordered by date.' },
+  { match: /^\/salesperson\/requests/, title: 'Installation requests', description: 'Requests you pushed to operations and where they currently stand.' },
+  { match: /^\/salesperson\/complaints/, title: 'Complaints', description: 'Tickets you logged and the resolution progress from operations.' },
+  { match: /^\/salesperson\/sales/, title: 'Sales & renewals', description: 'Quotations, renewals and approvals will appear here once the sales workflow is connected.' },
+  { match: /^\/salesperson\/settings/, title: 'Settings', description: 'Your account, workspace access and notification behaviour.' },
+];
+
 export const adminWorkspace = {
   id: 'admin',
   label: 'Admin',
@@ -44,6 +59,19 @@ export const adminWorkspace = {
   navGroups: adminGroups,
   navItems: adminNavigationItems,
   pages: adminPages,
+};
+
+export const salespersonWorkspace = {
+  id: 'salesperson',
+  label: 'Salesperson',
+  eyebrow: 'TRACKMASTER HUB · SALESPERSON',
+  homePath: '/salesperson',
+  settingsPath: '/salesperson/settings',
+  navHeading: 'SALES DESK',
+  navGroups: salespersonGroups,
+  navItems: salespersonNavigationItems,
+  tabs: salespersonTabs,
+  pages: salespersonPages,
 };
 
 export const operationsWorkspace = {

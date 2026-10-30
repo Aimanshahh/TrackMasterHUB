@@ -49,8 +49,8 @@ export default function CustomersPage() {
             <div className="drawer__section-label">Contact details</div>
             <div className="field-grid">
               <label className="field field--full"><span className="field__label">Customer name <i>Required</i></span><input className="input" autoFocus required maxLength={200} autoComplete="name" placeholder="Full name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
-              <label className="field field--full"><span className="field__label">Email address <i>Required</i></span><input className="input" type="email" required maxLength={240} autoComplete="email" placeholder="name@company.com" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
-              <label className="field"><span className="field__label">Phone</span><input className="input" type="tel" maxLength={60} autoComplete="tel" placeholder="Phone number" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+              <label className="field"><span className="field__label">Phone <i>Required</i></span><input className="input" type="tel" required maxLength={60} autoComplete="tel" placeholder="Phone number" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+              <label className="field"><span className="field__label">Email address</span><input className="input" type="email" maxLength={240} autoComplete="email" placeholder="name@company.com" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
               <label className="field"><span className="field__label">Company</span><input className="input" maxLength={200} autoComplete="organization" placeholder="Company name" value={form.company} onChange={(event) => setForm((current) => ({ ...current, company: event.target.value }))} /></label>
             </div>
             <div className="drawer__section-label">Record details</div>

@@ -17,6 +17,8 @@ const activitySchema = new mongoose.Schema(
         'user.created',
         'user.role_changed',
         'user.deactivated',
+        'pricing.updated',
+        'approval.decided',
       ],
     },
     label: {

@@ -9,12 +9,14 @@ const customerSchema = new mongoose.Schema(
       minlength: 1,
       maxlength: 200,
     },
+    // Optional: the plan's minimum record for a follow-up is a name and phone.
+    // Email stays available for installation and account customers.
     email: {
       type: String,
-      required: true,
       trim: true,
       lowercase: true,
       maxlength: 240,
+      default: '',
     },
     phone: {
       type: String,
@@ -73,7 +75,7 @@ customerSchema.methods.toApiJson = function () {
   return {
     id: this._id.toString(),
     name: this.name,
-    email: this.email,
+    email: this.email ?? '',
     phone: this.phone,
     company: this.company,
     category: this.category,
@@ -81,11 +83,19 @@ customerSchema.methods.toApiJson = function () {
     source: this.source,
     followUp: this.followUp?.toISOString(),
     notes: this.notes,
-    owner: this.owner?.toApiJson
-      ? this.owner.toApiJson()
+    // A populated owner is intentionally reduced to the fields the UI needs.
+    // Calling the full user serializer here fails when the query only selected
+    // a few fields, so build the shape explicitly.
+    owner: this.owner && this.owner.name
+      ? {
+        id: this.owner._id.toString(),
+        name: this.owner.name,
+        email: this.owner.email ?? '',
+        role: this.owner.role ?? '',
+      }
       : this.owner?._id
-        ? { id: this.owner._id.toString(), name: this.owner.name, email: this.owner.email, role: this.owner.role }
-        : this.owner,
+        ? { id: this.owner._id.toString() }
+        : null,
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),
   };

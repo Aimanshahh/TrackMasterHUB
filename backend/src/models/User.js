@@ -45,7 +45,6 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-userSchema.index({ email: 1 }, { unique: true });
 
 /** Hash the password before it is saved. */
 userSchema.pre('save', async function (next) {
@@ -76,8 +75,10 @@ userSchema.methods.toApiJson = function () {
     role: this.role,
     roleLabel: roleLabels[this.role],
     active: this.active,
-    createdAt: this.createdAt.toISOString(),
-    updatedAt: this.updatedAt.toISOString(),
+    // Projections may omit timestamps (for example a populated customer
+    // owner), so never assume the fields are present.
+    createdAt: this.createdAt?.toISOString() ?? null,
+    updatedAt: this.updatedAt?.toISOString() ?? null,
   };
 };
 

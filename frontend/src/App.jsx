@@ -1,13 +1,14 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
 import { homeFor } from './app/roles.js';
-import { adminWorkspace, operationsWorkspace } from './app/workspaces.js';
+import { adminWorkspace, operationsWorkspace, salespersonWorkspace } from './app/workspaces.js';
 import AppLayout from './components/app/AppLayout.jsx';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import AuthSplash from './components/auth/AuthSplash.jsx';
 import { useAuth } from './context/auth.js';
 import LandingPage from './pages/LandingPage.jsx';
 import ActivityPage from './pages/app/ActivityPage.jsx';
+import ApprovalsPage from './pages/app/ApprovalsPage.jsx';
 import ComplaintsPage from './pages/app/ComplaintsPage.jsx';
 import CustomerDetailPage from './pages/app/CustomerDetailPage.jsx';
 import CustomersPage from './pages/app/CustomersPage.jsx';
@@ -30,6 +31,14 @@ import OperationsQueuePage from './pages/operations/OperationsQueuePage.jsx';
 import OperationsReportsPage from './pages/operations/OperationsReportsPage.jsx';
 import OperationsSettingsPage from './pages/operations/OperationsSettingsPage.jsx';
 import OperationsTechniciansPage from './pages/operations/OperationsTechniciansPage.jsx';
+import SalespersonComplaintsPage from './pages/salesperson/SalespersonComplaintsPage.jsx';
+import SalespersonCustomerDetailPage from './pages/salesperson/SalespersonCustomerDetailPage.jsx';
+import SalespersonCustomersPage from './pages/salesperson/SalespersonCustomersPage.jsx';
+import SalespersonFollowUpsPage from './pages/salesperson/SalespersonFollowUpsPage.jsx';
+import SalespersonOverviewPage from './pages/salesperson/SalespersonOverviewPage.jsx';
+import SalespersonRequestsPage from './pages/salesperson/SalespersonRequestsPage.jsx';
+import SalespersonSalesPage from './pages/salesperson/SalespersonSalesPage.jsx';
+import SalespersonSettingsPage from './pages/salesperson/SalespersonSettingsPage.jsx';
 
 function RequireSession() {
   const auth = useAuth();
@@ -67,6 +76,7 @@ export default function App() {
             <Route path="complaints" element={<ComplaintsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="pricing" element={<PricingPage />} />
+            <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -74,7 +84,17 @@ export default function App() {
           </Route>
         </Route>
         <Route element={<RequireWorkspaceRole role="salesperson" />}>
-          <Route path="/salesperson" element={<RoleWorkspacePage role="salesperson" />} />
+          <Route path="/salesperson" element={<AppLayout workspace={salespersonWorkspace} />}>
+            <Route index element={<SalespersonOverviewPage />} />
+            <Route path="customers" element={<SalespersonCustomersPage />} />
+            <Route path="customers/:customerId" element={<SalespersonCustomerDetailPage />} />
+            <Route path="follow-ups" element={<SalespersonFollowUpsPage />} />
+            <Route path="requests" element={<SalespersonRequestsPage />} />
+            <Route path="complaints" element={<SalespersonComplaintsPage />} />
+            <Route path="sales" element={<SalespersonSalesPage />} />
+            <Route path="settings" element={<SalespersonSettingsPage />} />
+            <Route path="*" element={<Navigate to="/salesperson" replace />} />
+          </Route>
         </Route>
         <Route element={<RequireWorkspaceRole role="manager" />}>
           <Route path="/manager" element={<RoleWorkspacePage role="manager" />} />

@@ -1,4 +1,4 @@
-import { buildFilter, listCustomers, getCustomerById, createCustomer } from './customers.service.js';
+import { buildFilter, listCustomers, getCustomerById, createCustomer, updateCustomer } from './customers.service.js';
 import { makeError } from '../../middleware/errors.js';
 import { errorCodes } from '../../config/errorCodes.js';
 
@@ -30,8 +30,11 @@ async function getCustomer(req, res, next) {
 async function createCustomerRecord(req, res, next) {
   try {
     const input = req.body ?? {};
-    if (typeof input.name !== 'string' || input.name.trim().length < 1 || typeof input.email !== 'string') {
-      return next(makeError(errorCodes.VALIDATION_ERROR, 'Customer name and email are required.'));
+    if (typeof input.name !== 'string' || input.name.trim().length < 1) {
+      return next(makeError(errorCodes.VALIDATION_ERROR, 'Customer name is required.'));
+    }
+    if (!String(input.phone ?? '').trim()) {
+      return next(makeError(errorCodes.VALIDATION_ERROR, 'Customer phone number is required.'));
     }
     const ownerId = req.user.role === 'admin' ? undefined : req.user.id;
     const customer = await createCustomer(input, ownerId);
@@ -39,4 +42,15 @@ async function createCustomerRecord(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { getCustomers, getCustomer, createCustomerRecord };
+async function patchCustomerRecord(req, res, next) {
+  try {
+    const existing = await getCustomerById(req.params.id);
+    if (req.user.role !== 'admin' && existing.owner?.id !== req.user.id) {
+      return next(makeError(errorCodes.FORBIDDEN, 'You are not allowed to change this customer record.', 403));
+    }
+    const customer = await updateCustomer(req.params.id, req.body ?? {});
+    return res.json({ data: { customer } });
+  } catch (error) { next(error); }
+}
+
+export { getCustomers, getCustomer, createCustomerRecord, patchCustomerRecord };

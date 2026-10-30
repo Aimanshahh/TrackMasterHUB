@@ -9,6 +9,9 @@ import { activityRouter } from '../modules/activity/activity.routes.js';
 import { operationsRouter } from '../modules/operations/operations.routes.js';
 import { complaintsRouter } from '../modules/complaints/complaints.routes.js';
 import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
+import { salespersonRouter } from '../modules/salesperson/salesperson.routes.js';
+import { pricingRouter } from '../modules/pricing/pricing.routes.js';
+import { approvalsRouter } from '../modules/approvals/approvals.routes.js';
 
 /** Every feature module mounts here. Future modules (sales, operations, etc.) follow the same pattern. */
 export const apiRouter = Router();
@@ -28,6 +31,9 @@ apiRouter.get('/', (req, res) => {
       operations: '/api/operations',
       complaints: '/api/complaints',
       notifications: '/api/notifications',
+      salesperson: '/api/salesperson',
+      packages: '/api/packages',
+      approvals: '/api/approvals',
     },
   });
 });
@@ -41,3 +47,6 @@ apiRouter.use('/activity', activityRouter);
 apiRouter.use('/operations', operationsRouter);
 apiRouter.use('/complaints', complaintsRouter);
 apiRouter.use('/notifications', notificationsRouter);
+apiRouter.use('/salesperson', salespersonRouter);
+apiRouter.use('/packages', pricingRouter);
+apiRouter.use('/approvals', approvalsRouter);

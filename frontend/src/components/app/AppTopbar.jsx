@@ -23,6 +23,14 @@ export default function AppTopbar({ workspace, onOpenNav }) {
   const section = currentSection(workspace.navItems, pathname);
   const databaseStatus = data?.checks?.database;
   const name = user?.name ?? 'Account';
+  const healthTone = status === 'online' ? (databaseStatus === 'operational' ? 'online' : 'offline') : 'loading';
+  const healthLabel = databaseStatus === 'operational'
+    ? 'Live data'
+    : databaseStatus === 'disconnected'
+      ? 'Database offline'
+      : status === 'online'
+        ? 'Database status unknown'
+        : 'Checking';
 
   useEffect(() => setProfileOpen(false), [pathname]);
 
@@ -55,11 +63,17 @@ export default function AppTopbar({ workspace, onOpenNav }) {
         </button>
         <p className="app-crumb"><span>{workspace.label}</span><span aria-hidden="true">/</span><strong>{section?.label ?? 'Workspace'}</strong></p>
       </div>
+
+      {/* Phones get a centred title instead of a truncated breadcrumb. */}
+      <div className="app-topbar__title">
+        <span>{workspace.label}</span>
+        <strong>{section?.label ?? 'Workspace'}</strong>
+      </div>
       <div className="app-topbar__right">
         <span className="app-topbar__date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span>
         <Link to={workspace.settingsPath} className="app-health" title={status === 'online' ? `API online · database ${databaseStatus ?? 'unknown'}` : 'API status unavailable'}>
-          <span className={`status-dot status-dot--${status === 'online' ? (databaseStatus === 'operational' ? 'online' : 'offline') : 'loading'}`} aria-hidden="true" />
-          <span>{databaseStatus === 'operational' ? 'Live data' : databaseStatus === 'disconnected' ? 'Database offline' : status === 'online' ? 'Database status unknown' : 'Checking'}</span>
+          <span className={`status-dot status-dot--${healthTone}`} aria-hidden="true" />
+          <span>{healthLabel}</span>
         </Link>
         <NotificationBell />
         <div className="app-profile-wrap" ref={profileRef}>
@@ -69,7 +83,16 @@ export default function AppTopbar({ workspace, onOpenNav }) {
             <NavIcon name="chevron" size={14} />
           </button>
           {profileOpen ? <div className="app-menu" role="menu">
-            <div className="app-menu__head"><strong>{name}</strong><span>{user?.email}</span><small>Sessions expire after 7 days</small></div>
+            <div className="app-menu__head">
+              <strong>{name}</strong>
+              <span>{user?.email}</span>
+              {/* On a phone this is the only place connection state is shown. */}
+              <span className="app-menu__health">
+                <span className={`status-dot status-dot--${healthTone}`} aria-hidden="true" />
+                {healthLabel}
+              </span>
+              <small>Sessions expire after 7 days</small>
+            </div>
             <Link className="app-menu__item" role="menuitem" to={workspace.settingsPath}>Workspace settings</Link>
             <Link className="app-menu__item" role="menuitem" to="/status">System status</Link>
             <button type="button" className="app-menu__item app-menu__action" role="menuitem" onClick={signOut}>Sign out</button>

@@ -3,8 +3,16 @@ import { useState } from 'react';
 import { JOB_STATUS_OPTIONS, formatDayTime, requestTypeLabel } from '../../app/operations.js';
 import { useDevices, useKnownStations, useSims, useTechnicians } from '../../hooks/useOperations.js';
 import { updateJobRecord } from '../../lib/api.js';
+import { formatMoney } from '../../lib/format.js';
 import { StatusPill } from './OpsStatus.jsx';
 import StationField from './StationField.jsx';
+
+const APPROVAL_LABELS = {
+  not_required: 'Not required',
+  pending: 'Waiting for admin',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
 
 function toLocalInput(value) {
   if (!value) return '';
@@ -86,6 +94,9 @@ export default function JobDrawer({ job, onClose, onSaved }) {
             <div><span>Current status</span><StatusPill status={job.status} label={job.statusLabel} /></div>
             <div><span>Vehicle</span><strong>{job.vehicle?.label || '—'}</strong></div>
             <div><span>Registration</span><strong>{job.vehicle?.registration || '—'}</strong></div>
+            <div><span>Package</span><strong>{job.packageName || '—'}</strong></div>
+            <div><span>Quoted</span><strong>{job.quotedPrice === null || job.quotedPrice === undefined ? '—' : formatMoney(job.quotedPrice)}</strong></div>
+            <div><span>Price approval</span><strong>{APPROVAL_LABELS[job.approvalStatus] ?? 'Not required'}</strong></div>
             <div><span>Pushed</span><strong>{formatDayTime(job.createdAt)}</strong></div>
           </div>
 
@@ -136,6 +147,16 @@ export default function JobDrawer({ job, onClose, onSaved }) {
           <p className="field__hint">Station stock and stock already handed to a technician can be fitted. An item already fitted to another job is rejected by the server.</p>
 
           <div className="drawer__section-label">Progress</div>
+          {job.approvalStatus === 'pending' ? (
+            <p className="quote-note" data-state="below">
+              The admin has not approved the discounted price yet. The job can be assigned and scheduled, but it cannot be completed until the price is approved.
+            </p>
+          ) : null}
+          {job.approvalStatus === 'rejected' ? (
+            <p className="quote-note" data-state="over">
+              The quoted price was rejected. The salesperson has to requote before this installation can be completed.
+            </p>
+          ) : null}
           <div className="field-grid">
             <label className="field field--full">
               <span className="field__label">Job status</span>

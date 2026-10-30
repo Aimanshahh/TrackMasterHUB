@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { makeReference } from '../utils/reference.js';
+import { PACKAGE_KEYS, packageCatalog } from './Package.js';
 
 export const JOB_STATUSES = [
   'unassigned',
@@ -85,6 +86,31 @@ const jobSchema = new mongoose.Schema(
       trim: true,
       maxlength: 40,
     },
+    /* The commercial side of the sale. The package rate is copied from the
+       admin's pricing when the job is created, so a later price change cannot
+       rewrite an existing sale. */
+    packageKey: {
+      type: String,
+      enum: PACKAGE_KEYS,
+      default: null,
+    },
+    listPrice: {
+      type: Number,
+      default: null,
+    },
+    quotedPrice: {
+      type: Number,
+      default: null,
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['not_required', 'pending', 'approved', 'rejected'],
+      default: 'not_required',
+    },
+    approval: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Approval',
+    },
     scheduledAt: {
       type: Date,
     },
@@ -135,6 +161,12 @@ jobSchema.methods.toApiJson = function () {
       : this.technician?.toString() ?? null,
     deviceImei: this.deviceImei ?? '',
     simNumber: this.simNumber ?? '',
+    packageKey: this.packageKey ?? null,
+    packageName: this.packageKey ? packageCatalog[this.packageKey]?.name ?? this.packageKey : '',
+    listPrice: this.listPrice ?? null,
+    quotedPrice: this.quotedPrice ?? null,
+    approvalStatus: this.approvalStatus ?? 'not_required',
+    approvalId: this.approval ? this.approval.toString() : null,
     scheduledAt: this.scheduledAt?.toISOString() ?? null,
     completedAt: this.completedAt?.toISOString() ?? null,
     notes: this.notes ?? '',
