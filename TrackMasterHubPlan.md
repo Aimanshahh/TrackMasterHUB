@@ -545,9 +545,17 @@ Choose a WhatsApp Business Platform provider and an email delivery service after
 
 - Amount, paid amount, balance, due date and payment method/reference.
 
-- Partial payment and overdue tracking if required.
+- Partial payment and overdue tracking if required. **Implemented:** an invoice
+  is issued once, and each instalment is stored as its own payment record with
+  amount, method, date, receiving user and bank/cheque reference. The invoice
+  amount is never edited; the paid total and balance are derived from the payment
+  rows, so half at installation and half later leaves two dated entries. Paying
+  more than the balance is rejected, and a payment cannot be recorded before the
+  invoice is issued.
 
-- Controlled cancellation, refunds and credit notes.
+- Controlled cancellation, refunds and credit notes. **Partially implemented:**
+  cancellation is blocked once money has been received, but the refund and
+  credit-note path is not built yet.
 
 - Preserve finalized document history; never silently edit issued financial records.
 
@@ -975,6 +983,9 @@ Keep one shared Salesperson UI and backend. Confirm offline expectations before 
 
 - Operations owns device IMEI and SIM inventory, technician records, and station-wise assignment with auditable stock movement.
 
+- **Partial payments are a first-class record** (see section 9). The manager
+  records each instalment; invoices keep a fixed amount and a derived balance.
+
 - General-purpose push notifications are **deferred for now**.
 
 - Both email and WhatsApp customer messaging are **required for the OS Ticket System only**; providers and exact event/template rules remain to be selected.
@@ -1080,6 +1091,11 @@ Salesperson to their own portfolio:
 
 ### 19.4 Build order
 
+Done since this list was written: package pricing (Basic/Standard/Premium rates
+set by the admin), below-rate price approvals, the manager workspace with
+customer lookup, security-briefing activation gate, invoices, full and partial
+payments, the payment ledger and the admin money records screen.
+
 1. Dialer integration: call-record model, provider ingestion (webhook or
    scheduled pull), phone-number matching and the read-only call list on the
    customer record. No manual call entry.
@@ -1087,6 +1103,8 @@ Salesperson to their own portfolio:
    job, complaint and follow-up records.
 3. Nodemailer transport, delivery records and complaint email templates.
 4. WhatsApp provider selection, template approval and the second channel.
-5. Admin customer record brought to parity with the salesperson record
-   (timeline, requests, tickets) instead of the current field list.
-6. Manager workspace, then sales/pricing, then tests and CI.
+5. Admin customer record brought to parity with the manager and salesperson
+   records (timeline, requests, tickets) instead of the current field list.
+6. Salesperson quotation and renewal history on top of the existing pricing and
+   approvals; then printable invoices/certificates, refunds and credit notes.
+7. Automated tests and CI.

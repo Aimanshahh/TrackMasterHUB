@@ -23,6 +23,9 @@ export async function apiRequest(path, { signal, headers, ...options } = {}) {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       signal,
+      // Identity-dependent answers must never come from the HTTP cache: a
+      // cached /auth/me would keep reporting the account we just signed out of.
+      cache: 'no-store',
       // Session cookie is httpOnly; sent automatically on same-origin or
       // credentialed cross-origin requests when VITE_API_BASE_URL is set.
       credentials: 'include',
@@ -268,6 +271,64 @@ export function fetchApprovals(params = {}, { signal } = {}) {
 
 export function decidePriceApproval(id, input) {
   return sendJson(`/api/approvals/${encodeURIComponent(id)}/decision`, 'POST', input);
+}
+
+/* ---------------- Money records: invoices, payments and the manager desk ---------------- */
+
+export function fetchBillingSummary({ signal } = {}) {
+  return apiRequest('/api/billing/summary', { signal });
+}
+
+export function fetchBillingSeries(months = 6, { signal } = {}) {
+  return apiRequest(withQuery('/api/billing/series', { months }), { signal });
+}
+
+export function fetchInvoices(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/billing/invoices', params), { signal });
+}
+
+export function createInvoiceRecord(input) {
+  return sendJson('/api/billing/invoices', 'POST', input);
+}
+
+export function issueInvoiceRecord(id) {
+  return apiRequest(`/api/billing/invoices/${encodeURIComponent(id)}/issue`, { method: 'POST' });
+}
+
+export function cancelInvoiceRecord(id, reason) {
+  return sendJson(`/api/billing/invoices/${encodeURIComponent(id)}/cancel`, 'POST', { reason });
+}
+
+export function fetchInvoicePayments(id, { signal } = {}) {
+  return apiRequest(`/api/billing/invoices/${encodeURIComponent(id)}/payments`, { signal });
+}
+
+export function fetchPayments(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/billing/payments', params), { signal });
+}
+
+export function recordInvoicePayment(id, input) {
+  return sendJson(`/api/billing/invoices/${encodeURIComponent(id)}/payments`, 'POST', input);
+}
+
+export function fetchManagerSummary({ signal } = {}) {
+  return apiRequest('/api/manager/summary', { signal });
+}
+
+export function fetchManagerCustomers(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/manager/customers', params), { signal });
+}
+
+export function fetchManagerCustomer(id, { signal } = {}) {
+  return apiRequest(`/api/manager/customers/${encodeURIComponent(id)}`, { signal });
+}
+
+export function saveSecurityBriefing(id, input) {
+  return sendJson(`/api/manager/customers/${encodeURIComponent(id)}/briefing`, 'PATCH', input);
+}
+
+export function fetchBillingQueue(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/manager/billing-queue', params), { signal });
 }
 
 /* ---------------- Salesperson desk ---------------- */

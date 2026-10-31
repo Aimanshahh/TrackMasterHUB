@@ -19,6 +19,11 @@ const activitySchema = new mongoose.Schema(
         'user.deactivated',
         'pricing.updated',
         'approval.decided',
+        'invoice.created',
+        'invoice.issued',
+        'invoice.cancelled',
+        'payment.recorded',
+        'customer.briefing_completed',
       ],
     },
     label: {

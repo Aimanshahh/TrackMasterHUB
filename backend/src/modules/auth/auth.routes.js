@@ -4,7 +4,10 @@ import { login, logout, getMe, setupStatus, bootstrap, listAllUsers } from './au
 
 const router = express.Router();
 router.post('/login', login);
-router.post('/logout', requireAuth, logout);
+// Logout is intentionally open: a browser with an expired or already-removed
+// session must still be able to clear its cookie, otherwise it keeps bouncing
+// back into the previous account.
+router.post('/logout', logout);
 router.get('/me', getMe);
 router.get('/setup-status', setupStatus);
 router.post('/bootstrap', bootstrap);

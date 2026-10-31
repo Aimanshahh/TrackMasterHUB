@@ -1,6 +1,8 @@
 import {
   adminGroups,
   adminNavigationItems,
+  managerGroups,
+  managerNavigationItems,
   operationsGroups,
   operationsNavigationItems,
   salespersonGroups,
@@ -23,6 +25,7 @@ const adminPages = [
   { match: /^\/admin\/reports/, title: 'Reports', description: 'Business summaries will be available as verified records are collected.' },
   { match: /^\/admin\/pricing/, title: 'Pricing', description: 'The package rates every installation quote starts from.' },
   { match: /^\/admin\/approvals/, title: 'Price approvals', description: 'Installations quoted below the package rate, waiting on your decision.' },
+  { match: /^\/admin\/money/, title: 'Money records', description: 'Invoices, part payments and outstanding balances recorded by the business.' },
   { match: /^\/admin\/users/, title: 'User access', description: 'Create and review accounts for Admin, Salesperson, Manager and Operations roles.' },
   { match: /^\/admin\/activity/, title: 'Activity log', description: 'A trace of changes recorded by the backend.' },
   { match: /^\/admin\/settings/, title: 'Settings', description: 'Workspace access and service health.' },
@@ -36,6 +39,17 @@ const operationsPages = [
   { match: /^\/operations\/technicians/, title: 'Technicians', description: 'Field technicians registered by operations, with their home station.' },
   { match: /^\/operations\/reports/, title: 'Operations reports', description: 'Workload, completion and stock totals currently recorded.' },
   { match: /^\/operations\/settings/, title: 'Settings', description: 'Your workspace access and how operational data is protected.' },
+];
+
+const managerPages = [
+  { match: /^\/manager\/?$/, title: 'Manager overview', description: 'Money collected, invoices to raise and accounts waiting on a security briefing.' },
+  { match: /^\/manager\/customers\/[^/]+$/, title: 'Customer account', description: 'Profile, installations, security briefing and the full money history for this customer.' },
+  { match: /^\/manager\/customers/, title: 'Customer lookup', description: 'Find any customer by name, phone, company or category and review their account.' },
+  { match: /^\/manager\/invoices/, title: 'Invoices', description: 'Draft, issue and settle installation invoices, including part payments.' },
+  { match: /^\/manager\/payments/, title: 'Payments', description: 'Every rupee received, with its method, reference and the invoice it settles.' },
+  { match: /^\/manager\/complaints/, title: 'Complaints', description: 'Service tickets across the business and how they are progressing.' },
+  { match: /^\/manager\/reports/, title: 'Reports', description: 'Invoiced versus collected money, and the operational picture behind it.' },
+  { match: /^\/manager\/settings/, title: 'Settings', description: 'Your workspace access and how billing records are protected.' },
 ];
 
 const salespersonPages = [
@@ -72,6 +86,18 @@ export const salespersonWorkspace = {
   navItems: salespersonNavigationItems,
   tabs: salespersonTabs,
   pages: salespersonPages,
+};
+
+export const managerWorkspace = {
+  id: 'manager',
+  label: 'Manager',
+  eyebrow: 'TRACKMASTER HUB · MANAGER',
+  homePath: '/manager',
+  settingsPath: '/manager/settings',
+  navHeading: 'MANAGER DESK',
+  navGroups: managerGroups,
+  navItems: managerNavigationItems,
+  pages: managerPages,
 };
 
 export const operationsWorkspace = {

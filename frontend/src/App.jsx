@@ -1,7 +1,12 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
 import { homeFor } from './app/roles.js';
-import { adminWorkspace, operationsWorkspace, salespersonWorkspace } from './app/workspaces.js';
+import {
+  adminWorkspace,
+  managerWorkspace,
+  operationsWorkspace,
+  salespersonWorkspace,
+} from './app/workspaces.js';
 import AppLayout from './components/app/AppLayout.jsx';
 import PublicLayout from './components/layout/PublicLayout.jsx';
 import AuthSplash from './components/auth/AuthSplash.jsx';
@@ -15,9 +20,9 @@ import CustomersPage from './pages/app/CustomersPage.jsx';
 import FollowUpsPage from './pages/app/FollowUpsPage.jsx';
 import OperationsPage from './pages/app/OperationsPage.jsx';
 import OverviewPage from './pages/app/OverviewPage.jsx';
+import MoneyPage from './pages/app/MoneyPage.jsx';
 import PricingPage from './pages/app/PricingPage.jsx';
 import ReportsPage from './pages/app/ReportsPage.jsx';
-import RoleWorkspacePage from './pages/roles/RoleWorkspacePage.jsx';
 import SalesPage from './pages/app/SalesPage.jsx';
 import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
@@ -31,6 +36,14 @@ import OperationsQueuePage from './pages/operations/OperationsQueuePage.jsx';
 import OperationsReportsPage from './pages/operations/OperationsReportsPage.jsx';
 import OperationsSettingsPage from './pages/operations/OperationsSettingsPage.jsx';
 import OperationsTechniciansPage from './pages/operations/OperationsTechniciansPage.jsx';
+import ManagerComplaintsPage from './pages/manager/ManagerComplaintsPage.jsx';
+import ManagerCustomerDetailPage from './pages/manager/ManagerCustomerDetailPage.jsx';
+import ManagerCustomersPage from './pages/manager/ManagerCustomersPage.jsx';
+import ManagerInvoicesPage from './pages/manager/ManagerInvoicesPage.jsx';
+import ManagerOverviewPage from './pages/manager/ManagerOverviewPage.jsx';
+import ManagerPaymentsPage from './pages/manager/ManagerPaymentsPage.jsx';
+import ManagerReportsPage from './pages/manager/ManagerReportsPage.jsx';
+import ManagerSettingsPage from './pages/manager/ManagerSettingsPage.jsx';
 import SalespersonComplaintsPage from './pages/salesperson/SalespersonComplaintsPage.jsx';
 import SalespersonCustomerDetailPage from './pages/salesperson/SalespersonCustomerDetailPage.jsx';
 import SalespersonCustomersPage from './pages/salesperson/SalespersonCustomersPage.jsx';
@@ -77,6 +90,7 @@ export default function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="pricing" element={<PricingPage />} />
             <Route path="approvals" element={<ApprovalsPage />} />
+            <Route path="money" element={<MoneyPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -97,7 +111,17 @@ export default function App() {
           </Route>
         </Route>
         <Route element={<RequireWorkspaceRole role="manager" />}>
-          <Route path="/manager" element={<RoleWorkspacePage role="manager" />} />
+          <Route path="/manager" element={<AppLayout workspace={managerWorkspace} />}>
+            <Route index element={<ManagerOverviewPage />} />
+            <Route path="customers" element={<ManagerCustomersPage />} />
+            <Route path="customers/:customerId" element={<ManagerCustomerDetailPage />} />
+            <Route path="invoices" element={<ManagerInvoicesPage />} />
+            <Route path="payments" element={<ManagerPaymentsPage />} />
+            <Route path="complaints" element={<ManagerComplaintsPage />} />
+            <Route path="reports" element={<ManagerReportsPage />} />
+            <Route path="settings" element={<ManagerSettingsPage />} />
+            <Route path="*" element={<Navigate to="/manager" replace />} />
+          </Route>
         </Route>
         <Route element={<RequireWorkspaceRole role="operations" />}>
           <Route path="/operations" element={<AppLayout workspace={operationsWorkspace} />}>

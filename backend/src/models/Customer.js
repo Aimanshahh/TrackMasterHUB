@@ -55,6 +55,34 @@ const customerSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    /**
+     * Account state is separate from installation: a completed installation
+     * does not activate a customer. The manager's security briefing gate does.
+     */
+    accountStatus: {
+      type: String,
+      enum: ['inactive', 'active'],
+      default: 'inactive',
+    },
+    briefingCompleted: {
+      type: Boolean,
+      default: false,
+    },
+    /**
+     * Security briefing captured by the manager. Sensitive by definition, so it
+     * is never included in list responses, notifications or exports; only the
+     * manager/admin detail view reads it.
+     */
+    briefing: {
+      cnic: { type: String, trim: true, maxlength: 20 },
+      dob: { type: Date },
+      ePin: { type: String, trim: true, maxlength: 12 },
+      secondaryPhone: { type: String, trim: true, maxlength: 60 },
+      secondaryRelation: { type: String, trim: true, maxlength: 80 },
+      geofenceAddress: { type: String, trim: true, maxlength: 400 },
+      completedAt: { type: Date },
+      completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -96,8 +124,31 @@ customerSchema.methods.toApiJson = function () {
       : this.owner?._id
         ? { id: this.owner._id.toString() }
         : null,
+    accountStatus: this.accountStatus ?? 'inactive',
+    briefingCompleted: Boolean(this.briefingCompleted),
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),
+  };
+};
+
+/**
+ * Detail shape used by the manager and admin customer screens. The briefing is
+ * included because those are the only roles authorised to see it.
+ */
+customerSchema.methods.toDetailJson = function () {
+  const base = this.toApiJson();
+
+  return {
+    ...base,
+    briefing: {
+      cnic: this.briefing?.cnic ?? '',
+      dob: this.briefing?.dob?.toISOString() ?? null,
+      ePin: this.briefing?.ePin ?? '',
+      secondaryPhone: this.briefing?.secondaryPhone ?? '',
+      secondaryRelation: this.briefing?.secondaryRelation ?? '',
+      geofenceAddress: this.briefing?.geofenceAddress ?? '',
+      completedAt: this.briefing?.completedAt?.toISOString() ?? null,
+    },
   };
 };
 

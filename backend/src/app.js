@@ -40,6 +40,14 @@ export function createApp() {
     });
   });
 
+  // Every API answer depends on the signed-in user, so no response may be
+  // stored by a browser or an intermediary. Without this a cached /auth/me
+  // can keep answering with the account the operator just signed out of.
+  app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
+
   app.use('/api', apiRouter);
 
   app.use(notFound);

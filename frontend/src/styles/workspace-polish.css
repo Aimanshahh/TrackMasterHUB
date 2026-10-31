@@ -50,6 +50,26 @@
 .auth-form__foot { color: #797d83; font-size: 11px; line-height: 1.65; }
 .auth-form .form-alert { border-left: 2px solid #ad161c; font-size: 11px; line-height: 1.6; }
 
+/* The sign-in page never redirects a live session away, so it says plainly who
+   is signed in and lets the operator switch accounts without hunting for a
+   sign-out button in another workspace. */
+.auth-session {
+  display: grid;
+  gap: 10px;
+  padding: 14px 15px;
+  border: 1px solid #e2ded6;
+  border-left: 2px solid #d7131b;
+  background: #fbfaf7;
+}
+.auth-session__eyebrow { color: #8a8e94; font-size: 9px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.auth-session__line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.auth-session__line strong { font-family: var(--font-display); font-size: 14px; font-weight: 600; letter-spacing: -.02em; }
+.auth-session__line span { color: #6d7178; font-size: 10px; }
+.auth-session__mail { color: #91959b; font-size: 10px; overflow-wrap: anywhere; }
+.auth-session__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.auth-session__actions .btn { flex: 1 1 auto; justify-content: center; font-size: 11px; }
+.auth-session__hint { color: #8b8f95; font-size: 10px; line-height: 1.55; }
+
 /* Main workspace rhythm and live-record overview */
 .app-content { max-width: 1640px; }
 .app-page-head { padding-block: 36px 25px; }

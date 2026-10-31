@@ -26,6 +26,7 @@ const adminGroups = [
     items: [
       { to: '/admin/pricing', label: 'Pricing', icon: 'pricing' },
       { to: '/admin/approvals', label: 'Approvals', icon: 'approvals' },
+      { to: '/admin/money', label: 'Money records', icon: 'approvals' },
       { to: '/admin/users', label: 'Users', icon: 'users' },
       { to: '/admin/activity', label: 'Activity', icon: 'activity' },
       { to: '/admin/settings', label: 'Settings', icon: 'settings' },
@@ -59,6 +60,36 @@ const operationsGroups = [
     label: 'Account',
     items: [
       { to: '/operations/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
+];
+
+const managerGroups = [
+  {
+    label: 'Customer desk',
+    items: [
+      { to: '/manager', label: 'Overview', icon: 'overview', end: true },
+      { to: '/manager/customers', label: 'Customers', icon: 'customers' },
+    ],
+  },
+  {
+    label: 'Money',
+    items: [
+      { to: '/manager/invoices', label: 'Invoices', icon: 'pricing' },
+      { to: '/manager/payments', label: 'Payments', icon: 'approvals' },
+    ],
+  },
+  {
+    label: 'Service',
+    items: [
+      { to: '/manager/complaints', label: 'Complaints', icon: 'complaints' },
+      { to: '/manager/reports', label: 'Reports', icon: 'reports' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: '/manager/settings', label: 'Settings', icon: 'settings' },
     ],
   },
 ];
@@ -110,5 +141,6 @@ function flatten(groups) {
 export const adminNavigationItems = flatten(adminGroups);
 export const salespersonNavigationItems = flatten(salespersonGroups);
 export const operationsNavigationItems = flatten(operationsGroups);
+export const managerNavigationItems = flatten(managerGroups);
 
-export { adminGroups, operationsGroups, salespersonGroups, salespersonTabs };
+export { adminGroups, operationsGroups, salespersonGroups, salespersonTabs, managerGroups };

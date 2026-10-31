@@ -13,6 +13,7 @@ import './styles/workspace-polish.css';
 import './styles/operations.css';
 import './styles/salesperson.css';
 import './styles/commercial.css';
+import './styles/manager.css';
 
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthProvider.jsx';

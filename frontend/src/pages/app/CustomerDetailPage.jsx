@@ -1,29 +1,44 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
-import Panel from '../../components/app/Panel.jsx';
+import CustomerAccountView from '../../components/customers/CustomerAccountView.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
-import { fetchCustomer } from '../../lib/api.js';
+import { useManagerCustomer } from '../../hooks/useManager.js';
 
+/**
+ * The admin's view of one customer. It reads the same profile endpoint as the
+ * manager desk, so the briefing, vehicles, invoices and payment history are
+ * identical. Money actions live on the money records screen instead of being
+ * duplicated here.
+ */
 export default function CustomerDetailPage() {
   const { customerId } = useParams();
-  const [state, setState] = useState({ status: 'loading', customer: null, error: null });
-  useDocumentTitle(state.customer?.name ?? 'Customer');
+  const profile = useManagerCustomer(customerId);
+  const customer = profile.data?.customer;
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchCustomer(customerId, { signal: controller.signal })
-      .then((payload) => setState({ status: 'ready', customer: payload.data.customer, error: null }))
-      .catch((error) => {
-        if (error.name !== 'AbortError') setState({ status: 'error', customer: null, error: error.message });
-      });
-    return () => controller.abort();
-  }, [customerId]);
+  useDocumentTitle(customer?.name ? `${customer.name} · Customer` : 'Customer record');
 
-  return <Panel heading="Customer record">
-    <p className="panel__note"><Link className="panel__link" to="/admin/customers">← Back to customers</Link></p>
-    {state.status === 'loading' ? <p className="data-state" role="status">Loading customer…</p> : null}
-    {state.error ? <p className="app-notice app-notice--error" role="alert">{state.error}</p> : null}
-    {state.customer ? <dl className="customer-detail">{[['Name', state.customer.name], ['Email', state.customer.email], ['Phone', state.customer.phone], ['Company', state.customer.company], ['Category', state.customer.category], ['Priority', state.customer.priority], ['Owner', state.customer.owner?.name], ['Follow-up', state.customer.followUp ? new Date(state.customer.followUp).toLocaleDateString() : null], ['Notes', state.customer.notes]].filter(([, value]) => value).map(([label, value]) => <div className="customer-detail__row" key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl> : null}
-  </Panel>;
+  if (profile.status === 'loading') return <p className="data-state" role="status">Loading customer record…</p>;
+
+  if (profile.error && !profile.data) {
+    return (
+      <div className="app-empty">
+        <span className="app-empty__mark" aria-hidden="true">—</span>
+        <h2>This customer could not be opened</h2>
+        <p>{profile.error}</p>
+      </div>
+    );
+  }
+
+  if (!profile.data) return null;
+
+  return (
+    <CustomerAccountView
+      data={profile.data}
+      backTo="/admin/customers"
+      backLabel="Customer register"
+      saving={profile.saving}
+      onSaveBriefing={profile.saveBriefing}
+      moneyLink="/admin/money"
+    />
+  );
 }

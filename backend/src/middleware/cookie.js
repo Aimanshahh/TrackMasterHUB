@@ -18,7 +18,12 @@ function setSessionCookie(res, token) {
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', `session=; HttpOnly; SameSite=Lax${env.isProduction ? '; Secure' : ''}; Path=/; Max-Age=0`);
+  // Max-Age=0 plus an expiry in the past clears the cookie on every browser we
+  // support, including ones that ignore Max-Age on a redirect response.
+  res.setHeader(
+    'Set-Cookie',
+    `session=; HttpOnly; SameSite=Lax${env.isProduction ? '; Secure' : ''}; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+  );
 }
 
 export { parseCookies, setSessionCookie, clearSessionCookie };

@@ -10,6 +10,10 @@ async function login(req, res, next) {
     const { email, password } = req.body ?? {};
     if (!email || !password) return next(makeError(errorCodes.VALIDATION_ERROR, 'Email and password are required.'));
     const user = await authenticate(email, password);
+    // Signing in always replaces the session this browser already held. Without
+    // this, testing two roles from one browser leaves the older session valid
+    // and the client can be pulled back into the previous account.
+    await invalidateSession(req.sessionToken);
     const { token } = await issueSession(user);
     setSessionCookie(res, token);
     return res.json({ data: { user: user.toApiJson() }, meta: { expiresInSeconds: env.sessionTtlDays * 86400 } });
@@ -19,7 +23,7 @@ async function login(req, res, next) {
 async function logout(req, res) {
   await invalidateSession(req.sessionToken);
   clearSessionCookie(res);
-  return res.status(204).end();
+  return res.json({ data: { signedOut: true } });
 }
 
 async function getMe(req, res, next) {

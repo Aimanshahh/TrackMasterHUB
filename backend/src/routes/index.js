@@ -12,6 +12,8 @@ import { notificationsRouter } from '../modules/notifications/notifications.rout
 import { salespersonRouter } from '../modules/salesperson/salesperson.routes.js';
 import { pricingRouter } from '../modules/pricing/pricing.routes.js';
 import { approvalsRouter } from '../modules/approvals/approvals.routes.js';
+import { billingRouter } from '../modules/billing/billing.routes.js';
+import { managerRouter } from '../modules/manager/manager.routes.js';
 
 /** Every feature module mounts here. Future modules (sales, operations, etc.) follow the same pattern. */
 export const apiRouter = Router();
@@ -34,6 +36,8 @@ apiRouter.get('/', (req, res) => {
       salesperson: '/api/salesperson',
       packages: '/api/packages',
       approvals: '/api/approvals',
+      billing: '/api/billing',
+      manager: '/api/manager',
     },
   });
 });
@@ -50,3 +54,5 @@ apiRouter.use('/notifications', notificationsRouter);
 apiRouter.use('/salesperson', salespersonRouter);
 apiRouter.use('/packages', pricingRouter);
 apiRouter.use('/approvals', approvalsRouter);
+apiRouter.use('/billing', billingRouter);
+apiRouter.use('/manager', managerRouter);

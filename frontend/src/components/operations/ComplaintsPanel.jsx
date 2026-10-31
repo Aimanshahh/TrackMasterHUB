@@ -201,6 +201,9 @@ function ComplaintDrawer({ complaint, canManage, onClose, onSaved }) {
 export default function ComplaintsPanel({ heading = 'Complaint queue' }) {
   const { user } = useAuth();
   const canManage = user?.role === 'admin' || user?.role === 'operations';
+  // The manager reads the queue but does not log tickets: the backend refuses
+  // the create route for that role, so the button is not offered either.
+  const canCreate = ['admin', 'operations', 'salesperson'].includes(user?.role);
   const [filters, setFilters] = useState({ status: '', search: '' });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
@@ -223,7 +226,7 @@ export default function ComplaintsPanel({ heading = 'Complaint queue' }) {
           <p className="panel__meta">{total} {total === 1 ? 'ticket' : 'tickets'} recorded</p>
         </div>
         <div className="customer-actions">
-          <button type="button" className="btn btn--primary btn--small" onClick={() => setCreateOpen(true)}>Log complaint <span aria-hidden="true">+</span></button>
+          {canCreate ? <button type="button" className="btn btn--primary btn--small" onClick={() => setCreateOpen(true)}>Log complaint <span aria-hidden="true">+</span></button> : null}
           <button type="button" className="btn btn--outline btn--small" onClick={complaints.refresh}>Refresh</button>
         </div>
       </div>
@@ -284,7 +287,7 @@ export default function ComplaintsPanel({ heading = 'Complaint queue' }) {
         <ComplaintDrawer key={selected.id} complaint={selected} canManage={canManage} onClose={() => setSelected(null)} onSaved={complaints.refresh} />
       ) : null}
 
-      {createOpen ? <CreateComplaintDrawer onClose={() => setCreateOpen(false)} onCreated={complaints.refresh} /> : null}
+      {createOpen && canCreate ? <CreateComplaintDrawer onClose={() => setCreateOpen(false)} onCreated={complaints.refresh} /> : null}
     </div>
   );
 }
