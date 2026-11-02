@@ -630,3 +630,6 @@
   .pay-figures > div + div { border-left: 0; border-top: 1px solid #e9e6e0; }
   .lookup-bar__count { margin-left: 0; padding-bottom: 0; }
 }
+
+/* A waiting time of three days or more is flagged on the pending screens. */
+.ledger__strong[data-late='true'] { color: #9b1b1b; }

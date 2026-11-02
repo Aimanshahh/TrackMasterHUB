@@ -27,12 +27,21 @@ function pageParams(page, limit) {
 
 /* ---------------------------------- Jobs --------------------------------- */
 
-async function listJobs({ status, priority, q, technician, page = 1, limit = 20 }) {
+async function listJobs({ status, priority, q, technician, pending, awaitingApproval, page = 1, limit = 20 }) {
   const filter = {};
 
   if (status && JOB_STATUSES.includes(status)) filter.status = status;
   if (priority) filter.priority = priority;
   if (technician) filter.technician = technician;
+
+  // Pending installations: vehicles that were sold and are not yet installed.
+  // Follow-up records carry no vehicle work, so they never appear here.
+  const onlyPending = pending === true || pending === 'true';
+  if (onlyPending) {
+    filter.requestType = 'new_installation';
+    if (!filter.status) filter.status = { $nin: ['completed', 'cancelled'] };
+  }
+  if (awaitingApproval === true || awaitingApproval === 'true') filter.approvalStatus = 'pending';
 
   if (q) {
     const regex = new RegExp(escapeRegex(q.trim()), 'i');
@@ -41,15 +50,32 @@ async function listJobs({ status, priority, q, technician, page = 1, limit = 20 
 
   const { page: safePage, limit: safeLimit, skip } = pageParams(page, limit);
 
+  // The oldest waiting job comes first on the pending screen; everywhere else
+  // the newest does.
+  const sort = onlyPending ? { createdAt: 1 } : { createdAt: -1 };
+
   const [rows, total] = await Promise.all([
-    Job.find(filter).sort({ createdAt: -1 }).skip(skip).limit(safeLimit).populate('technician', 'name station'),
+    Job.find(filter).sort(sort).skip(skip).limit(safeLimit).populate('technician', 'name station'),
     Job.countDocuments(filter),
   ]);
 
-  return {
-    data: rows.map((job) => job.toApiJson()),
-    meta: { total, page: safePage, limit: safeLimit, pages: Math.ceil(total / safeLimit) },
-  };
+  const meta = { total, page: safePage, limit: safeLimit, pages: Math.ceil(total / safeLimit) };
+
+  if (onlyPending) {
+    // Counts ignore the stage filter so the chips on the screen stay stable.
+    const base = { requestType: 'new_installation', status: { $nin: ['completed', 'cancelled'] } };
+    const [byStatus, approvalWaiting] = await Promise.all([
+      Job.aggregate([{ $match: base }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Job.countDocuments({ ...base, approvalStatus: 'pending' }),
+    ]);
+    meta.counts = {
+      all: byStatus.reduce((sum, row) => sum + row.count, 0),
+      awaitingApproval: approvalWaiting,
+      ...Object.fromEntries(byStatus.map((row) => [row._id, row.count])),
+    };
+  }
+
+  return { data: rows.map((job) => job.toApiJson()), meta };
 }
 
 async function getJobById(id) {

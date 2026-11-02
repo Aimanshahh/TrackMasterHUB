@@ -1118,16 +1118,18 @@ payments, the payment ledger and the admin money records screen.
 - **Show/hide password** on the sign-in form and the Create User drawer (one shared `PasswordInput` component, so any future password field gets it for free).
 - **Admin Pricing blank screen fixed.** Cause: `PricingPage.jsx` used `formatMoney` without importing it, so the page crashed on render (`ReferenceError: formatMoney is not defined`). The import was added. Recommended follow-up: add a React error boundary around the routed pages so one bad page shows a message instead of a blank screen.
 - **Minimum-price rule.** The backend no longer rejects quotes above the package rate; below-rate quotes still create an Admin approval through the existing workflow. Pricing and intake screens now say "minimum selling price".
+- **Printable invoices (second pass, 2 Nov).** Issued, part-paid, settled and cancelled invoices have a **Print** link that opens an A4 invoice (customer, vehicle, package, total, received, balance due, payment history, warranty note, signature lines). Use the browser's Print dialog and choose "Save as PDF" to download a PDF. Draft and cancelled invoices carry a "NOT VALID" watermark. Shop address, phone, email and tax number are placeholders in `frontend/src/content/business.js` and must be filled in before invoices go to customers.
+- **Pending Installations (Admin and Operations)** and **Briefing Pending (Manager)** screens added. Pending Installations lists sold vehicles that are not installed, oldest first, with stage filters and counts (unassigned, assigned, scheduled, in progress, awaiting price approval). Briefing Pending lists customers with a completed installation and an incomplete security briefing, longest wait first; it never shows CNIC, DOB, E-PIN or other briefing details.
 - **Multiple vehicles per customer.** The salesperson intake has an "+ Add another vehicle" button. Each vehicle has its own name, registration, station, package, quoted price and approval reason, and becomes its own job under one customer. One shared installation slot applies to all vehicles. If one vehicle fails, the ones already sent are not duplicated on retry.
 
 ### 20.2 Findings from the code review
 
 | Area | Finding |
 |---|---|
-| Invoices | **Not printable.** They exist as records and on-screen tables only: no print view, no PDF generation, no print stylesheet. Section 9 requires server-generated PDFs. |
+| Invoices | **Printable since the second pass** (browser print / Save as PDF). Still open: server-generated PDFs (section 9), real shop details, thermal-receipt format if wanted. |
 | Live vehicle status | **Not started.** Nothing in the backend talks to the Laravel/GPSWOX/Traccar server (section 7 is entirely open). |
-| Pending Installations | No dedicated screen. Operations only has the general work queue. |
-| Briefing Pending | No dedicated screen. Briefing completion exists on the customer record only. |
+| Pending Installations | **Built in the second pass** (Admin and Operations). |
+| Briefing Pending | **Built in the second pass** (Manager). |
 | Call history | Not started (see 20.5). |
 | Refunds / credit notes | Not built (cancellation is blocked once money is received). |
 | Email / WhatsApp for tickets | Not built (section 19.1). |
@@ -1186,8 +1188,8 @@ CRM OneDoor could not be viewed during this review, so the following are candida
 
 ### 20.7 Updated build order
 
-1. Printable invoices (print view plus server-generated PDF), because invoices are already in daily use.
-2. Pending Installations and Briefing Pending screens (data already exists; low risk).
+1. ~~Printable invoices~~ — done (browser print / Save as PDF); server-generated PDF and real shop details remain.
+2. ~~Pending Installations and Briefing Pending screens~~ — done.
 3. Tracking API discovery (20.3), then the vehicle status sync and Vehicle Records screen.
 4. Call logs: model, webhook, Call Logs page, customer Calls tab, service timeline (20.5).
 5. Customer history report (19.3) reusing the call and service timeline.

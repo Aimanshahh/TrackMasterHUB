@@ -148,6 +148,68 @@ async function listCustomers({ q, accountStatus, page = 1, limit = 20 } = {}) {
   };
 }
 
+/**
+ * Customers whose vehicle is installed but whose security briefing is not done.
+ * These accounts stay inactive until the manager completes the briefing, so the
+ * longest-waiting customer comes first. Only contact and vehicle details are
+ * returned; the sensitive briefing fields are never part of a list.
+ */
+async function listBriefingPending({ q, page = 1, limit = 20 } = {}) {
+  const waiting = await Job.aggregate([
+    { $match: { requestType: 'new_installation', status: 'completed' } },
+    {
+      $group: {
+        _id: '$customer',
+        since: { $min: { $ifNull: ['$completedAt', '$updatedAt'] } },
+        vehicles: {
+          $push: {
+            label: '$vehicle.label',
+            registration: '$vehicle.registration',
+            completedAt: { $ifNull: ['$completedAt', '$updatedAt'] },
+          },
+        },
+      },
+    },
+  ]);
+
+  const byCustomer = new Map(waiting.map((row) => [row._id.toString(), row]));
+  const filter = { _id: { $in: waiting.map((row) => row._id) }, briefingCompleted: { $ne: true } };
+
+  if (q) {
+    const regex = new RegExp(escapeRegex(q.trim()), 'i');
+    filter.$or = [{ name: regex }, { phone: regex }, { company: regex }];
+  }
+
+  const customers = await Customer.find(filter).populate('owner', 'name role');
+
+  const rows = customers
+    .map((customer) => {
+      const group = byCustomer.get(customer._id.toString());
+      return {
+        id: customer._id.toString(),
+        name: customer.name,
+        phone: customer.phone ?? '',
+        company: customer.company ?? '',
+        owner: customer.owner?.name ? { id: customer.owner._id.toString(), name: customer.owner.name } : null,
+        waitingSince: group?.since?.toISOString?.() ?? null,
+        vehicles: (group?.vehicles ?? []).map((vehicle) => ({
+          label: vehicle.label ?? '',
+          registration: vehicle.registration ?? '',
+          completedAt: vehicle.completedAt?.toISOString?.() ?? null,
+        })),
+      };
+    })
+    .sort((a, b) => new Date(a.waitingSince ?? 0) - new Date(b.waitingSince ?? 0));
+
+  const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || 20));
+
+  return {
+    data: rows.slice((safePage - 1) * safeLimit, safePage * safeLimit),
+    meta: { total: rows.length, page: safePage, limit: safeLimit, pages: Math.ceil(rows.length / safeLimit) },
+  };
+}
+
 /** One customer with the commercial and service history the manager needs. */
 async function getCustomerProfile(customerId) {
   const customer = await Customer.findById(customerId).populate('owner', 'name role email');
@@ -296,4 +358,4 @@ async function listBillingQueue({ page = 1, limit = 20 } = {}) {
   };
 }
 
-export { getManagerSummary, listCustomers, getCustomerProfile, saveBriefing, listBillingQueue };
+export { getManagerSummary, listCustomers, listBriefingPending, getCustomerProfile, saveBriefing, listBillingQueue };
