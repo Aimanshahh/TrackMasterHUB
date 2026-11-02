@@ -532,7 +532,8 @@
   color: #901016;
 }
 
-.quote-note[data-state='exact'] {
+.quote-note[data-state='exact'],
+.quote-note[data-state='above'] {
   border-left-color: #1f7a4d;
   background: #f3f8f4;
   color: #1f6b45;
@@ -652,4 +653,75 @@
   .approval__decision-note {
     text-align: left;
   }
+}
+
+/* Show / hide password control */
+.password-input {
+  position: relative;
+  display: block;
+}
+
+.password-input .input {
+  width: 100%;
+  padding-right: 2.75rem;
+}
+
+.password-input__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  transform: translateY(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  opacity: 0.65;
+  cursor: pointer;
+}
+
+.password-input__toggle:hover,
+.password-input__toggle:focus-visible {
+  opacity: 1;
+}
+
+/* Several vehicles under one customer */
+.vehicle-block {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0 0 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line, rgba(128, 128, 128, 0.25));
+  border-radius: 0.75rem;
+}
+
+.vehicle-block__title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.vehicle-block__remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.vehicle-block__remove:hover {
+  opacity: 1;
+}
+
+.vehicle-add {
+  width: 100%;
+  margin-bottom: 1rem;
 }

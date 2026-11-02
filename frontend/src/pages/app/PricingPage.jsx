@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { usePackages } from '../../hooks/usePackages.js';
 import { formatDayTime } from '../../app/operations.js';
+import { formatMoney } from '../../lib/format.js';
 
 /**
  * The rate sheet the whole sales flow depends on. The admin owns the numbers;
@@ -69,14 +70,14 @@ function PackageRateRow({ pkg, index, onSave }) {
             </p>
           </div>
           <p className="rate-row__current">
-            <span>Current rate</span>
+            <span>Minimum price</span>
             <strong>{unset ? 'Not set' : formatMoney(pkg.price)}</strong>
           </p>
         </header>
 
         <div className="rate-row__controls">
           <label className="field field--price">
-            <span className="field__label">Package rate</span>
+            <span className="field__label">Minimum selling price</span>
             <div className="money-input">
               <em aria-hidden="true">PKR</em>
               <input
@@ -150,11 +151,11 @@ export default function PricingPage() {
       <section className="pricing-lede">
         <div>
           <p className="app-page-head__eyebrow">COMMERCIAL CONTROLS</p>
-          <h2>One rate per package. Nothing is quoted without one.</h2>
+          <h2>One minimum price per package. Nothing is quoted without one.</h2>
           <p>
-            These are the prices every installation quote starts from. A salesperson can quote at the
-            package rate straight away; quoting below it creates an approval request here, and the
-            installation cannot be completed until you decide.
+            Each rate is the lowest price a salesperson may sell the package for. They can quote at
+            the rate or above it without approval; quoting below it creates an approval request here,
+            and the installation cannot be completed until you decide.
           </p>
         </div>
       </section>

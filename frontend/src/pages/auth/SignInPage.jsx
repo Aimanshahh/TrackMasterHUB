@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import logoUrl from '../../assets/brand/trackmaster-logo.png';
 import AuthSplash from '../../components/auth/AuthSplash.jsx';
+import PasswordInput from '../../components/ui/PasswordInput.jsx';
 import { homeFor, roleLabels } from '../../app/roles.js';
 import { useAuth } from '../../context/auth.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
@@ -156,9 +157,8 @@ export default function SignInPage() {
 
         <label className="field field--full">
           <span className="field__label">Password</span>
-          <input
+          <PasswordInput
             className="input"
-            type="password"
             value={form.password}
             onChange={(event) => setForm((old) => ({ ...old, password: event.target.value }))}
             autoComplete={setup ? 'new-password' : 'current-password'}
