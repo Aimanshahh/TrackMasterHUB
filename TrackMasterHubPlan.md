@@ -363,7 +363,7 @@ Finalize the redo taxonomy with business stakeholders before building it.
 
 - Save the pricing policy/version used when the sale is submitted.
 
-- Below-minimum price requires Admin approval with approver, reason and timestamp.
+- **The admin-set package rate is the minimum selling price, not a fixed price.** A salesperson may quote at or above it with no approval (for example Basic at PKR 15,000 can be sold at PKR 20,000). A quote below it needs Admin approval with approver, reason and timestamp. There is no upper limit.
 
 - Rejected submissions remain in history; changes follow a controlled resubmission process.
 
@@ -1108,3 +1108,89 @@ payments, the payment ledger and the admin money records screen.
 6. Salesperson quotation and renewal history on top of the existing pricing and
    approvals; then printable invoices/certificates, refunds and credit notes.
 7. Automated tests and CI.
+
+---
+
+## 20. Review of 2 November 2026 — Status, Gaps and Next Steps
+
+### 20.1 Changed in this pass
+
+- **Show/hide password** on the sign-in form and the Create User drawer (one shared `PasswordInput` component, so any future password field gets it for free).
+- **Admin Pricing blank screen fixed.** Cause: `PricingPage.jsx` used `formatMoney` without importing it, so the page crashed on render (`ReferenceError: formatMoney is not defined`). The import was added. Recommended follow-up: add a React error boundary around the routed pages so one bad page shows a message instead of a blank screen.
+- **Minimum-price rule.** The backend no longer rejects quotes above the package rate; below-rate quotes still create an Admin approval through the existing workflow. Pricing and intake screens now say "minimum selling price".
+- **Multiple vehicles per customer.** The salesperson intake has an "+ Add another vehicle" button. Each vehicle has its own name, registration, station, package, quoted price and approval reason, and becomes its own job under one customer. One shared installation slot applies to all vehicles. If one vehicle fails, the ones already sent are not duplicated on retry.
+
+### 20.2 Findings from the code review
+
+| Area | Finding |
+|---|---|
+| Invoices | **Not printable.** They exist as records and on-screen tables only: no print view, no PDF generation, no print stylesheet. Section 9 requires server-generated PDFs. |
+| Live vehicle status | **Not started.** Nothing in the backend talks to the Laravel/GPSWOX/Traccar server (section 7 is entirely open). |
+| Pending Installations | No dedicated screen. Operations only has the general work queue. |
+| Briefing Pending | No dedicated screen. Briefing completion exists on the customer record only. |
+| Call history | Not started (see 20.5). |
+| Refunds / credit notes | Not built (cancellation is blocked once money is received). |
+| Email / WhatsApp for tickets | Not built (section 19.1). |
+| Tests / CI | None. |
+| Error handling | No error boundary; any render error blanks the page. |
+| Acceptance checklist (section 16) | All boxes are still unticked even though much is built; tick them as each item is verified. |
+
+### 20.3 Live vehicle status (Manager and Admin)
+
+Goal: show each vehicle's real Active / Inactive state on the Manager and Admin screens.
+
+Information needed from the Laravel (GPSWOX + Traccar) server:
+
+1. The API to use: GPSWOX user API (login returns `user_api_hash`, then a device list call) or Traccar's REST API (`/api/devices`, `/api/positions`).
+2. A service account for the Hub backend (read-only), and whether the server allows requests from the Hub backend's IP.
+3. One sample JSON response for an online vehicle and one for an offline vehicle (secrets removed).
+4. Which fields define status: last position time, online/offline state, ignition, subscription expiry.
+5. The inactivity rule (for example no data for more than 24 hours = Inactive).
+6. The matching key between a Hub vehicle and a tracking device (IMEI is the best candidate, since Operations already records it).
+7. Rate limits and expected response time.
+
+Design:
+
+- A backend sync service calls the tracking API on a schedule and caches the result per vehicle: `trackingStatus` (`active` / `inactive` / `unknown`), `lastSeenAt`, `syncedAt` and `source`.
+- Screens read the cache, never the live API, so a slow or down tracking server cannot freeze the Hub.
+- A stale or failed sync shows "Unknown / last synced at …" and never an invented status (as section 7 requires).
+- Keep tracking status separate from installation, briefing and account status (section 6).
+
+### 20.4 New screens
+
+- **Pending Installations (Admin and Operations):** vehicles sold but not installed, with age, package, approval flag, assigned technician, requested slot and filters (unassigned, scheduled, overdue, awaiting price approval).
+- **Briefing Pending (Manager):** installed customers whose security briefing is incomplete, oldest first, with phone, vehicle and days waiting, and a direct action to open the briefing form. Completing the briefing activates the account as today.
+- **Vehicle Records (Manager and Admin):** searchable list of all vehicles with customer, registration, IMEI, SIM, station and the live Active / Inactive badge from 20.3.
+
+### 20.5 Call logs and service history
+
+Recommendation: **build both views on one data store.**
+
+- A single `CallLog` collection holds every call (provider call id as the unique key, normalized phone number, direction, start time, duration, outcome, agent, recording link, customer reference when matched).
+- **Call Logs page (Admin and Manager):** search by phone number, date range, outcome and agent; includes an "unmatched numbers" tab for calls that match no customer.
+- **Calls tab on the customer record:** the same data filtered to that customer.
+- **Service timeline on the customer record:** calls, installations, redo requests, complaints and invoices in date order. This is what settles a "you never serviced us" claim.
+- Matching uses the normalized phone number (+92 format) at import time; unmatched calls are kept, never attached to a guess.
+- Recording links are staff-only and never appear in notifications or customer-facing output.
+
+Webhook:
+
+- Endpoint: `POST /api/webhooks/calls/<provider>`, authenticated by a shared secret header or signature (not by a user login), idempotent on the provider call id, raw payload stored for debugging, and responding quickly.
+- The public URL will be `https://<deployed-backend-domain>/api/webhooks/calls/<provider>`. It cannot be issued until the backend is deployed on a public HTTPS domain; a local machine (localhost) is not reachable by the robocall server.
+- Open inputs: robocall provider name, a sample event payload, and whether it sends one event at call end or several.
+- Check the recording and consent rules that apply to the provider and the customers.
+
+### 20.6 Ideas from CRM OneDoor (to confirm)
+
+CRM OneDoor could not be viewed during this review, so the following are candidates to compare against it rather than confirmed features: renewal and expiry reminders, a customer timeline, service tickets with SLA, technician scheduling calendar, customer ledger statements, saved search filters and exports, and an audit view of price and approval changes. Please share the OneDoor screens or feature list to compare precisely.
+
+### 20.7 Updated build order
+
+1. Printable invoices (print view plus server-generated PDF), because invoices are already in daily use.
+2. Pending Installations and Briefing Pending screens (data already exists; low risk).
+3. Tracking API discovery (20.3), then the vehicle status sync and Vehicle Records screen.
+4. Call logs: model, webhook, Call Logs page, customer Calls tab, service timeline (20.5).
+5. Customer history report (19.3) reusing the call and service timeline.
+6. Email, then WhatsApp, for complaint updates (19.1).
+7. Refunds and credit notes; admin customer record parity.
+8. Error boundary, automated tests and CI.

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import PasswordInput from '../ui/PasswordInput.jsx';
+
 export default function CreateUserDrawer({ open, onClose, onCreated }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -43,7 +45,7 @@ export default function CreateUserDrawer({ open, onClose, onCreated }) {
             <label className="field field--full"><span className="field__label">Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required minLength={2} /></label>
             <label className="field field--full"><span className="field__label">Email</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label>
             <label className="field"><span className="field__label">Role</span><select className="input" value={role} onChange={(e) => setRole(e.target.value)}><option value="salesperson">Salesperson</option><option value="manager">Manager</option><option value="operations">Operations</option></select></label>
-            <label className="field"><span className="field__label">Temporary password</span><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} required /></label>
+            <label className="field"><span className="field__label">Temporary password</span><PasswordInput className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} required /></label>
           </div>
           <div className="drawer__section-label">Workspace access</div>
           <p className="field__hint">Choose the staff role, then set a temporary password to share securely. The backend stores only its password hash.</p>

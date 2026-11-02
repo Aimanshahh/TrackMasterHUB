@@ -9,7 +9,7 @@ import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { createApprovalForJob } from '../approvals/approvals.service.js';
 import { notifyUser } from '../notifications/notifications.service.js';
-import { CURRENCY, getPackagePricing } from '../pricing/pricing.service.js';
+import { getPackagePricing } from '../pricing/pricing.service.js';
 
 /** A station is flagged when it has fewer available devices than this. */
 export const LOW_STOCK_THRESHOLD = 3;
@@ -115,13 +115,8 @@ async function createJob(input, actor) {
 
     quotedPrice = Math.round(quote * 100) / 100;
 
-    if (quotedPrice > listPrice) {
-      throw makeError(
-        errorCodes.VALIDATION_ERROR,
-        `The quoted price cannot be above the ${pricing.name} package rate of ${CURRENCY} ${listPrice.toLocaleString()}.`,
-      );
-    }
-
+    // The package rate is the minimum selling price. Quoting at or above it
+    // needs no approval; quoting below it goes to the admin.
     approvalStatus = quotedPrice < listPrice ? 'pending' : 'not_required';
   }
 
