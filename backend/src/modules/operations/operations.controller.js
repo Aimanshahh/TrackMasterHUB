@@ -37,8 +37,8 @@ async function getTechnicianStock(req, res, next) {
 /* Jobs */
 async function getJobs(req, res, next) {
   try {
-    const { status, priority, q, technician, page, limit } = req.query;
-    return res.json(await listJobs({ status, priority, q, technician, page, limit }));
+    const { status, priority, q, technician, pending, awaitingApproval, page, limit } = req.query;
+    return res.json(await listJobs({ status, priority, q, technician, pending, awaitingApproval, page, limit }));
   } catch (error) { next(error); }
 }
 

@@ -21,11 +21,13 @@ import FollowUpsPage from './pages/app/FollowUpsPage.jsx';
 import OperationsPage from './pages/app/OperationsPage.jsx';
 import OverviewPage from './pages/app/OverviewPage.jsx';
 import MoneyPage from './pages/app/MoneyPage.jsx';
+import PendingInstallationsPage from './pages/app/PendingInstallationsPage.jsx';
 import PricingPage from './pages/app/PricingPage.jsx';
 import ReportsPage from './pages/app/ReportsPage.jsx';
 import SalesPage from './pages/app/SalesPage.jsx';
 import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
+import InvoicePrintPage from './pages/billing/InvoicePrintPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import SignInPage from './pages/auth/SignInPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
@@ -36,6 +38,7 @@ import OperationsQueuePage from './pages/operations/OperationsQueuePage.jsx';
 import OperationsReportsPage from './pages/operations/OperationsReportsPage.jsx';
 import OperationsSettingsPage from './pages/operations/OperationsSettingsPage.jsx';
 import OperationsTechniciansPage from './pages/operations/OperationsTechniciansPage.jsx';
+import ManagerBriefingPendingPage from './pages/manager/ManagerBriefingPendingPage.jsx';
 import ManagerComplaintsPage from './pages/manager/ManagerComplaintsPage.jsx';
 import ManagerCustomerDetailPage from './pages/manager/ManagerCustomerDetailPage.jsx';
 import ManagerCustomersPage from './pages/manager/ManagerCustomersPage.jsx';
@@ -78,6 +81,7 @@ export default function App() {
       <Route path="/welcome" element={<PublicLayout />}><Route index element={<LandingPage />} /></Route>
       <Route path="/status" element={<PublicLayout />}><Route index element={<SystemStatusPage />} /></Route>
       <Route element={<RequireSession />}>
+        <Route path="/invoices/:invoiceId/print" element={<InvoicePrintPage />} />
         <Route element={<RequireWorkspaceRole role="admin" />}>
           <Route path="/admin" element={<AppLayout workspace={adminWorkspace} />}>
             <Route index element={<OverviewPage />} />
@@ -86,6 +90,7 @@ export default function App() {
             <Route path="follow-ups" element={<FollowUpsPage />} />
             <Route path="sales" element={<SalesPage />} />
             <Route path="operations" element={<OperationsPage />} />
+            <Route path="pending-installations" element={<PendingInstallationsPage />} />
             <Route path="complaints" element={<ComplaintsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="pricing" element={<PricingPage />} />
@@ -115,6 +120,7 @@ export default function App() {
             <Route index element={<ManagerOverviewPage />} />
             <Route path="customers" element={<ManagerCustomersPage />} />
             <Route path="customers/:customerId" element={<ManagerCustomerDetailPage />} />
+            <Route path="briefing-pending" element={<ManagerBriefingPendingPage />} />
             <Route path="invoices" element={<ManagerInvoicesPage />} />
             <Route path="payments" element={<ManagerPaymentsPage />} />
             <Route path="complaints" element={<ManagerComplaintsPage />} />
@@ -127,6 +133,7 @@ export default function App() {
           <Route path="/operations" element={<AppLayout workspace={operationsWorkspace} />}>
             <Route index element={<OperationsOverviewPage />} />
             <Route path="queue" element={<OperationsQueuePage />} />
+            <Route path="pending-installations" element={<PendingInstallationsPage />} />
             <Route path="complaints" element={<OperationsComplaintsPage />} />
             <Route path="inventory" element={<OperationsInventoryPage />} />
             <Route path="technicians" element={<OperationsTechniciansPage />} />

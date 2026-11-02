@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 import {
+  getInvoice,
   getInvoicePayments,
   getInvoices,
   getPayments,
@@ -25,6 +26,7 @@ billingRouter.get('/series', billingDesk, getSeries);
 
 billingRouter.get('/invoices', billingDesk, getInvoices);
 billingRouter.post('/invoices', billingDesk, postInvoice);
+billingRouter.get('/invoices/:id', billingDesk, getInvoice);
 billingRouter.post('/invoices/:id/issue', billingDesk, postIssueInvoice);
 billingRouter.post('/invoices/:id/cancel', billingDesk, postCancelInvoice);
 billingRouter.get('/invoices/:id/payments', billingDesk, getInvoicePayments);

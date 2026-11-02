@@ -2,6 +2,7 @@ import {
   cancelInvoice,
   createInvoice,
   getBillingSummary,
+  getInvoiceDetail,
   getMonthlySeries,
   issueInvoice,
   listInvoicePayments,
@@ -14,6 +15,12 @@ async function getInvoices(req, res, next) {
   try {
     const { q, status, paymentState, customer, job, page, limit } = req.query;
     return res.json(await listInvoices({ q, status, paymentState, customer, job, page, limit }));
+  } catch (error) { next(error); }
+}
+
+async function getInvoice(req, res, next) {
+  try {
+    return res.json({ data: await getInvoiceDetail(req.params.id) });
   } catch (error) { next(error); }
 }
 
@@ -72,6 +79,7 @@ async function getSeries(req, res, next) {
 
 export {
   getInvoices,
+  getInvoice,
   postInvoice,
   postIssueInvoice,
   postCancelInvoice,

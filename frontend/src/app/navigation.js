@@ -12,6 +12,7 @@ const adminGroups = [
     label: 'Field',
     items: [
       { to: '/admin/operations', label: 'Operations', icon: 'operations' },
+      { to: '/admin/pending-installations', label: 'Pending installations', icon: 'operations' },
       { to: '/admin/complaints', label: 'Complaints', icon: 'complaints' },
     ],
   },
@@ -40,6 +41,7 @@ const operationsGroups = [
     items: [
       { to: '/operations', label: 'Overview', icon: 'overview', end: true },
       { to: '/operations/queue', label: 'Work queue', icon: 'operations' },
+      { to: '/operations/pending-installations', label: 'Pending installations', icon: 'followup' },
       { to: '/operations/complaints', label: 'Complaints', icon: 'complaints' },
     ],
   },
@@ -70,6 +72,7 @@ const managerGroups = [
     items: [
       { to: '/manager', label: 'Overview', icon: 'overview', end: true },
       { to: '/manager/customers', label: 'Customers', icon: 'customers' },
+      { to: '/manager/briefing-pending', label: 'Briefing pending', icon: 'followup' },
     ],
   },
   {

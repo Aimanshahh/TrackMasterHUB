@@ -121,6 +121,11 @@ export default function InvoiceTable({
                       Record payment
                     </button>
                   ) : null}
+                  {invoice.status !== 'draft' ? (
+                    <Link className="ledger__open" to={`/invoices/${invoice.id}/print`} target="_blank" rel="noopener noreferrer">
+                      Print
+                    </Link>
+                  ) : null}
                   {invoice.status === 'issued' && invoice.balance <= 0 ? (
                     <span className="ledger__closed">Settled</span>
                   ) : null}

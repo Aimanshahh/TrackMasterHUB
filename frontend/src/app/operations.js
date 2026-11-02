@@ -60,3 +60,14 @@ export function formatDayTime(value) {
 export function requestTypeLabel(type) {
   return type === 'follow_up' ? 'Follow-up' : 'New installation';
 }
+
+/** Whole days since a date, never negative. */
+export function daysSince(value) {
+  if (!value) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000));
+}
+
+export function waitingLabel(days) {
+  if (days <= 0) return 'Today';
+  return `${days} ${days === 1 ? 'day' : 'days'}`;
+}

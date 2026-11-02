@@ -64,6 +64,17 @@ async function listInvoices({ q, status, paymentState, customer, job, page = 1, 
   };
 }
 
+/** One invoice with its instalment history, for the printable invoice view. */
+async function getInvoiceDetail(id) {
+  const invoice = await Invoice.findById(id)
+    .populate('customer', 'name phone')
+    .populate('job', 'reference status');
+
+  if (!invoice) throw makeError(errorCodes.NOT_FOUND, 'No invoice matches that id.');
+
+  return { invoice: invoice.toApiJson(), payments: await listInvoicePayments(invoice._id) };
+}
+
 /**
  * Draft an invoice. The manager owns this step; the amount starts at what the
  * installation was actually sold for so nobody retypes a price from memory.
@@ -475,6 +486,7 @@ async function getMonthlySeries(months = 6) {
 
 export {
   listInvoices,
+  getInvoiceDetail,
   createInvoice,
   issueInvoice,
   cancelInvoice,

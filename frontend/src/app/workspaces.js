@@ -21,6 +21,7 @@ const adminPages = [
   { match: /^\/admin\/follow-ups/, title: 'Follow-ups', description: 'Review customer follow-up work recorded by the team.' },
   { match: /^\/admin\/sales/, title: 'Sales', description: 'Sales and approval information will appear here when the sales workflow is connected.' },
   { match: /^\/admin\/operations/, title: 'Operations queue', description: 'Installation work items, technician assignment and station-level stock allocation.' },
+  { match: /^\/admin\/pending-installations/, title: 'Pending installations', description: 'Sold vehicles that are not installed yet, oldest first.' },
   { match: /^\/admin\/complaints/, title: 'Complaints', description: 'Recorded service tickets and their resolution progress.' },
   { match: /^\/admin\/reports/, title: 'Reports', description: 'Business summaries will be available as verified records are collected.' },
   { match: /^\/admin\/pricing/, title: 'Pricing', description: 'The package rates every installation quote starts from.' },
@@ -34,6 +35,7 @@ const adminPages = [
 const operationsPages = [
   { match: /^\/operations\/?$/, title: 'Operations overview', description: 'Live workload, stock position and technician availability from the business database.' },
   { match: /^\/operations\/queue/, title: 'Work queue', description: 'Installation and follow-up work pushed by the sales team, ready for assignment.' },
+  { match: /^\/operations\/pending-installations/, title: 'Pending installations', description: 'Sold vehicles waiting for assignment, scheduling or installation, oldest first.' },
   { match: /^\/operations\/complaints/, title: 'Complaints', description: 'Service tickets logged by the team and their resolution progress.' },
   { match: /^\/operations\/inventory/, title: 'Inventory', description: 'Device stock by IMEI and SIM stock held at each station.' },
   { match: /^\/operations\/technicians/, title: 'Technicians', description: 'Field technicians registered by operations, with their home station.' },
@@ -44,6 +46,7 @@ const operationsPages = [
 const managerPages = [
   { match: /^\/manager\/?$/, title: 'Manager overview', description: 'Money collected, invoices to raise and accounts waiting on a security briefing.' },
   { match: /^\/manager\/customers\/[^/]+$/, title: 'Customer account', description: 'Profile, installations, security briefing and the full money history for this customer.' },
+  { match: /^\/manager\/briefing-pending/, title: 'Briefing pending', description: 'Installed customers whose security briefing is not complete, so their account is still inactive.' },
   { match: /^\/manager\/customers/, title: 'Customer lookup', description: 'Find any customer by name, phone, company or category and review their account.' },
   { match: /^\/manager\/invoices/, title: 'Invoices', description: 'Draft, issue and settle installation invoices, including part payments.' },
   { match: /^\/manager\/payments/, title: 'Payments', description: 'Every rupee received, with its method, reference and the invoice it settles.' },

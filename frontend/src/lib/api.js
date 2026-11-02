@@ -287,6 +287,10 @@ export function fetchInvoices(params = {}, { signal } = {}) {
   return apiRequest(withQuery('/api/billing/invoices', params), { signal });
 }
 
+export function fetchInvoiceDetail(id, { signal } = {}) {
+  return apiRequest(`/api/billing/invoices/${encodeURIComponent(id)}`, { signal });
+}
+
 export function createInvoiceRecord(input) {
   return sendJson('/api/billing/invoices', 'POST', input);
 }
@@ -313,6 +317,10 @@ export function recordInvoicePayment(id, input) {
 
 export function fetchManagerSummary({ signal } = {}) {
   return apiRequest('/api/manager/summary', { signal });
+}
+
+export function fetchBriefingPending(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/manager/briefing-pending', params), { signal });
 }
 
 export function fetchManagerCustomers(params = {}, { signal } = {}) {

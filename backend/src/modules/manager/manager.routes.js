@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 import {
+  getBriefingPending,
   getCustomer,
   getCustomerLookup,
   getQueue,
@@ -18,6 +19,7 @@ const managerDesk = requireRole('admin', 'manager');
 
 managerRouter.get('/summary', managerDesk, getSummary);
 managerRouter.get('/customers', managerDesk, getCustomerLookup);
+managerRouter.get('/briefing-pending', managerDesk, getBriefingPending);
 managerRouter.get('/customers/:id', managerDesk, getCustomer);
 managerRouter.patch('/customers/:id/briefing', managerDesk, patchBriefing);
 managerRouter.get('/billing-queue', managerDesk, getQueue);
