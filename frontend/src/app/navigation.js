@@ -13,6 +13,7 @@ const adminGroups = [
     items: [
       { to: '/admin/operations', label: 'Operations', icon: 'operations' },
       { to: '/admin/pending-installations', label: 'Pending installations', icon: 'operations' },
+      { to: '/admin/vehicles', label: 'Vehicles', icon: 'operations' },
       { to: '/admin/complaints', label: 'Complaints', icon: 'complaints' },
     ],
   },
@@ -73,6 +74,7 @@ const managerGroups = [
       { to: '/manager', label: 'Overview', icon: 'overview', end: true },
       { to: '/manager/customers', label: 'Customers', icon: 'customers' },
       { to: '/manager/briefing-pending', label: 'Briefing pending', icon: 'followup' },
+      { to: '/manager/vehicles', label: 'Vehicles', icon: 'operations' },
     ],
   },
   {

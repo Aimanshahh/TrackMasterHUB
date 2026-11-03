@@ -1190,9 +1190,19 @@ CRM OneDoor could not be viewed during this review, so the following are candida
 
 1. ~~Printable invoices~~ — done (browser print / Save as PDF); server-generated PDF and real shop details remain.
 2. ~~Pending Installations and Briefing Pending screens~~ — done.
-3. Tracking API discovery (20.3), then the vehicle status sync and Vehicle Records screen.
+3. ~~Tracking API discovery, vehicle status sync and Vehicles screen~~ — done (see 20.8); needs live testing with the real service account.
 4. Call logs: model, webhook, Call Logs page, customer Calls tab, service timeline (20.5).
 5. Customer history report (19.3) reusing the call and service timeline.
 6. Email, then WhatsApp, for complaint updates (19.1).
 7. Refunds and credit notes; admin customer record parity.
 8. Error boundary, automated tests and CI.
+
+### 20.8 Live vehicle status — built (3 November 2026)
+
+- **Vehicles screen (Manager and Admin):** every installed vehicle (completed installation) with customer, IMEI, SIM, station, install date, live status and last-seen time. Filters: All, Active, Inactive, Not on tracking server, Unknown, plus search by registration, customer, phone, IMEI or SIM. A "Refresh status" button reads the tracking server immediately.
+- **How it works:** the backend signs in to the GPSWOX server with a service account (`POST /api/login`), reads `GET /api/get_devices`, flattens the groups and their `items`, and keeps the result in memory. It re-syncs every `TRACKING_SYNC_SECONDS` (default 300). If the saved login expires it signs in again by itself. Screens read the cache, so a slow tracking server never blocks the Hub. Credentials live only in `backend/.env` (`TRACKING_API_URL`, `TRACKING_EMAIL`, `TRACKING_PASSWORD`).
+- **Matching:** the tracking server's `name` is the registration plate, so vehicles are matched by normalized registration (`AYM-118`, ` aym 118 ` and `AYM118` are the same). A Hub vehicle with no matching tracker device is shown as "Not on tracking server" rather than guessed.
+- **Status rules:** `online` / `ack` / `engine` with data newer than `TRACKING_INACTIVE_HOURS` (default 24) = Active. `offline`, or no data for longer than the limit, or a device that never reported = Inactive. A state the code does not recognise = Unknown. Before the first successful sync everything shows Unknown.
+- **Failure behaviour:** if the tracking server is unreachable or rejects the login, the screen shows the reason and keeps the last good data with its age; nothing is invented.
+- **Assumptions to confirm:** tracker timestamps are Pakistan time (`TRACKING_TIME_OFFSET=+05:00`); 24 hours of silence means Inactive; the cache is per backend process, so a restart reloads it within seconds (run one backend instance, or move the cache to the database if you scale out).
+- **Security notes:** the tracking server is currently reached over plain HTTP (`http://45.84.138.70`), so the service account password and device list travel unencrypted. Put HTTPS on the tracking server or connect over a private network/VPN before using real credentials, and use a dedicated read-only GPSWOX user. The device list is not copied into the database and coordinates are not exposed by the Hub API.
