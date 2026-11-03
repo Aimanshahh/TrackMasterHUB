@@ -319,6 +319,14 @@ export function fetchManagerSummary({ signal } = {}) {
   return apiRequest('/api/manager/summary', { signal });
 }
 
+export function fetchVehicles(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/vehicles', params), { signal });
+}
+
+export function refreshVehicleStatus() {
+  return apiRequest('/api/vehicles/refresh', { method: 'POST' });
+}
+
 export function fetchBriefingPending(params = {}, { signal } = {}) {
   return apiRequest(withQuery('/api/manager/briefing-pending', params), { signal });
 }

@@ -1,6 +1,7 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { setMongoUri, connectDatabase } from './config/db.js';
+import { startTrackingSync } from './modules/tracking/tracking.service.js';
 
 // Set the MongoDB URI from environment variables before starting the server.
 setMongoUri(env.mongoUri);
@@ -15,6 +16,7 @@ async function start() {
   }
 
   const app = createApp();
+  startTrackingSync();
   const server = app.listen(env.port, () => {
     console.log(
       `[trackmaster-hub-api] ${env.nodeEnv} listening on http://localhost:${env.port} (v${env.version})`,
