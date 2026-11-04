@@ -491,6 +491,10 @@
 
 .complaint-lines { padding: 0 18px 8px; }
 .complaint-lines li { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid #eeece7; }
+.complaint-lines li { flex-wrap: wrap; }
+.complaint-lines__history { flex-basis: 100%; font-size: 11.5px; color: #5b6068; }
+.complaint-lines__history summary { cursor: pointer; }
+.complaint-lines__history p { margin: 4px 0 0; }
 .complaint-lines li:last-child { border-bottom: 0; }
 .complaint-lines strong { display: block; margin-top: 4px; color: #26292f; font-size: 11.5px; font-weight: 600; }
 .complaint-lines small { display: block; margin-top: 3px; color: #8d9197; font-size: 9.5px; }

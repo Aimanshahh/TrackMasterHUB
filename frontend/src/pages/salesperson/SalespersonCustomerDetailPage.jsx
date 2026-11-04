@@ -82,7 +82,7 @@ export default function SalespersonCustomerDetailPage() {
 
   return (
     <div className="sp-customer">
-      <nav className="sp-back"><Link to="/salesperson/customers">← My customers</Link></nav>
+      <nav className="sp-back"><Link to="/salesperson/customers">← My customers</Link> · <Link to={`/customers/${customerId}/report`} target="_blank" rel="noopener noreferrer">History report</Link></nav>
 
       <header className="sp-customer__head">
         <div className="sp-customer__id">

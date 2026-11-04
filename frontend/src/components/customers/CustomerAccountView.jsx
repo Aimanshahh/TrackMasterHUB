@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import AdjustmentLedger from '../billing/AdjustmentLedger.jsx';
 import InvoiceTable from '../billing/InvoiceTable.jsx';
 import PaymentLedger from '../billing/PaymentLedger.jsx';
+import CustomerTimeline from './CustomerTimeline.jsx';
 import BriefingPanel, { AccountStateTag } from '../manager/BriefingPanel.jsx';
 import { PriorityTag, StatusPill } from '../operations/OpsStatus.jsx';
 import { formatDayTime } from '../../app/operations.js';
@@ -201,6 +202,8 @@ export default function CustomerAccountView({
         />
       </section>
 
+      <CustomerTimeline customerId={customer.id} />
+
       <section className="panel">
         <div className="panel__head">
           <div>
@@ -224,6 +227,18 @@ export default function CustomerAccountView({
                   <small>{complaint.category} · logged {formatDayTime(complaint.createdAt)}</small>
                 </div>
                 <StatusPill status={complaint.status} label={complaint.statusLabel} />
+                {complaint.history?.length ? (
+                  <details className="complaint-lines__history">
+                    <summary>{complaint.history.length} status {complaint.history.length === 1 ? 'entry' : 'entries'}</summary>
+                    <div>
+                      {[...complaint.history].reverse().map((entry, index) => (
+                        <p key={`${entry.at}-${index}`}>
+                          {formatDayTime(entry.at)} · {entry.statusLabel || entry.status}{entry.note ? ` — ${entry.note}` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
               </li>
             ))}
           </ul>
