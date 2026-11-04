@@ -1215,3 +1215,11 @@ CRM OneDoor could not be viewed during this review, so the following are candida
 - **Customer record parity.** Admin and manager share one view with the timeline, ticket history, credit notes and the report link.
 - **Reliability.** A screen that crashes no longer blanks the app (error boundary), automated tests run with `npm test` in `backend/`, and `.github/workflows/ci.yml` runs them against a MongoDB container plus a frontend build.
 - **Open questions.** Whether customers have agreed to receive email, which WhatsApp provider to use, and the real shop details in `frontend/src/content/business.js`.
+
+### 20.10 Robocall results and manager scope (4 November 2026)
+
+- **Robocall receiver.** The provider posts each finished call to `POST /api/webhooks/robocall?token=<ROBOCALL_WEBHOOK_SECRET>`. The endpoint is closed until the secret is set, rejects a wrong secret, and ignores a repeated call ID. The untouched payload is stored with each call, so a field that is not recognised is never lost. Field names are matched loosely (`call_id`, `call_to`, `status`, `duration`, `dtmf`, `alert_id`, `alert_type`, `amount`, `time`); confirm against the first real payload.
+- **Matching.** A call is linked to a customer by the last ten digits of the phone number, whatever the punctuation. If two customers share a number the call stays unmatched.
+- **Who sees it.** Admin and operations get a Call logs screen and the call section of the customer history report. Manager and salesperson do not see call data.
+- **Manager desk scope.** The manager sees only customers with a completed installation (list, record and history report). Admin still sees everyone.
+- **To deploy:** the backend must be reachable by the provider; HTTPS is recommended.

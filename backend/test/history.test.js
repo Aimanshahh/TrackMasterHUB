@@ -76,7 +76,7 @@ test('report never carries CNIC, date of birth or E-PIN', { skip }, async () => 
   assert.ok(!text.includes('3520112345671'));
   assert.ok(!text.includes('4821'));
   assert.ok(!text.includes('1990-01-01'));
-  assert.equal(report.calls.label, 'Call data not connected');
+  assert.equal(report.calls.rows.length, 0);
   assert.equal(report.installations.length, 1);
   assert.equal(report.complaints[0].timeToResolve, '2 hours');
 });

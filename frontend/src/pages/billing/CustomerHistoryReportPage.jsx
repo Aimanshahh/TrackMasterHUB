@@ -136,7 +136,16 @@ export default function CustomerHistoryReportPage() {
 
         <section className="rep-section">
           <h2>Calls</h2>
-          <p className="rep-notice">{data.calls.label}. Call history will appear here once the call provider is connected.</p>
+          {data.calls.rows.length === 0 ? <p className="rep-notice">{data.calls.label}.</p> : (
+            <table className="rep-table">
+              <thead><tr><th>When</th><th>Result</th><th>Duration</th><th>Keypress</th><th>Alert</th></tr></thead>
+              <tbody>
+                {data.calls.rows.map((c) => (
+                  <tr key={c.id}><td>{dayTime(c.calledAt)}</td><td>{c.statusLabel}</td><td>{c.durationSeconds}s</td><td>{c.dtmf || '—'}</td><td>{c.alertType || '—'}{c.alertId ? <span className="rep-sub">#{c.alertId}</span> : null}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
 
         {data.money ? (

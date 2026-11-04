@@ -29,6 +29,7 @@ import SalesPage from './pages/app/SalesPage.jsx';
 import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
 import AdjustmentPrintPage from './pages/billing/AdjustmentPrintPage.jsx';
+import CallLogsPage from './pages/app/CallLogsPage.jsx';
 import CustomerHistoryReportPage from './pages/billing/CustomerHistoryReportPage.jsx';
 import InvoicePrintPage from './pages/billing/InvoicePrintPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
@@ -98,6 +99,7 @@ export default function App() {
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
             <Route path="vehicles" element={<VehicleRecordsPage />} />
             <Route path="complaints" element={<ComplaintsPage />} />
+            <Route path="calls" element={<CallLogsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="pricing" element={<PricingPage />} />
             <Route path="approvals" element={<ApprovalsPage />} />
@@ -142,6 +144,7 @@ export default function App() {
             <Route path="queue" element={<OperationsQueuePage />} />
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
             <Route path="complaints" element={<OperationsComplaintsPage />} />
+            <Route path="calls" element={<CallLogsPage />} />
             <Route path="inventory" element={<OperationsInventoryPage />} />
             <Route path="technicians" element={<OperationsTechniciansPage />} />
             <Route path="reports" element={<OperationsReportsPage />} />
