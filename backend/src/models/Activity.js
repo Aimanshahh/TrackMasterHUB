@@ -23,6 +23,8 @@ const activitySchema = new mongoose.Schema(
         'invoice.issued',
         'invoice.cancelled',
         'payment.recorded',
+        'credit_note.issued',
+        'refund.recorded',
         'customer.briefing_completed',
       ],
     },

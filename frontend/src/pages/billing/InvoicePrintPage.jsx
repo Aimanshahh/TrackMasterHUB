@@ -16,6 +16,8 @@ function formatDay(value) {
 function stampFor(invoice) {
   if (invoice.status === 'cancelled') return { label: 'Cancelled', tone: 'void' };
   if (invoice.status === 'draft') return { label: 'Draft – not issued', tone: 'draft' };
+  if (invoice.paymentState === 'refund_due') return { label: 'Refund due', tone: 'partial' };
+  if (invoice.paymentState === 'credited') return { label: 'Credited', tone: 'paid' };
   if (invoice.balance <= 0) return { label: 'Paid', tone: 'paid' };
   if (invoice.paidAmount > 0) return { label: 'Part paid', tone: 'partial' };
   return { label: 'Unpaid', tone: 'unpaid' };
@@ -27,19 +29,19 @@ function stampFor(invoice) {
  */
 export default function InvoicePrintPage() {
   const { invoiceId } = useParams();
-  const [state, setState] = useState({ status: 'loading', invoice: null, payments: [], error: null });
+  const [state, setState] = useState({ status: 'loading', invoice: null, payments: [], adjustments: [], error: null });
 
   useDocumentTitle(state.invoice ? `Invoice ${state.invoice.reference}` : 'Invoice');
 
   useEffect(() => {
     const controller = new AbortController();
-    setState({ status: 'loading', invoice: null, payments: [], error: null });
+    setState({ status: 'loading', invoice: null, payments: [], adjustments: [], error: null });
 
     fetchInvoiceDetail(invoiceId, { signal: controller.signal })
-      .then((payload) => setState({ status: 'ready', invoice: payload.data.invoice, payments: payload.data.payments, error: null }))
+      .then((payload) => setState({ status: 'ready', invoice: payload.data.invoice, payments: payload.data.payments, adjustments: payload.data.adjustments ?? [], error: null }))
       .catch((error) => {
         if (error.name === 'AbortError') return;
-        setState({ status: 'error', invoice: null, payments: [], error: error.message });
+        setState({ status: 'error', invoice: null, payments: [], adjustments: [], error: error.message });
       });
 
     return () => controller.abort();
@@ -56,7 +58,7 @@ export default function InvoicePrintPage() {
     );
   }
 
-  const { invoice, payments } = state;
+  const { invoice, payments, adjustments } = state;
   const stamp = stampFor(invoice);
   const vehicle = [invoice.vehicle?.label, invoice.vehicle?.registration].filter(Boolean).join(' · ');
   const description = [invoice.packageName ? `${invoice.packageName} package` : 'GPS tracking installation', vehicle].filter(Boolean);
@@ -131,7 +133,15 @@ export default function InvoicePrintPage() {
         <section className="inv-totals">
           <dl>
             <div><dt>Total</dt><dd>{formatMoney(invoice.amount, invoice.currency)}</dd></div>
+            {invoice.creditedAmount > 0 ? (
+              <>
+                <div><dt>Credit notes</dt><dd>−{formatMoney(invoice.creditedAmount, invoice.currency)}</dd></div>
+                <div><dt>Net amount</dt><dd>{formatMoney(invoice.netAmount, invoice.currency)}</dd></div>
+              </>
+            ) : null}
             <div><dt>Received</dt><dd>{formatMoney(invoice.paidAmount, invoice.currency)}</dd></div>
+            {invoice.refundedAmount > 0 ? <div><dt>Refunded</dt><dd>−{formatMoney(invoice.refundedAmount, invoice.currency)}</dd></div> : null}
+            {invoice.refundable > 0 ? <div><dt>Owed back to customer</dt><dd>{formatMoney(invoice.refundable, invoice.currency)}</dd></div> : null}
             <div className="inv-totals__due"><dt>Balance due</dt><dd>{formatMoney(invoice.balance, invoice.currency)}</dd></div>
           </dl>
         </section>
@@ -155,6 +165,32 @@ export default function InvoicePrintPage() {
                     <td>{payment.methodLabel}</td>
                     <td>{payment.transactionRef || payment.reference}</td>
                     <td className="inv-num">{formatMoney(payment.amount, payment.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ) : null}
+
+        {adjustments.length > 0 ? (
+          <section className="inv-payments">
+            <h2>Credit notes and refunds</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">Document</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col" className="inv-num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adjustments.map((row) => (
+                  <tr key={row.id}>
+                    <td>{formatDay(row.issuedAt)}</td>
+                    <td>{row.kindLabel} {row.reference}</td>
+                    <td>{row.reason}</td>
+                    <td className="inv-num">{row.kind === 'credit_note' ? '−' : ''}{formatMoney(row.amount, row.currency)}</td>
                   </tr>
                 ))}
               </tbody>

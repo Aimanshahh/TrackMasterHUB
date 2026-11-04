@@ -22,7 +22,7 @@ export default function MoneyStrip({ summary }) {
         <p className="money-strip__caption">
           {summary.issuedCount === 0
             ? 'No invoice has been issued yet, so nothing is owed.'
-            : `across ${summary.issuedCount} issued ${summary.issuedCount === 1 ? 'invoice' : 'invoices'}${summary.overdueCount ? ` · ${summary.overdueCount} overdue` : ''}`}
+            : `across ${summary.issuedCount} issued ${summary.issuedCount === 1 ? 'invoice' : 'invoices'}${summary.overdueCount ? ` · ${summary.overdueCount} overdue` : ''}${summary.refundDue > 0 ? ` · ${formatMoney(summary.refundDue)} owed back to customers` : ''}`}
         </p>
         <div className="book-bar" role="presentation">
           <span className="book-bar__fill" style={{ width: `${collectedShare}%` }} />

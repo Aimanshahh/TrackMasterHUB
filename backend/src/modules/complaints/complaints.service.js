@@ -2,6 +2,8 @@ import Complaint, { COMPLAINT_STATUSES, complaintStatusLabels } from '../../mode
 import Customer from '../../models/Customer.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
+import { queueComplaintMessages } from '../messaging/messaging.service.js';
+import { TEMPLATE_FOR_STATUS } from '../messaging/templates.js';
 import { notifyUser } from '../notifications/notifications.service.js';
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -67,6 +69,7 @@ async function createComplaint(input, actor) {
   });
 
   await complaint.save();
+  await queueComplaintMessages(complaint, 'logged', 0);
   return complaint.toApiJson();
 }
 
@@ -101,6 +104,10 @@ async function updateComplaint(id, input, actor) {
   }
 
   await complaint.save();
+
+  if (statusChanged && TEMPLATE_FOR_STATUS[nextStatus]) {
+    await queueComplaintMessages(complaint, TEMPLATE_FOR_STATUS[nextStatus], complaint.history.length - 1);
+  }
 
   if (statusChanged && complaint.createdBy && String(complaint.createdBy) !== String(actor.id)) {
     await notifyUser({

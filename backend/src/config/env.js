@@ -59,5 +59,15 @@ export const env = {
   trackingInactiveHours: Math.max(1, Number(process.env.TRACKING_INACTIVE_HOURS ?? 24) || 24),
   // GPSWOX sends times without a zone. This is the zone it uses (Pakistan).
   trackingTimeOffset: (process.env.TRACKING_TIME_OFFSET ?? '+05:00').trim(),
+  // Outgoing email (complaint updates to customers). Without SMTP_HOST the
+  // system records each message as "not configured" and sends nothing.
+  smtpHost: (process.env.SMTP_HOST ?? '').trim(),
+  smtpPort: Number(process.env.SMTP_PORT ?? 587) || 587,
+  smtpSecure: String(process.env.SMTP_SECURE ?? 'false').toLowerCase() === 'true',
+  smtpUser: (process.env.SMTP_USER ?? '').trim(),
+  smtpPass: process.env.SMTP_PASS ?? '',
+  mailFrom: (process.env.MAIL_FROM ?? '').trim(),
+  mailBusinessName: (process.env.MAIL_BUSINESS_NAME ?? 'TrackMaster').trim(),
+  mailRetrySeconds: Math.max(5, Number(process.env.MAIL_RETRY_SWEEP_SECONDS ?? 60) || 60),
   trackingTimeoutMs: Math.max(1000, Number(process.env.TRACKING_TIMEOUT_MS ?? 15000) || 15000),
 };

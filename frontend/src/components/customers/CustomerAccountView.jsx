@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 
+import AdjustmentLedger from '../billing/AdjustmentLedger.jsx';
 import InvoiceTable from '../billing/InvoiceTable.jsx';
 import PaymentLedger from '../billing/PaymentLedger.jsx';
+import CustomerTimeline from './CustomerTimeline.jsx';
 import BriefingPanel, { AccountStateTag } from '../manager/BriefingPanel.jsx';
 import { PriorityTag, StatusPill } from '../operations/OpsStatus.jsx';
 import { formatDayTime } from '../../app/operations.js';
@@ -29,10 +31,13 @@ export default function CustomerAccountView({
   onSaveBriefing,
   onIssueInvoice,
   onPayInvoice,
+  onCreditInvoice,
+  onRefundInvoice,
   busyInvoiceId = null,
   moneyLink,
 }) {
   const { customer, jobs, invoices, payments, complaints, totals } = data;
+  const adjustments = data.adjustments ?? [];
   const installations = jobs.filter((job) => job.requestType === 'new_installation');
 
   const profileRows = [
@@ -165,9 +170,23 @@ export default function CustomerAccountView({
           busyId={busyInvoiceId}
           onIssue={onIssueInvoice}
           onPay={onPayInvoice}
+          onCredit={onCreditInvoice}
+          onRefund={onRefundInvoice}
           emptyMessage="No invoice exists for this customer yet. One is drafted from a completed installation."
         />
       </section>
+
+      {adjustments.length > 0 ? (
+        <section className="panel">
+          <div className="panel__head">
+            <div>
+              <h2 className="panel__title">Credit notes and refunds</h2>
+              <p className="panel__meta">Corrections to issued invoices. Each one keeps its reason and cannot be edited.</p>
+            </div>
+          </div>
+          <AdjustmentLedger adjustments={adjustments} />
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel__head">
@@ -182,6 +201,8 @@ export default function CustomerAccountView({
           emptyMessage="Record a payment against an issued invoice and it appears here."
         />
       </section>
+
+      <CustomerTimeline customerId={customer.id} />
 
       <section className="panel">
         <div className="panel__head">
@@ -206,6 +227,18 @@ export default function CustomerAccountView({
                   <small>{complaint.category} · logged {formatDayTime(complaint.createdAt)}</small>
                 </div>
                 <StatusPill status={complaint.status} label={complaint.statusLabel} />
+                {complaint.history?.length ? (
+                  <details className="complaint-lines__history">
+                    <summary>{complaint.history.length} status {complaint.history.length === 1 ? 'entry' : 'entries'}</summary>
+                    <div>
+                      {[...complaint.history].reverse().map((entry, index) => (
+                        <p key={`${entry.at}-${index}`}>
+                          {formatDayTime(entry.at)} · {entry.statusLabel || entry.status}{entry.note ? ` — ${entry.note}` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
               </li>
             ))}
           </ul>

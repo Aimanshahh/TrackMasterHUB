@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { makeReference } from '../utils/reference.js';
 import { PACKAGE_KEYS, packageCatalog } from './Package.js';
+import { invoiceFigures, paymentStateOf } from '../utils/invoiceMath.js';
 
 export const INVOICE_STATUSES = ['draft', 'issued', 'cancelled'];
 export const PAYMENT_STATES = ['unpaid', 'partial', 'paid', 'overdue'];
@@ -63,6 +64,18 @@ const invoiceSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    /** Total of the credit notes issued against this invoice. */
+    creditedAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    /** Total of the refunds paid out against this invoice. */
+    refundedAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     currency: {
       type: String,
       default: 'PKR',
@@ -109,21 +122,17 @@ invoiceSchema.pre('validate', function (next) {
 });
 
 invoiceSchema.methods.balance = function () {
-  return Math.max(0, Math.round((this.amount - this.paidAmount) * 100) / 100);
+  return invoiceFigures(this).balance;
 };
 
 /** Payment state is derived, never typed in by staff. */
 invoiceSchema.methods.paymentState = function () {
-  if (this.status === 'cancelled') return 'cancelled';
-  if (this.paidAmount >= this.amount) return 'paid';
-  if (this.paidAmount > 0) {
-    return this.dueDate && this.dueDate < new Date() ? 'overdue' : 'partial';
-  }
-  return this.dueDate && this.dueDate < new Date() && this.status === 'issued' ? 'overdue' : 'unpaid';
+  return paymentStateOf(this);
 };
 
 invoiceSchema.methods.toApiJson = function () {
   const populated = (value) => Boolean(value && typeof value === 'object' && value._id);
+  const figures = invoiceFigures(this);
 
   return {
     id: this._id.toString(),
@@ -143,7 +152,13 @@ invoiceSchema.methods.toApiJson = function () {
     listPrice: this.listPrice ?? null,
     amount: this.amount,
     paidAmount: Math.round(this.paidAmount * 100) / 100,
-    balance: this.balance(),
+    creditedAmount: figures.credited,
+    refundedAmount: figures.refunded,
+    netAmount: figures.netAmount,
+    netReceived: figures.netReceived,
+    refundable: figures.refundable,
+    creditable: figures.creditable,
+    balance: figures.balance,
     currency: this.currency ?? 'PKR',
     status: this.status,
     paymentState: this.paymentState(),

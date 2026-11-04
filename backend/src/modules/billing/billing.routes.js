@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 import {
+  getAdjustment,
   getInvoice,
   getInvoicePayments,
   getInvoices,
@@ -8,9 +9,11 @@ import {
   getSeries,
   getSummary,
   postCancelInvoice,
+  postCreditNote,
   postInvoice,
   postIssueInvoice,
   postPayment,
+  postRefund,
 } from './billing.controller.js';
 
 export const billingRouter = Router();
@@ -35,3 +38,9 @@ billingRouter.get('/invoices/:id/payments', billingDesk, getInvoicePayments);
 // instalments attached to the right sale.
 billingRouter.get('/payments', billingDesk, getPayments);
 billingRouter.post('/invoices/:id/payments', billingDesk, postPayment);
+
+// Corrections to an issued invoice. Both are append-only records that need a
+// written reason; nothing is edited or deleted.
+billingRouter.post('/invoices/:id/credit-notes', billingDesk, postCreditNote);
+billingRouter.post('/invoices/:id/refunds', billingDesk, postRefund);
+billingRouter.get('/adjustments/:id', billingDesk, getAdjustment);

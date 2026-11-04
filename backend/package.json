@@ -13,7 +13,8 @@
     "start": "node src/server.js",
     "build": "node --check src/server.js",
     "db:seed": "node scripts/seed-demo-users.cjs",
-    "db:setup": "node scripts/setup-database.cjs"
+    "db:setup": "node scripts/setup-database.cjs",
+    "test": "node --test"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -24,6 +25,7 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.10.0",
+    "nodemailer": "^10.3.1",
     "uuid": "^11.1.0"
   }
 }

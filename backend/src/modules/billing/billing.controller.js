@@ -1,8 +1,11 @@
 import {
   cancelInvoice,
   createInvoice,
+  getAdjustmentDetail,
   getBillingSummary,
   getInvoiceDetail,
+  issueCreditNote,
+  recordRefund,
   getMonthlySeries,
   issueInvoice,
   listInvoicePayments,
@@ -42,6 +45,24 @@ async function postCancelInvoice(req, res, next) {
   try {
     const invoice = await cancelInvoice(req.params.id, req.body ?? {}, req.user);
     return res.json({ data: { invoice } });
+  } catch (error) { next(error); }
+}
+
+async function postCreditNote(req, res, next) {
+  try {
+    return res.status(201).json({ data: await issueCreditNote(req.params.id, req.body ?? {}, req.user) });
+  } catch (error) { next(error); }
+}
+
+async function postRefund(req, res, next) {
+  try {
+    return res.status(201).json({ data: await recordRefund(req.params.id, req.body ?? {}, req.user) });
+  } catch (error) { next(error); }
+}
+
+async function getAdjustment(req, res, next) {
+  try {
+    return res.json({ data: await getAdjustmentDetail(req.params.id) });
   } catch (error) { next(error); }
 }
 
@@ -85,6 +106,9 @@ export {
   postCancelInvoice,
   getPayments,
   postPayment,
+  postCreditNote,
+  postRefund,
+  getAdjustment,
   getInvoicePayments,
   getSummary,
   getSeries,
