@@ -2,8 +2,9 @@ import { useState } from 'react';
 
 import InvoiceTable from '../../components/billing/InvoiceTable.jsx';
 import MoneyStrip from '../../components/billing/MoneyStrip.jsx';
+import AdjustmentDrawer from '../../components/billing/AdjustmentDrawer.jsx';
 import PaymentDrawer from '../../components/billing/PaymentDrawer.jsx';
-import { INVOICE_FILTERS } from '../../app/billing.js';
+import { INVOICE_FILTERS, PAYMENT_STATE_FILTERS } from '../../app/billing.js';
 import { useBillingSummary, useInvoices } from '../../hooks/useBilling.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { formatMoney } from '../../lib/format.js';
@@ -13,10 +14,11 @@ export default function ManagerInvoicesPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
   const [payingInvoice, setPayingInvoice] = useState(null);
+  const [adjusting, setAdjusting] = useState(null); // { invoice, kind }
   const [notice, setNotice] = useState(null);
 
   const status = filter === 'draft' ? 'draft' : '';
-  const paymentState = ['unpaid', 'partial', 'paid'].includes(filter) ? filter : '';
+  const paymentState = PAYMENT_STATE_FILTERS.includes(filter) ? filter : '';
   const invoices = useInvoices({ q: search, status, paymentState });
   const summary = useBillingSummary();
 
@@ -35,6 +37,11 @@ export default function ManagerInvoicesPage() {
         ? `${formatMoney(payload.payment.amount)} recorded. ${formatMoney(payload.invoice.balance)} remains on ${payload.invoice.reference}.`
         : `${formatMoney(payload.payment.amount)} recorded. ${payload.invoice.reference} is settled.`,
     );
+  }
+
+  async function adjustmentDone(adjustment, kind) {
+    await Promise.all([invoices.refresh(), summary.refresh()]);
+    setNotice(`${kind === 'refund' ? 'Refund' : 'Credit note'} ${adjustment.reference} recorded for ${formatMoney(adjustment.amount)}.`);
   }
 
   return (
@@ -91,6 +98,8 @@ export default function ManagerInvoicesPage() {
             busyId={invoices.busyId}
             onIssue={issue}
             onPay={(invoice) => setPayingInvoice(invoice)}
+            onCredit={(invoice) => setAdjusting({ invoice, kind: 'credit_note' })}
+            onRefund={(invoice) => setAdjusting({ invoice, kind: 'refund' })}
             emptyMessage={
               filter || search
                 ? 'No invoice matches this filter. Clear it to see the rest of the register.'
@@ -110,6 +119,14 @@ export default function ManagerInvoicesPage() {
         open={Boolean(payingInvoice)}
         onClose={() => setPayingInvoice(null)}
         onSubmit={recordPayment}
+      />
+
+      <AdjustmentDrawer
+        invoice={adjusting?.invoice}
+        kind={adjusting?.kind}
+        open={Boolean(adjusting)}
+        onClose={() => setAdjusting(null)}
+        onDone={adjustmentDone}
       />
     </div>
   );

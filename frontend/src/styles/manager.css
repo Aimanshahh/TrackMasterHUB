@@ -224,6 +224,8 @@
 .state-tag[data-state="overdue"] { border-color: #e3bcb8; background: #fdf3f2; color: #9b1b1b; }
 .state-tag[data-state="paid"] { border-color: #b9d1c2; background: #f1f8f4; color: #1f6b46; }
 .state-tag[data-state="muted"] { border-color: #e3e0d9; background: #f7f6f3; color: #8a8e94; }
+.state-tag[data-state="credited"] { border-color: #c9d3e2; background: #f3f6fb; color: #3b5a8a; }
+.state-tag[data-state="refund_due"] { border-color: #ddcda6; background: #fdf8ec; color: #8a6412; }
 
 /* ------------------------------ Toolbars ---------------------------------- */
 

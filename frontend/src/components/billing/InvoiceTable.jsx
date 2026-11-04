@@ -8,13 +8,21 @@ const stateLabels = {
   partial: 'Part paid',
   paid: 'Settled',
   overdue: 'Overdue',
+  credited: 'Credited',
+  refund_due: 'Refund due',
   cancelled: 'Cancelled',
 };
 
 export function paymentStateOf(invoice) {
   if (invoice.status === 'cancelled') return 'cancelled';
-  if (invoice.paidAmount >= invoice.amount) return 'paid';
-  if (invoice.paidAmount > 0) return invoice.paymentState === 'overdue' ? 'overdue' : 'partial';
+  if (invoice.status === 'draft') return 'draft';
+  // Credit notes and refunds change the state, and the backend already knows.
+  if (invoice.paymentState === 'credited' || invoice.paymentState === 'refund_due') return invoice.paymentState;
+
+  const net = invoice.netAmount ?? invoice.amount;
+  const received = invoice.netReceived ?? invoice.paidAmount;
+  if (received >= net) return 'paid';
+  if (received > 0) return invoice.paymentState === 'overdue' ? 'overdue' : 'partial';
   return invoice.paymentState === 'overdue' ? 'overdue' : 'unpaid';
 }
 
@@ -42,6 +50,8 @@ export default function InvoiceTable({
   busyId = null,
   onIssue,
   onPay,
+  onCredit,
+  onRefund,
   customerPath,
   emptyMessage = 'No invoices yet.',
 }) {
@@ -71,7 +81,9 @@ export default function InvoiceTable({
         </thead>
         <tbody>
           {invoices.map((invoice) => {
-            const share = invoice.amount > 0 ? Math.min(100, Math.round((invoice.paidAmount / invoice.amount) * 100)) : 0;
+            const net = invoice.netAmount ?? invoice.amount;
+            const received = invoice.netReceived ?? invoice.paidAmount;
+            const share = net > 0 ? Math.min(100, Math.round((received / net) * 100)) : 0;
             const busy = busyId === invoice.id;
 
             return (
@@ -94,15 +106,20 @@ export default function InvoiceTable({
                 </td>
                 <td className="ledger__num">
                   <span className="ledger__money">{formatMoney(invoice.amount, invoice.currency)}</span>
-                  {invoice.packageName ? <span className="ledger__sub">{invoice.packageName}</span> : null}
+                  {invoice.creditedAmount > 0 ? (
+                    <span className="ledger__sub">{formatMoney(invoice.netAmount, invoice.currency)} after credit</span>
+                  ) : invoice.packageName ? <span className="ledger__sub">{invoice.packageName}</span> : null}
                 </td>
                 <td className="ledger__num">
                   <span className="ledger__settle">
                     <span className="ledger__track" role="presentation">
                       <span className="ledger__fill" data-complete={share >= 100} style={{ width: `${share}%` }} />
                     </span>
-                    <span className="ledger__money ledger__money--soft">{formatMoney(invoice.paidAmount, invoice.currency)}</span>
+                    <span className="ledger__money ledger__money--soft">{formatMoney(received, invoice.currency)}</span>
                   </span>
+                  {invoice.refundedAmount > 0 ? (
+                    <span className="ledger__sub">{formatMoney(invoice.refundedAmount, invoice.currency)} refunded</span>
+                  ) : null}
                 </td>
                 <td className="ledger__num">
                   <span className={`ledger__money${invoice.balance > 0 ? '' : ' ledger__money--done'}`}>
@@ -121,12 +138,22 @@ export default function InvoiceTable({
                       Record payment
                     </button>
                   ) : null}
+                  {invoice.status === 'issued' && invoice.refundable > 0 && onRefund ? (
+                    <button type="button" className="btn btn--primary btn--small" disabled={busy} onClick={() => onRefund(invoice)}>
+                      Refund {formatMoney(invoice.refundable, invoice.currency)}
+                    </button>
+                  ) : null}
+                  {invoice.status === 'issued' && invoice.creditable > 0 && onCredit ? (
+                    <button type="button" className="btn btn--outline btn--small" disabled={busy} onClick={() => onCredit(invoice)}>
+                      Credit note
+                    </button>
+                  ) : null}
                   {invoice.status !== 'draft' ? (
                     <Link className="ledger__open" to={`/invoices/${invoice.id}/print`} target="_blank" rel="noopener noreferrer">
                       Print
                     </Link>
                   ) : null}
-                  {invoice.status === 'issued' && invoice.balance <= 0 ? (
+                  {invoice.status === 'issued' && invoice.balance <= 0 && invoice.refundable <= 0 && !onCredit ? (
                     <span className="ledger__closed">Settled</span>
                   ) : null}
                   {invoice.status === 'cancelled' ? <span className="ledger__closed">—</span> : null}

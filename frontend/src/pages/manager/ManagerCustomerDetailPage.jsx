@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
+import AdjustmentDrawer from '../../components/billing/AdjustmentDrawer.jsx';
 import PaymentDrawer from '../../components/billing/PaymentDrawer.jsx';
 import CustomerAccountView from '../../components/customers/CustomerAccountView.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
@@ -12,6 +13,7 @@ export default function ManagerCustomerDetailPage() {
   const { customerId } = useParams();
   const profile = useManagerCustomer(customerId);
   const [payingInvoice, setPayingInvoice] = useState(null);
+  const [adjusting, setAdjusting] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -44,6 +46,11 @@ export default function ManagerCustomerDetailPage() {
     );
   }
 
+  async function adjustmentDone(adjustment, kind) {
+    await profile.refresh();
+    setNotice(`${kind === 'refund' ? 'Refund' : 'Credit note'} ${adjustment.reference} recorded for ${formatMoney(adjustment.amount)}.`);
+  }
+
   if (profile.status === 'loading') return <p className="data-state" role="status">Loading customer account…</p>;
 
   if (profile.error && !profile.data) {
@@ -71,6 +78,8 @@ export default function ManagerCustomerDetailPage() {
         onSaveBriefing={profile.saveBriefing}
         onIssueInvoice={issue}
         onPayInvoice={(invoice) => setPayingInvoice(invoice)}
+        onCreditInvoice={(invoice) => setAdjusting({ invoice, kind: 'credit_note' })}
+        onRefundInvoice={(invoice) => setAdjusting({ invoice, kind: 'refund' })}
         busyInvoiceId={busyId}
       />
 
@@ -79,6 +88,14 @@ export default function ManagerCustomerDetailPage() {
         open={Boolean(payingInvoice)}
         onClose={() => setPayingInvoice(null)}
         onSubmit={recordPayment}
+      />
+
+      <AdjustmentDrawer
+        invoice={adjusting?.invoice}
+        kind={adjusting?.kind}
+        open={Boolean(adjusting)}
+        onClose={() => setAdjusting(null)}
+        onDone={adjustmentDone}
       />
     </div>
   );

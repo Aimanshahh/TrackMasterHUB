@@ -291,6 +291,18 @@ export function fetchInvoiceDetail(id, { signal } = {}) {
   return apiRequest(`/api/billing/invoices/${encodeURIComponent(id)}`, { signal });
 }
 
+export function issueCreditNoteRecord(id, input) {
+  return sendJson(`/api/billing/invoices/${encodeURIComponent(id)}/credit-notes`, 'POST', input);
+}
+
+export function recordRefundRecord(id, input) {
+  return sendJson(`/api/billing/invoices/${encodeURIComponent(id)}/refunds`, 'POST', input);
+}
+
+export function fetchAdjustmentDetail(id, { signal } = {}) {
+  return apiRequest(`/api/billing/adjustments/${encodeURIComponent(id)}`, { signal });
+}
+
 export function createInvoiceRecord(input) {
   return sendJson('/api/billing/invoices', 'POST', input);
 }

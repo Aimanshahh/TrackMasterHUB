@@ -28,6 +28,7 @@ import ReportsPage from './pages/app/ReportsPage.jsx';
 import SalesPage from './pages/app/SalesPage.jsx';
 import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
+import AdjustmentPrintPage from './pages/billing/AdjustmentPrintPage.jsx';
 import InvoicePrintPage from './pages/billing/InvoicePrintPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import SignInPage from './pages/auth/SignInPage.jsx';
@@ -83,6 +84,7 @@ export default function App() {
       <Route path="/status" element={<PublicLayout />}><Route index element={<SystemStatusPage />} /></Route>
       <Route element={<RequireSession />}>
         <Route path="/invoices/:invoiceId/print" element={<InvoicePrintPage />} />
+        <Route path="/adjustments/:adjustmentId/print" element={<AdjustmentPrintPage />} />
         <Route element={<RequireWorkspaceRole role="admin" />}>
           <Route path="/admin" element={<AppLayout workspace={adminWorkspace} />}>
             <Route index element={<OverviewPage />} />

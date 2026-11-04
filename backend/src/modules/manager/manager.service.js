@@ -2,11 +2,13 @@ import Activity from '../../models/Activity.js';
 import Complaint from '../../models/Complaint.js';
 import Customer from '../../models/Customer.js';
 import Invoice from '../../models/Invoice.js';
+import InvoiceAdjustment from '../../models/InvoiceAdjustment.js';
 import Job from '../../models/Job.js';
 import Payment from '../../models/Payment.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { notifyUser } from '../notifications/notifications.service.js';
+import { invoiceFigures } from '../../utils/invoiceMath.js';
 
 const round2 = (value) => Math.round(Number(value ?? 0) * 100) / 100;
 
@@ -39,7 +41,6 @@ async function getManagerSummary() {
     invoicesToDraft,
     invoiceTotals,
     monthCollected,
-    overdueInvoices,
     openComplaints,
     installationsCompleted,
     installationsInFlight,
@@ -48,22 +49,32 @@ async function getManagerSummary() {
     Customer.countDocuments({ _id: { $in: completedCustomerIds }, briefingCompleted: false }),
     Customer.countDocuments({ _id: { $in: completedCustomerIds }, briefingCompleted: true }),
     Job.countDocuments({ status: 'completed', _id: { $nin: invoicedJobs } }),
-    Invoice.aggregate([
-      { $match: { status: 'issued' } },
-      { $group: { _id: null, invoiced: { $sum: '$amount' }, collected: { $sum: '$paidAmount' }, count: { $sum: 1 } } },
-    ]),
+    Invoice.find({ status: 'issued' }).select('amount paidAmount creditedAmount refundedAmount dueDate').lean(),
     Payment.aggregate([
       { $match: { receivedAt: { $gte: monthStart } } },
       { $group: { _id: null, sum: { $sum: '$amount' }, count: { $sum: 1 } } },
     ]),
-    Invoice.countDocuments({ status: 'issued', dueDate: { $lt: now }, $expr: { $lt: ['$paidAmount', '$amount'] } }),
     Complaint.countDocuments({ status: { $in: OPEN_COMPLAINT_STATUSES } }),
     Job.countDocuments({ status: 'completed' }),
     Job.countDocuments({ status: { $in: ['unassigned', 'assigned', 'scheduled', 'in_progress'] } }),
   ]);
 
-  const invoiced = round2(invoiceTotals[0]?.invoiced ?? 0);
-  const collected = round2(invoiceTotals[0]?.collected ?? 0);
+  // Credit notes lower what is invoiced and refunds lower what is collected, so
+  // these figures come from the shared invoice math, not from raw sums.
+  let invoiced = 0;
+  let collected = 0;
+  let outstanding = 0;
+  let overdue = 0;
+  for (const invoice of invoiceTotals) {
+    const figures = invoiceFigures(invoice);
+    invoiced += figures.netAmount;
+    collected += figures.netReceived;
+    outstanding += figures.balance;
+    if (figures.balance > 0 && invoice.dueDate && new Date(invoice.dueDate) < now) overdue += 1;
+  }
+  invoiced = round2(invoiced);
+  collected = round2(collected);
+  outstanding = round2(outstanding);
 
   return {
     currency: 'PKR',
@@ -74,13 +85,13 @@ async function getManagerSummary() {
     },
     invoices: {
       toDraft: invoicesToDraft,
-      issued: invoiceTotals[0]?.count ?? 0,
-      overdue: overdueInvoices,
+      issued: invoiceTotals.length,
+      overdue,
     },
     money: {
       invoiced,
       collected,
-      outstanding: round2(invoiced - collected),
+      outstanding,
       thisMonthCollected: round2(monthCollected[0]?.sum ?? 0),
       thisMonthPayments: monthCollected[0]?.count ?? 0,
     },
@@ -215,30 +226,35 @@ async function getCustomerProfile(customerId) {
   const customer = await Customer.findById(customerId).populate('owner', 'name role email');
   if (!customer) throw makeError(errorCodes.NOT_FOUND, 'No customer matches that id.');
 
-  const [jobs, invoices, payments, complaints] = await Promise.all([
+  const [jobs, invoices, payments, complaints, adjustments] = await Promise.all([
     Job.find({ customer: customer._id })
       .sort({ createdAt: -1 })
       .populate('technician', 'name station'),
     Invoice.find({ customer: customer._id }).sort({ createdAt: -1 }),
     Payment.find({ customer: customer._id }).sort({ receivedAt: -1 }),
     Complaint.find({ customer: customer._id }).sort({ createdAt: -1 }).limit(20),
+    InvoiceAdjustment.find({ customer: customer._id }).sort({ issuedAt: -1 }),
   ]);
 
-  const invoiced = invoices.filter((invoice) => invoice.status === 'issued');
-  const invoicedTotal = round2(invoiced.reduce((sum, invoice) => sum + invoice.amount, 0));
-  const paidTotal = round2(invoiced.reduce((sum, invoice) => sum + invoice.paidAmount, 0));
+  const issued = invoices.filter((invoice) => invoice.status === 'issued').map((invoice) => invoiceFigures(invoice));
+  const invoicedTotal = round2(issued.reduce((sum, figures) => sum + figures.netAmount, 0));
+  const paidTotal = round2(issued.reduce((sum, figures) => sum + figures.netReceived, 0));
+  const outstandingTotal = round2(issued.reduce((sum, figures) => sum + figures.balance, 0));
+  const refundDueTotal = round2(issued.reduce((sum, figures) => sum + figures.refundable, 0));
 
   return {
     customer: customer.toDetailJson(),
     jobs: jobs.map((job) => job.toApiJson()),
     invoices: invoices.map((invoice) => invoice.toApiJson()),
     payments: payments.map((payment) => payment.toApiJson()),
+    adjustments: adjustments.map((adjustment) => adjustment.toApiJson()),
     complaints: complaints.map((complaint) => complaint.toApiJson()),
     totals: {
       currency: 'PKR',
       invoiced: invoicedTotal,
       paid: paidTotal,
-      outstanding: round2(invoicedTotal - paidTotal),
+      outstanding: outstandingTotal,
+      refundDue: refundDueTotal,
       installations: jobs.filter((job) => job.requestType === 'new_installation').length,
       completedInstallations: jobs.filter((job) => job.status === 'completed').length,
       openComplaints: complaints.filter((complaint) => OPEN_COMPLAINT_STATUSES.includes(complaint.status)).length,

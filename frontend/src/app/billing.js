@@ -15,4 +15,8 @@ export const INVOICE_FILTERS = [
   { value: 'unpaid', label: 'Unpaid' },
   { value: 'partial', label: 'Part paid' },
   { value: 'paid', label: 'Settled' },
+  { value: 'refund_due', label: 'Refund due' },
 ];
+
+/** Payment states the invoice list can filter on. */
+export const PAYMENT_STATE_FILTERS = ['unpaid', 'partial', 'paid', 'refund_due'];

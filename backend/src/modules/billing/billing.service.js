@@ -2,7 +2,9 @@ import Activity from '../../models/Activity.js';
 import Invoice, { INVOICE_STATUSES } from '../../models/Invoice.js';
 import Job from '../../models/Job.js';
 import Customer from '../../models/Customer.js';
+import InvoiceAdjustment from '../../models/InvoiceAdjustment.js';
 import Payment, { PAYMENT_METHODS, paymentMethodLabels } from '../../models/Payment.js';
+import { invoiceFigures, paymentStateOf, round2 as roundMoney } from '../../utils/invoiceMath.js';
 import { packageCatalog } from '../../models/Package.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
@@ -27,19 +29,14 @@ function startOfMonth(date = new Date()) {
 
 /* ------------------------------------------------------------------ invoices */
 
+const STATE_FILTERS = ['unpaid', 'partial', 'paid', 'overdue', 'credited', 'refund_due'];
+
 async function listInvoices({ q, status, paymentState, customer, job, page = 1, limit = 20 } = {}) {
   const filter = {};
 
   if (status && INVOICE_STATUSES.includes(status)) filter.status = status;
   if (customer) filter.customer = customer;
   if (job) filter.job = job;
-
-  if (paymentState === 'unpaid') filter.paidAmount = 0;
-  if (paymentState === 'paid') filter.$expr = { $gte: ['$paidAmount', '$amount'] };
-  if (paymentState === 'partial') {
-    filter.paidAmount = { $gt: 0 };
-    filter.$expr = { $lt: ['$paidAmount', '$amount'] };
-  }
 
   if (q) {
     const regex = new RegExp(escapeRegex(q.trim()), 'i');
@@ -48,13 +45,22 @@ async function listInvoices({ q, status, paymentState, customer, job, page = 1, 
 
   const { page: safePage, limit: safeLimit, skip } = pageParams(page, limit);
 
+  const populate = (query) => query.populate('customer', 'name phone').populate('job', 'reference status');
+
+  // A payment-state filter depends on credit notes and refunds as well as on
+  // payments, so it is worked out per invoice rather than in the query.
+  if (STATE_FILTERS.includes(paymentState)) {
+    const all = await populate(Invoice.find(filter).sort({ createdAt: -1 }));
+    const matching = all.filter((invoice) => invoice.status !== 'cancelled' && paymentStateOf(invoice) === paymentState);
+
+    return {
+      data: matching.slice(skip, skip + safeLimit).map((row) => row.toApiJson()),
+      meta: { total: matching.length, page: safePage, limit: safeLimit, pages: Math.ceil(matching.length / safeLimit), currency: CURRENCY },
+    };
+  }
+
   const [rows, total] = await Promise.all([
-    Invoice.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(safeLimit)
-      .populate('customer', 'name phone')
-      .populate('job', 'reference status'),
+    populate(Invoice.find(filter).sort({ createdAt: -1 }).skip(skip).limit(safeLimit)),
     Invoice.countDocuments(filter),
   ]);
 
@@ -72,7 +78,11 @@ async function getInvoiceDetail(id) {
 
   if (!invoice) throw makeError(errorCodes.NOT_FOUND, 'No invoice matches that id.');
 
-  return { invoice: invoice.toApiJson(), payments: await listInvoicePayments(invoice._id) };
+  return {
+    invoice: invoice.toApiJson(),
+    payments: await listInvoicePayments(invoice._id),
+    adjustments: await listInvoiceAdjustments(invoice._id),
+  };
 }
 
 /**
@@ -190,10 +200,10 @@ async function cancelInvoice(id, input, actor) {
   const invoice = await Invoice.findById(id);
   if (!invoice) throw makeError(errorCodes.NOT_FOUND, 'No invoice matches that id.');
   if (invoice.status === 'cancelled') return invoice.toApiJson();
-  if (invoice.paidAmount > 0) {
+  if (invoice.paidAmount > 0 || invoice.creditedAmount > 0) {
     throw makeError(
       errorCodes.CONFLICT,
-      'This invoice already has payments against it. Record a refund or credit note instead of cancelling it.',
+      'This invoice already has payments or credit notes against it. Issue a credit note and refund instead of cancelling it.',
       409,
     );
   }
@@ -278,11 +288,7 @@ async function recordPayment(invoiceId, input, actor) {
   ]);
 
   invoice.paidAmount = round2(totals?.paid ?? amount);
-  if (invoice.paidAmount >= invoice.amount) {
-    invoice.paidAt = receivedAt;
-  } else {
-    invoice.paidAt = null;
-  }
+  invoice.paidAt = invoiceFigures(invoice).balance === 0 ? receivedAt : null;
   await invoice.save();
 
   await Activity.create({
@@ -307,6 +313,161 @@ async function recordPayment(invoiceId, input, actor) {
   const refreshed = await Invoice.findById(invoice._id).populate('customer', 'name phone').populate('job', 'reference status');
 
   return { payment: payment.toApiJson(), invoice: refreshed.toApiJson() };
+}
+
+/* ------------------------------------------------- credit notes and refunds */
+
+async function listInvoiceAdjustments(invoiceId) {
+  const rows = await InvoiceAdjustment.find({ invoice: invoiceId }).sort({ issuedAt: 1, createdAt: 1 });
+  return rows.map((row) => row.toApiJson());
+}
+
+/** Recalculate both totals from the records themselves, never by incrementing. */
+async function syncAdjustmentTotals(invoice) {
+  const rows = await InvoiceAdjustment.find({ invoice: invoice._id }).lean();
+  const sum = (kind) => round2(rows.filter((row) => row.kind === kind).reduce((total, row) => total + row.amount, 0));
+  invoice.creditedAmount = sum('credit_note');
+  invoice.refundedAmount = sum('refund');
+}
+
+async function loadIssuedInvoice(invoiceId, what) {
+  const invoice = await Invoice.findById(invoiceId);
+  if (!invoice) throw makeError(errorCodes.NOT_FOUND, 'No invoice matches that id.');
+  if (invoice.status === 'draft') {
+    throw makeError(errorCodes.CONFLICT, `Issue this invoice before recording ${what} against it.`, 409);
+  }
+  if (invoice.status === 'cancelled') {
+    throw makeError(errorCodes.CONFLICT, `This invoice was cancelled, so it cannot take ${what}.`, 409);
+  }
+  return invoice;
+}
+
+function readReason(input) {
+  const reason = String(input.reason ?? '').trim();
+  if (reason.length < 3) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Write the reason. It is printed on the document and kept in the audit trail.');
+  }
+  return reason.slice(0, 400);
+}
+
+function readAmount(input) {
+  const amount = round2(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter an amount greater than zero.');
+  }
+  return amount;
+}
+
+async function respondWithInvoice(invoiceId, adjustment) {
+  const refreshed = await Invoice.findById(invoiceId).populate('customer', 'name phone').populate('job', 'reference status');
+  return { adjustment: adjustment.toApiJson(), invoice: refreshed.toApiJson() };
+}
+
+/**
+ * Lower what the customer owes. The invoice amount itself never changes; the
+ * credit note is a separate record and the net amount is worked out from it.
+ * A credit larger than what was still creditable is refused.
+ */
+async function issueCreditNote(invoiceId, input, actor) {
+  const invoice = await loadIssuedInvoice(invoiceId, 'a credit note');
+  const amount = readAmount(input);
+  const reason = readReason(input);
+
+  const figures = invoiceFigures(invoice);
+  if (amount > figures.creditable) {
+    throw makeError(
+      errorCodes.VALIDATION_ERROR,
+      figures.creditable > 0
+        ? `A credit note cannot be more than the ${money(figures.creditable)} that can still be credited on this invoice.`
+        : 'This invoice has already been credited in full.',
+    );
+  }
+
+  const adjustment = await InvoiceAdjustment.create({
+    kind: 'credit_note',
+    invoice: invoice._id,
+    invoiceReference: invoice.reference,
+    customer: invoice.customer,
+    customerName: invoice.customerName,
+    amount,
+    currency: invoice.currency,
+    reason,
+    issuedBy: actor.id,
+  });
+
+  await syncAdjustmentTotals(invoice);
+  invoice.paidAt = invoiceFigures(invoice).balance === 0 && invoice.paidAmount > 0 ? invoice.paidAt ?? new Date() : invoice.paidAt;
+  await invoice.save();
+
+  await Activity.create({
+    actor: actor.id,
+    type: 'credit_note.issued',
+    label: `Credit note ${adjustment.reference} for ${money(amount)} on ${invoice.reference}`,
+    description: `${invoice.customerName ?? 'Customer'} · ${reason}`.slice(0, 1000),
+  });
+
+  return respondWithInvoice(invoice._id, adjustment);
+}
+
+/**
+ * Hand money back. Only an overpayment can be refunded, so a customer who paid
+ * in full and is owed a refund first needs a credit note for the amount. That
+ * keeps the invoice, the credit and the cash in step.
+ */
+async function recordRefund(invoiceId, input, actor) {
+  const invoice = await loadIssuedInvoice(invoiceId, 'a refund');
+  const amount = readAmount(input);
+  const reason = readReason(input);
+
+  const figures = invoiceFigures(invoice);
+  if (figures.refundable <= 0) {
+    throw makeError(
+      errorCodes.CONFLICT,
+      'Nothing is owed back to this customer on this invoice. Issue a credit note first, then refund the overpaid amount.',
+      409,
+    );
+  }
+  if (amount > figures.refundable) {
+    throw makeError(errorCodes.VALIDATION_ERROR, `A refund cannot be more than the ${money(figures.refundable)} owed back to the customer.`);
+  }
+
+  const method = PAYMENT_METHODS.includes(input.method) ? input.method : 'cash';
+
+  const adjustment = await InvoiceAdjustment.create({
+    kind: 'refund',
+    invoice: invoice._id,
+    invoiceReference: invoice.reference,
+    customer: invoice.customer,
+    customerName: invoice.customerName,
+    amount,
+    currency: invoice.currency,
+    reason,
+    method,
+    transactionRef: String(input.transactionRef ?? '').trim().slice(0, 120),
+    issuedBy: actor.id,
+  });
+
+  await syncAdjustmentTotals(invoice);
+  await invoice.save();
+
+  await Activity.create({
+    actor: actor.id,
+    type: 'refund.recorded',
+    label: `Refund ${adjustment.reference} of ${money(amount)} on ${invoice.reference}`,
+    description: `${invoice.customerName ?? 'Customer'} · ${paymentMethodLabels[method]} · ${reason}`.slice(0, 1000),
+  });
+
+  return respondWithInvoice(invoice._id, adjustment);
+}
+
+/** One credit note or refund with its invoice, for the printable document. */
+async function getAdjustmentDetail(id) {
+  const adjustment = await InvoiceAdjustment.findById(id);
+  if (!adjustment) throw makeError(errorCodes.NOT_FOUND, 'No credit note or refund matches that id.');
+
+  const invoice = await Invoice.findById(adjustment.invoice).populate('customer', 'name phone').populate('job', 'reference status');
+
+  return { adjustment: adjustment.toApiJson(), invoice: invoice ? invoice.toApiJson() : null };
 }
 
 async function listPayments({ q, method, from, to, invoice, customer, page = 1, limit = 30 } = {}) {
@@ -369,72 +530,56 @@ async function getBillingSummary() {
   const monthStart = startOfMonth();
   const now = new Date();
 
-  const [invoiceTotals, monthTotals, counts, overdue, monthPayments, recentPayments] = await Promise.all([
-    Invoice.aggregate([
-      { $match: { status: 'issued' } },
-      {
-        $group: {
-          _id: null,
-          invoiced: { $sum: '$amount' },
-          collected: { $sum: '$paidAmount' },
-          issuedCount: { $sum: 1 },
-        },
-      },
-    ]),
-    Payment.aggregate([
-      { $match: { receivedAt: { $gte: monthStart } } },
-      { $group: { _id: null, sum: { $sum: '$amount' }, count: { $sum: 1 } } },
-    ]),
-    Invoice.aggregate([
-      {
-        $group: {
-          _id: null,
-          drafts: { $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] } },
-          issued: { $sum: { $cond: [{ $eq: ['$status', 'issued'] }, 1, 0] } },
-          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-          partial: {
-            $sum: {
-              $cond: [
-                { $and: [{ $eq: ['$status', 'issued'] }, { $gt: ['$paidAmount', 0] }, { $lt: ['$paidAmount', '$amount'] }] },
-                1,
-                0,
-              ],
-            },
-          },
-          paid: {
-            $sum: {
-              $cond: [
-                { $and: [{ $eq: ['$status', 'issued'] }, { $gte: ['$paidAmount', '$amount'] }] },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
-    ]),
-    Invoice.countDocuments({ status: 'issued', dueDate: { $lt: now }, $expr: { $lt: ['$paidAmount', '$amount'] } }),
-    Payment.countDocuments({ receivedAt: { $gte: monthStart } }),
+  const [issued, draftCount, cancelledCount, monthPayments, monthRefunds, recentPayments] = await Promise.all([
+    Invoice.find({ status: 'issued' }).select('amount paidAmount creditedAmount refundedAmount dueDate status').lean(),
+    Invoice.countDocuments({ status: 'draft' }),
+    Invoice.countDocuments({ status: 'cancelled' }),
+    Payment.find({ receivedAt: { $gte: monthStart } }).select('amount').lean(),
+    InvoiceAdjustment.find({ kind: 'refund', issuedAt: { $gte: monthStart } }).select('amount').lean(),
     Payment.find({}).sort({ receivedAt: -1 }).limit(5).populate('customer', 'name phone').populate('invoice', 'reference amount'),
   ]);
 
-  const invoiced = round2(invoiceTotals[0]?.invoiced ?? 0);
-  const collected = round2(invoiceTotals[0]?.collected ?? 0);
+  // Credit notes lower what is invoiced; refunds lower what is collected.
+  const totals = { invoiced: 0, collected: 0, outstanding: 0, credited: 0, refunded: 0, refundDue: 0 };
+  const counts = { partial: 0, paid: 0, credited: 0, overdue: 0 };
+
+  for (const invoice of issued) {
+    const figures = invoiceFigures(invoice);
+    totals.invoiced += figures.netAmount;
+    totals.collected += figures.netReceived;
+    totals.outstanding += figures.balance;
+    totals.credited += figures.credited;
+    totals.refunded += figures.refunded;
+    totals.refundDue += figures.refundable;
+
+    const state = paymentStateOf(invoice, now);
+    if (state === 'paid') counts.paid += 1;
+    if (state === 'credited') counts.credited += 1;
+    if (figures.balance > 0 && figures.netReceived > 0) counts.partial += 1;
+    if (figures.balance > 0 && invoice.dueDate && new Date(invoice.dueDate) < now) counts.overdue += 1;
+  }
+
+  const sum = (rows) => round2(rows.reduce((total, row) => total + row.amount, 0));
 
   return {
     currency: CURRENCY,
-    invoiced,
-    collected,
-    outstanding: round2(invoiced - collected),
-    issuedCount: invoiceTotals[0]?.issuedCount ?? 0,
-    draftCount: counts[0]?.drafts ?? 0,
-    cancelledCount: counts[0]?.cancelled ?? 0,
-    partialCount: counts[0]?.partial ?? 0,
-    paidCount: counts[0]?.paid ?? 0,
-    overdueCount: overdue,
+    invoiced: round2(totals.invoiced),
+    collected: round2(totals.collected),
+    outstanding: round2(totals.outstanding),
+    creditedTotal: round2(totals.credited),
+    refundedTotal: round2(totals.refunded),
+    refundDue: round2(totals.refundDue),
+    issuedCount: issued.length,
+    draftCount,
+    cancelledCount,
+    partialCount: counts.partial,
+    paidCount: counts.paid,
+    creditedCount: counts.credited,
+    overdueCount: counts.overdue,
     thisMonth: {
-      collected: round2(monthTotals[0]?.sum ?? 0),
-      payments: monthPayments,
+      collected: sum(monthPayments),
+      payments: monthPayments.length,
+      refunded: sum(monthRefunds),
     },
     recentPayments: recentPayments.map((row) => row.toApiJson()),
   };
@@ -493,6 +638,10 @@ export {
   recordPayment,
   listPayments,
   listInvoicePayments,
+  listInvoiceAdjustments,
+  issueCreditNote,
+  recordRefund,
+  getAdjustmentDetail,
   getBillingSummary,
   getMonthlySeries,
   packageCatalog,

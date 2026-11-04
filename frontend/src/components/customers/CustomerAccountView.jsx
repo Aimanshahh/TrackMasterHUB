@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import AdjustmentLedger from '../billing/AdjustmentLedger.jsx';
 import InvoiceTable from '../billing/InvoiceTable.jsx';
 import PaymentLedger from '../billing/PaymentLedger.jsx';
 import BriefingPanel, { AccountStateTag } from '../manager/BriefingPanel.jsx';
@@ -29,10 +30,13 @@ export default function CustomerAccountView({
   onSaveBriefing,
   onIssueInvoice,
   onPayInvoice,
+  onCreditInvoice,
+  onRefundInvoice,
   busyInvoiceId = null,
   moneyLink,
 }) {
   const { customer, jobs, invoices, payments, complaints, totals } = data;
+  const adjustments = data.adjustments ?? [];
   const installations = jobs.filter((job) => job.requestType === 'new_installation');
 
   const profileRows = [
@@ -165,9 +169,23 @@ export default function CustomerAccountView({
           busyId={busyInvoiceId}
           onIssue={onIssueInvoice}
           onPay={onPayInvoice}
+          onCredit={onCreditInvoice}
+          onRefund={onRefundInvoice}
           emptyMessage="No invoice exists for this customer yet. One is drafted from a completed installation."
         />
       </section>
+
+      {adjustments.length > 0 ? (
+        <section className="panel">
+          <div className="panel__head">
+            <div>
+              <h2 className="panel__title">Credit notes and refunds</h2>
+              <p className="panel__meta">Corrections to issued invoices. Each one keeps its reason and cannot be edited.</p>
+            </div>
+          </div>
+          <AdjustmentLedger adjustments={adjustments} />
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panel__head">
