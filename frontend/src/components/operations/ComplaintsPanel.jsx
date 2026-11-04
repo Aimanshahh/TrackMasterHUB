@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { COMPLAINT_CATEGORIES, COMPLAINT_STATUS_OPTIONS, PRIORITY_OPTIONS, formatDayTime } from '../../app/operations.js';
 import { useAuth } from '../../context/auth.js';
 import { useCustomers } from '../../hooks/useCustomers.js';
 import { useComplaints } from '../../hooks/useOperations.js';
-import { createComplaintRecord, updateComplaintRecord } from '../../lib/api.js';
+import { createComplaintRecord, fetchComplaintMessages, markMessageManualRecord, retryMessageRecord, updateComplaintRecord } from '../../lib/api.js';
 import { PriorityTag, StatusPill } from './OpsStatus.jsx';
 
 function CreateComplaintDrawer({ onClose, onCreated }) {
@@ -87,6 +87,65 @@ function CreateComplaintDrawer({ onClose, onCreated }) {
           </footer>
         </form>
       </section>
+    </div>
+  );
+}
+
+/** Delivery record of the emails (and the WhatsApp placeholder) sent about this ticket. */
+function MessagesBlock({ complaintId, canManage }) {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+
+  const load = (signal) => fetchComplaintMessages(complaintId, { signal })
+    .then((payload) => setRows(payload.data.messages))
+    .catch((error_) => { if (error_.name !== 'AbortError') setError(error_.message); });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [complaintId]);
+
+  async function act(id, fn) {
+    setBusyId(id);
+    setError(null);
+    try { await fn(); await load(); } catch (error_) { setError(error_.message); } finally { setBusyId(null); }
+  }
+
+  const markManual = (row) => {
+    const note = window.prompt('How was the customer contacted? (for example: called on the phone)');
+    if (note) act(row.id, () => markMessageManualRecord(row.id, note));
+  };
+
+  if (rows === null && !error) return <p className="field__hint">Loading customer messages…</p>;
+
+  return (
+    <div className="ops-timeline">
+      <p className="drawer__section-label">Messages to the customer</p>
+      {rows?.length === 0 ? <p className="field__hint">Nothing has been sent about this ticket yet.</p> : (
+        <ul>
+          {(rows ?? []).map((row) => (
+            <li key={row.id}>
+              <span className="ops-timeline__mark" aria-hidden="true" />
+              <div>
+                <strong>{row.channelLabel}: {row.statusLabel}</strong>
+                <p>{row.subject}{row.to ? ` → ${row.to}` : ''}</p>
+                {row.error && row.status !== 'sent' ? <p>{row.error}</p> : null}
+                {row.manualNote ? <p>Note: {row.manualNote}</p> : null}
+                {canManage && row.channel === 'email' && ['failed', 'not_configured', 'skipped'].includes(row.status) ? (
+                  <p>
+                    <button type="button" className="btn btn--outline btn--small" disabled={busyId === row.id} onClick={() => act(row.id, () => retryMessageRecord(row.id))}>Retry email</button>{' '}
+                    <button type="button" className="btn btn--outline btn--small" disabled={busyId === row.id} onClick={() => markManual(row)}>Contacted another way</button>
+                  </p>
+                ) : null}
+              </div>
+              <time>{formatDayTime(row.sentAt ?? row.createdAt)}</time>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error ? <p className="form-alert" role="alert">{error}</p> : null}
     </div>
   );
 }
@@ -185,6 +244,8 @@ function ComplaintDrawer({ complaint, canManage, onClose, onSaved }) {
               </ul>
             </div>
           ) : null}
+
+          <MessagesBlock complaintId={complaint.id} canManage={canManage} />
 
           {error ? <p className="form-alert" role="alert">{error}</p> : null}
 

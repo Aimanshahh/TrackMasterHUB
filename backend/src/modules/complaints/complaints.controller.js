@@ -1,3 +1,7 @@
+import { listMessagesForComplaint, markMessageManual, retryMessage } from '../messaging/messaging.service.js';
+import Complaint from '../../models/Complaint.js';
+import { makeError } from '../../middleware/errors.js';
+import { errorCodes } from '../../config/errorCodes.js';
 import { listComplaints, createComplaint, updateComplaint } from './complaints.service.js';
 
 /** Salespeople only see tickets they logged; admin and operations see the queue. */
@@ -27,4 +31,23 @@ async function patchComplaint(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { getComplaints, postComplaint, patchComplaint };
+async function getComplaintMessages(req, res, next) {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) throw makeError(errorCodes.NOT_FOUND, 'No complaint matches that id.');
+    if (scopeFor(req.user) && String(complaint.createdBy) !== req.user.id) {
+      throw makeError(errorCodes.FORBIDDEN, 'You are not allowed to view this complaint.', 403);
+    }
+    return res.json({ data: { messages: await listMessagesForComplaint(complaint._id) } });
+  } catch (error) { next(error); }
+}
+
+async function postMessageRetry(req, res, next) {
+  try { return res.json({ data: { message: await retryMessage(req.params.messageId) } }); } catch (error) { next(error); }
+}
+
+async function postMessageManual(req, res, next) {
+  try { return res.json({ data: { message: await markMessageManual(req.params.messageId, req.body?.note) } }); } catch (error) { next(error); }
+}
+
+export { getComplaintMessages, postMessageRetry, postMessageManual, getComplaints, postComplaint, patchComplaint };
