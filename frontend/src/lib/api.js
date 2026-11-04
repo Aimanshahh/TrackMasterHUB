@@ -303,6 +303,10 @@ export function fetchAdjustmentDetail(id, { signal } = {}) {
   return apiRequest(`/api/billing/adjustments/${encodeURIComponent(id)}`, { signal });
 }
 
+export function fetchCustomerHistory(id, { signal } = {}) {
+  return apiRequest(`/api/customers/${encodeURIComponent(id)}/history`, { signal });
+}
+
 export function createInvoiceRecord(input) {
   return sendJson('/api/billing/invoices', 'POST', input);
 }

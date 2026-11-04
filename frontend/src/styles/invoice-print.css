@@ -220,3 +220,17 @@
   .inv-title { text-align: left; }
   .inv-sheet { padding: 1.2rem 1rem; min-height: 0; }
 }
+
+/* Customer history report */
+.rep-section { margin-top: 22px; break-inside: avoid-page; }
+.rep-section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 8px; border-bottom: 1px solid #cfcfcf; padding-bottom: 4px; }
+.rep-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin: 0; }
+.rep-totals div { border: 1px solid #ddd; padding: 8px 10px; }
+.rep-totals dt { font-size: 11px; color: #555; }
+.rep-totals dd { margin: 2px 0; font-size: 16px; font-weight: 600; }
+.rep-totals small { font-size: 10px; color: #777; }
+.rep-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rep-table th, .rep-table td { text-align: left; padding: 5px 6px; border-bottom: 1px solid #e3e3e3; vertical-align: top; }
+.rep-empty { font-size: 12px; color: #666; margin: 0; }
+.rep-sub { display: block; font-size: 11px; color: #666; }
+.rep-notice { border: 1px dashed #aaa; padding: 8px 10px; font-size: 12px; color: #555; }
