@@ -111,7 +111,7 @@ test('manager desk lists and opens only customers with a completed installation'
   const asAdmin = await manager.listCustomers({});
   assert.ok(asAdmin.data.map((row) => row.name).includes('Just A Lead'));
 
-  await assert.rejects(manager.getCustomerProfile(lead._id, { installedOnly: true }), /no completed installation/);
+  await assert.rejects(manager.getCustomerProfile(lead._id, { installedOnly: true }), (e) => /no completed installation/.test(e.message));
   assert.ok(await manager.getCustomerProfile(lead._id));
-  await assert.rejects(history.getCustomerHistory(lead._id, { id: ctx.admin._id.toString(), role: 'manager' }), /no completed installation/);
+  await assert.rejects(history.getCustomerHistory(lead._id, { id: ctx.admin._id.toString(), role: 'manager' }), (e) => /no completed installation/.test(e.message));
 });
