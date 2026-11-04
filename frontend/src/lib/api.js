@@ -347,6 +347,10 @@ export function fetchManagerSummary({ signal } = {}) {
   return apiRequest('/api/manager/summary', { signal });
 }
 
+export function fetchCalls(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/calls', params), { signal });
+}
+
 export function fetchVehicles(params = {}, { signal } = {}) {
   return apiRequest(withQuery('/api/vehicles', params), { signal });
 }

@@ -16,7 +16,7 @@ async function getSummary(req, res, next) {
 async function getCustomerLookup(req, res, next) {
   try {
     const { q, accountStatus, page, limit } = req.query;
-    return res.json(await listCustomers({ q, accountStatus, page, limit }));
+    return res.json(await listCustomers({ q, accountStatus, page, limit, installedOnly: req.user.role === 'manager' }));
   } catch (error) { next(error); }
 }
 
@@ -29,7 +29,7 @@ async function getBriefingPending(req, res, next) {
 
 async function getCustomer(req, res, next) {
   try {
-    return res.json(await getCustomerProfile(req.params.id));
+    return res.json(await getCustomerProfile(req.params.id, { installedOnly: req.user.role === 'manager' }));
   } catch (error) { next(error); }
 }
 

@@ -8,10 +8,12 @@ import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { invoiceFigures, round2 } from '../../utils/invoiceMath.js';
 import { buildTimeline, describeDuration, timeToResolveMs } from '../../utils/timeline.js';
+import { listCallsForCustomer } from '../calls/calls.service.js';
 import { listMessagesForCustomer } from '../messaging/messaging.service.js';
 
 const MONEY_ROLES = ['admin', 'manager'];
-const SEE_ANY_ROLES = ['admin', 'manager'];
+const SEE_ANY_ROLES = ['admin', 'manager', 'operations'];
+const CALL_ROLES = ['admin', 'operations'];
 
 /** Who may open this customer's report: admin and manager always, anyone else only for their own customers. */
 export function canViewHistory(user, customer) {
@@ -27,19 +29,23 @@ export function canViewHistory(user, customer) {
 export async function getCustomerHistory(customerId, user) {
   const customer = await Customer.findById(customerId).populate('owner', 'name');
   if (!customer) throw makeError(errorCodes.NOT_FOUND, 'No customer matches that id.');
+  if (user.role === 'manager' && !(await Job.exists({ customer: customer._id, status: 'completed' }))) {
+    throw makeError(errorCodes.FORBIDDEN, 'This customer has no completed installation yet, so it is not on the manager desk.', 403);
+  }
   if (!canViewHistory(user, { owner: customer.owner?._id })) {
     throw makeError(errorCodes.FORBIDDEN, 'You are not allowed to view this customer’s history.', 403);
   }
 
   const includeMoney = MONEY_ROLES.includes(user.role);
 
-  const [jobs, complaints, invoices, payments, adjustments, messages] = await Promise.all([
+  const [jobs, complaints, invoices, payments, adjustments, messages, calls] = await Promise.all([
     Job.find({ customer: customer._id }).sort({ createdAt: 1 }).populate('technician', 'name'),
     Complaint.find({ customer: customer._id }).sort({ createdAt: 1 }),
     includeMoney ? Invoice.find({ customer: customer._id }).sort({ createdAt: 1 }) : [],
     includeMoney ? Payment.find({ customer: customer._id }).sort({ receivedAt: 1 }) : [],
     includeMoney ? InvoiceAdjustment.find({ customer: customer._id }).sort({ issuedAt: 1 }) : [],
     listMessagesForCustomer(customer._id),
+    CALL_ROLES.includes(user.role) ? listCallsForCustomer(customer._id) : [],
   ]);
 
   const installations = jobs.map((job) => {
@@ -88,6 +94,10 @@ export async function getCustomerHistory(customerId, user) {
       value: resolvedTimes.length ? describeDuration(Math.round(resolvedTimes.reduce((a, b) => a + b, 0) / resolvedTimes.length)) : 'No resolved complaints',
       source: 'Complaint status history',
     },
+    ...(CALL_ROLES.includes(user.role) ? [
+      { label: 'Robocalls answered', value: calls.filter((c) => c.status === 'answered').length, source: 'Robocall provider webhook' },
+      { label: 'Robocalls not answered', value: calls.filter((c) => c.status !== 'answered').length, source: 'Robocall provider webhook' },
+    ] : []),
     { label: 'Emails sent', value: messages.filter((m) => m.channel === 'email' && m.status === 'sent').length, source: 'Message delivery records' },
     { label: 'Emails failed', value: messages.filter((m) => m.channel === 'email' && m.status === 'failed').length, source: 'Message delivery records' },
   ];
@@ -132,7 +142,9 @@ export async function getCustomerHistory(customerId, user) {
     installations,
     complaints: complaintRows,
     messages,
-    calls: { connected: false, label: 'Call data not connected', rows: [] },
+    calls: CALL_ROLES.includes(user.role)
+      ? { connected: true, label: calls.length ? `${calls.length} robocall${calls.length === 1 ? '' : 's'} recorded` : 'No robocall recorded for this customer', rows: calls }
+      : { connected: false, label: 'Call history is visible to admin and operations only', rows: [] },
     money,
     timeline: buildTimeline(
       { customer, jobs, complaints, invoices, payments, adjustments, messages },

@@ -15,6 +15,7 @@ const adminGroups = [
       { to: '/admin/pending-installations', label: 'Pending installations', icon: 'operations' },
       { to: '/admin/vehicles', label: 'Vehicles', icon: 'operations' },
       { to: '/admin/complaints', label: 'Complaints', icon: 'complaints' },
+      { to: '/admin/calls', label: 'Call logs', icon: 'followup' },
     ],
   },
   {
@@ -44,6 +45,7 @@ const operationsGroups = [
       { to: '/operations/queue', label: 'Work queue', icon: 'operations' },
       { to: '/operations/pending-installations', label: 'Pending installations', icon: 'followup' },
       { to: '/operations/complaints', label: 'Complaints', icon: 'complaints' },
+      { to: '/operations/calls', label: 'Call logs', icon: 'followup' },
     ],
   },
   {

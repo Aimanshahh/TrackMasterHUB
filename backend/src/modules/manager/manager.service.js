@@ -105,8 +105,12 @@ async function getManagerSummary() {
  * owner and how far onboarding has gone; the salesperson portfolio is never
  * filtered here because this desk is meant to find any customer.
  */
-async function listCustomers({ q, accountStatus, page = 1, limit = 20 } = {}) {
+async function listCustomers({ q, accountStatus, page = 1, limit = 20, installedOnly = false } = {}) {
   const filter = {};
+
+  // The manager only deals with customers whose installation is done; leads and
+  // follow-up customers stay with the salesperson. Admin sees everyone.
+  if (installedOnly) filter._id = { $in: await Job.distinct('customer', { status: 'completed' }) };
 
   if (accountStatus === 'active' || accountStatus === 'inactive') filter.accountStatus = accountStatus;
 
@@ -133,18 +137,15 @@ async function listCustomers({ q, accountStatus, page = 1, limit = 20 } = {}) {
     Customer.countDocuments(filter),
   ]);
 
-  const counts = await Job.aggregate([
-    { $match: { customer: { $in: rows.map((row) => row._id) } } },
-    {
-      $group: {
-        _id: '$customer',
-        installations: { $sum: { $cond: [{ $eq: ['$requestType', 'new_installation'] }, 1, 0] } },
-        completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-      },
-    },
-  ]);
-
-  const byCustomer = new Map(counts.map((row) => [row._id.toString(), row]));
+  const jobRows = await Job.find({ customer: { $in: rows.map((row) => row._id) } }).select('customer requestType status').lean();
+  const byCustomer = new Map();
+  for (const job of jobRows) {
+    const key = job.customer.toString();
+    const entry = byCustomer.get(key) ?? { installations: 0, completed: 0 };
+    if (job.requestType === 'new_installation') entry.installations += 1;
+    if (job.status === 'completed') entry.completed += 1;
+    byCustomer.set(key, entry);
+  }
 
   return {
     data: rows.map((customer) => {
@@ -222,9 +223,12 @@ async function listBriefingPending({ q, page = 1, limit = 20 } = {}) {
 }
 
 /** One customer with the commercial and service history the manager needs. */
-async function getCustomerProfile(customerId) {
+async function getCustomerProfile(customerId, { installedOnly = false } = {}) {
   const customer = await Customer.findById(customerId).populate('owner', 'name role email');
   if (!customer) throw makeError(errorCodes.NOT_FOUND, 'No customer matches that id.');
+  if (installedOnly && !(await Job.exists({ customer: customer._id, status: 'completed' }))) {
+    throw makeError(errorCodes.FORBIDDEN, 'This customer has no completed installation yet, so it is not on the manager desk.', 403);
+  }
 
   const [jobs, invoices, payments, complaints, adjustments] = await Promise.all([
     Job.find({ customer: customer._id })

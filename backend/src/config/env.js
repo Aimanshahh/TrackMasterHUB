@@ -69,5 +69,7 @@ export const env = {
   mailFrom: (process.env.MAIL_FROM ?? '').trim(),
   mailBusinessName: (process.env.MAIL_BUSINESS_NAME ?? 'TrackMaster').trim(),
   mailRetrySeconds: Math.max(5, Number(process.env.MAIL_RETRY_SWEEP_SECONDS ?? 60) || 60),
+  // Shared secret the robocall provider must send. Empty = webhook closed.
+  robocallWebhookSecret: (process.env.ROBOCALL_WEBHOOK_SECRET ?? '').trim(),
   trackingTimeoutMs: Math.max(1000, Number(process.env.TRACKING_TIMEOUT_MS ?? 15000) || 15000),
 };

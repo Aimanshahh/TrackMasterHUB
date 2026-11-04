@@ -76,7 +76,7 @@ test('report never carries CNIC, date of birth or E-PIN', { skip }, async () => 
   assert.ok(!text.includes('3520112345671'));
   assert.ok(!text.includes('4821'));
   assert.ok(!text.includes('1990-01-01'));
-  assert.equal(report.calls.label, 'Call data not connected');
+  assert.equal(report.calls.rows.length, 0);
   assert.equal(report.installations.length, 1);
   assert.equal(report.complaints[0].timeToResolve, '2 hours');
 });
@@ -96,4 +96,22 @@ test('manager sees the money section', { skip }, async () => {
   const report = await history.getCustomerHistory(ctx.customer._id, { id: ctx.admin._id.toString(), role: 'manager' });
   assert.ok(report.money);
   assert.ok(report.money.totals.every((row) => row.source));
+});
+
+test('manager desk lists and opens only customers with a completed installation', { skip }, async () => {
+  const manager = await import('../src/modules/manager/manager.service.js');
+  const { default: Customer } = await import('../src/models/Customer.js');
+  const lead = await Customer.create({ name: 'Just A Lead', phone: '03111111111', owner: ctx.sales._id });
+
+  const asManager = await manager.listCustomers({ installedOnly: true });
+  const names = asManager.data.map((row) => row.name);
+  assert.ok(names.includes('Basheer Ahmed'));
+  assert.ok(!names.includes('Just A Lead'));
+
+  const asAdmin = await manager.listCustomers({});
+  assert.ok(asAdmin.data.map((row) => row.name).includes('Just A Lead'));
+
+  await assert.rejects(manager.getCustomerProfile(lead._id, { installedOnly: true }), (e) => /no completed installation/.test(e.message));
+  assert.ok(await manager.getCustomerProfile(lead._id));
+  await assert.rejects(history.getCustomerHistory(lead._id, { id: ctx.admin._id.toString(), role: 'manager' }), (e) => /no completed installation/.test(e.message));
 });
