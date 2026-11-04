@@ -15,6 +15,7 @@ import './styles/salesperson.css';
 import './styles/commercial.css';
 import './styles/manager.css';
 
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthProvider.jsx';
 import { SystemHealthProvider } from './context/SystemHealthProvider.jsx';
@@ -24,7 +25,9 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <SystemHealthProvider>
-          <App />
+          <ErrorBoundary fullPage>
+            <App />
+          </ErrorBoundary>
         </SystemHealthProvider>
       </AuthProvider>
     </BrowserRouter>

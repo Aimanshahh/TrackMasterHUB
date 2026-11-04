@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
+import ErrorBoundary from '../ErrorBoundary.jsx';
 import AppSidebar from './AppSidebar.jsx';
 import AppTopbar from './AppTopbar.jsx';
 import FieldTabs from './FieldTabs.jsx';
@@ -8,6 +9,7 @@ import PageHeader from './PageHeader.jsx';
 
 export default function AppLayout({ workspace }) {
   const [navOpen, setNavOpen] = useState(false);
+  const location = useLocation();
   const hasTabs = Boolean(workspace.tabs?.length);
 
   return (
@@ -18,7 +20,9 @@ export default function AppLayout({ workspace }) {
         <main className="app-content" id="main-content">
           <PageHeader workspace={workspace} />
           <div className="app-page">
-            <Outlet />
+            <ErrorBoundary resetKey={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
         {hasTabs ? <FieldTabs tabs={workspace.tabs} /> : null}
