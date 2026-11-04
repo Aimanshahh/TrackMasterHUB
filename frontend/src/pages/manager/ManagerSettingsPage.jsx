@@ -17,7 +17,7 @@ export default function ManagerSettingsPage() {
             <p className="settings-link-card__eyebrow">Signed in</p>
             <h2>{user?.name} · {roleLabels[user?.role] ?? 'Manager'}</h2>
             <p>
-              {user?.email}. The manager desk can look up any customer, complete security briefings, draft and issue
+              {user?.email}. The manager desk can look up any customer with a completed installation, complete security briefings, draft and issue
               invoices and record payments. Prices, staff accounts and approvals stay with the admin.
             </p>
           </div>

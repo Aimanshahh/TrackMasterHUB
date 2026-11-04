@@ -27,6 +27,9 @@ export function canViewHistory(user, customer) {
 export async function getCustomerHistory(customerId, user) {
   const customer = await Customer.findById(customerId).populate('owner', 'name');
   if (!customer) throw makeError(errorCodes.NOT_FOUND, 'No customer matches that id.');
+  if (user.role === 'manager' && !(await Job.exists({ customer: customer._id, status: 'completed' }))) {
+    throw makeError(errorCodes.FORBIDDEN, 'This customer has no completed installation yet, so it is not on the manager desk.', 403);
+  }
   if (!canViewHistory(user, { owner: customer.owner?._id })) {
     throw makeError(errorCodes.FORBIDDEN, 'You are not allowed to view this customer’s history.', 403);
   }

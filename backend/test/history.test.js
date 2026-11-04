@@ -97,3 +97,21 @@ test('manager sees the money section', { skip }, async () => {
   assert.ok(report.money);
   assert.ok(report.money.totals.every((row) => row.source));
 });
+
+test('manager desk lists and opens only customers with a completed installation', { skip }, async () => {
+  const manager = await import('../src/modules/manager/manager.service.js');
+  const { default: Customer } = await import('../src/models/Customer.js');
+  const lead = await Customer.create({ name: 'Just A Lead', phone: '03111111111', owner: ctx.sales._id });
+
+  const asManager = await manager.listCustomers({ installedOnly: true });
+  const names = asManager.data.map((row) => row.name);
+  assert.ok(names.includes('Basheer Ahmed'));
+  assert.ok(!names.includes('Just A Lead'));
+
+  const asAdmin = await manager.listCustomers({});
+  assert.ok(asAdmin.data.map((row) => row.name).includes('Just A Lead'));
+
+  await assert.rejects(manager.getCustomerProfile(lead._id, { installedOnly: true }), /no completed installation/);
+  assert.ok(await manager.getCustomerProfile(lead._id));
+  await assert.rejects(history.getCustomerHistory(lead._id, { id: ctx.admin._id.toString(), role: 'manager' }), /no completed installation/);
+});
