@@ -124,6 +124,7 @@ export default function VehicleRecordsPage() {
                 <th scope="col">Customer</th>
                 <th scope="col">Device</th>
                 <th scope="col">Installed</th>
+                <th scope="col">Certificate</th>
                 <th scope="col">Status</th>
                 <th scope="col">Last seen</th>
               </tr>
@@ -152,6 +153,14 @@ export default function VehicleRecordsPage() {
                     <td>
                       <span className="ledger__muted">{row.installedAt ? new Date(row.installedAt).toLocaleDateString('en-GB') : '—'}</span>
                       <span className="ledger__sub">{[row.vehicle.station, row.packageName].filter(Boolean).join(' · ')}</span>
+                    </td>
+                    <td>
+                      {row.certificate ? (
+                        <>
+                          <span className="ledger__strong">{row.certificate.number}</span>
+                          <span className="ledger__sub">{row.certificate.status === 'active' ? 'Active' : row.certificate.status === 'cancelled' ? 'Cancelled' : 'Replaced'}</span>
+                        </>
+                      ) : <span className="ledger__muted">None issued</span>}
                     </td>
                     <td>
                       <span className="state-tag" data-state={tag.tone}>{tag.label}</span>

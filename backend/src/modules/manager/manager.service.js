@@ -2,6 +2,7 @@ import Activity from '../../models/Activity.js';
 import Complaint from '../../models/Complaint.js';
 import Customer from '../../models/Customer.js';
 import Invoice from '../../models/Invoice.js';
+import Certificate from '../../models/Certificate.js';
 import InvoiceAdjustment from '../../models/InvoiceAdjustment.js';
 import Job from '../../models/Job.js';
 import Payment from '../../models/Payment.js';
@@ -46,9 +47,9 @@ async function getManagerSummary() {
     installationsInFlight,
   ] = await Promise.all([
     Customer.countDocuments({}),
-    Customer.countDocuments({ _id: { $in: completedCustomerIds }, briefingCompleted: false }),
-    Customer.countDocuments({ _id: { $in: completedCustomerIds }, briefingCompleted: true }),
-    Job.countDocuments({ status: 'completed', _id: { $nin: invoicedJobs } }),
+    Customer.countDocuments({ _id: { $in: completedCustomerIds }, briefingCompleted: false, 'legacy.imported': { $ne: true } }),
+    Customer.countDocuments({ _id: { $in: completedCustomerIds }, $or: [{ briefingCompleted: true }, { 'legacy.imported': true }] }),
+    Job.countDocuments({ status: 'completed', _id: { $nin: invoicedJobs }, 'legacy.imported': { $ne: true } }),
     Invoice.find({ status: 'issued' }).select('amount paidAmount creditedAmount refundedAmount dueDate').lean(),
     Payment.aggregate([
       { $match: { receivedAt: { $gte: monthStart } } },
@@ -167,25 +168,23 @@ async function listCustomers({ q, accountStatus, page = 1, limit = 20, installed
  * returned; the sensitive briefing fields are never part of a list.
  */
 async function listBriefingPending({ q, page = 1, limit = 20 } = {}) {
-  const waiting = await Job.aggregate([
-    { $match: { requestType: 'new_installation', status: 'completed' } },
-    {
-      $group: {
-        _id: '$customer',
-        since: { $min: { $ifNull: ['$completedAt', '$updatedAt'] } },
-        vehicles: {
-          $push: {
-            label: '$vehicle.label',
-            registration: '$vehicle.registration',
-            completedAt: { $ifNull: ['$completedAt', '$updatedAt'] },
-          },
-        },
-      },
-    },
-  ]);
+  const doneJobs = await Job.find({ requestType: 'new_installation', status: 'completed' })
+    .select('customer vehicle completedAt updatedAt')
+    .lean();
+  const groups = new Map();
+  for (const job of doneJobs) {
+    const key = job.customer.toString();
+    const at = job.completedAt ?? job.updatedAt;
+    const group = groups.get(key) ?? { _id: job.customer, since: at, vehicles: [] };
+    if (at < group.since) group.since = at;
+    group.vehicles.push({ label: job.vehicle?.label, registration: job.vehicle?.registration, completedAt: at });
+    groups.set(key, group);
+  }
+  const waiting = [...groups.values()];
 
   const byCustomer = new Map(waiting.map((row) => [row._id.toString(), row]));
-  const filter = { _id: { $in: waiting.map((row) => row._id) }, briefingCompleted: { $ne: true } };
+  // Imported legacy customers are existing customers: they never go through the new-customer briefing.
+  const filter = { _id: { $in: waiting.map((row) => row._id) }, briefingCompleted: { $ne: true }, 'legacy.imported': { $ne: true } };
 
   if (q) {
     const regex = new RegExp(escapeRegex(q.trim()), 'i');
@@ -230,7 +229,7 @@ async function getCustomerProfile(customerId, { installedOnly = false } = {}) {
     throw makeError(errorCodes.FORBIDDEN, 'This customer has no completed installation yet, so it is not on the manager desk.', 403);
   }
 
-  const [jobs, invoices, payments, complaints, adjustments] = await Promise.all([
+  const [jobs, invoices, payments, complaints, adjustments, certificates] = await Promise.all([
     Job.find({ customer: customer._id })
       .sort({ createdAt: -1 })
       .populate('technician', 'name station'),
@@ -238,6 +237,7 @@ async function getCustomerProfile(customerId, { installedOnly = false } = {}) {
     Payment.find({ customer: customer._id }).sort({ receivedAt: -1 }),
     Complaint.find({ customer: customer._id }).sort({ createdAt: -1 }).limit(20),
     InvoiceAdjustment.find({ customer: customer._id }).sort({ issuedAt: -1 }),
+    Certificate.find({ customer: customer._id }).sort({ issuedAt: -1 }),
   ]);
 
   const issued = invoices.filter((invoice) => invoice.status === 'issued').map((invoice) => invoiceFigures(invoice));
@@ -252,6 +252,7 @@ async function getCustomerProfile(customerId, { installedOnly = false } = {}) {
     invoices: invoices.map((invoice) => invoice.toApiJson()),
     payments: payments.map((payment) => payment.toApiJson()),
     adjustments: adjustments.map((adjustment) => adjustment.toApiJson()),
+    certificates: certificates.map((certificate) => certificate.toApiJson()),
     complaints: complaints.map((complaint) => complaint.toApiJson()),
     totals: {
       currency: 'PKR',
@@ -353,7 +354,7 @@ async function saveBriefing(customerId, input, actor) {
 async function listBillingQueue({ page = 1, limit = 20 } = {}) {
   const invoicedJobIds = (await Invoice.distinct('job', { status: { $ne: 'cancelled' } })).filter(Boolean);
   // Only installations are billed; a completed follow-up call has no sale.
-  const filter = { status: 'completed', requestType: 'new_installation', _id: { $nin: invoicedJobIds } };
+  const filter = { status: 'completed', requestType: 'new_installation', 'legacy.imported': { $ne: true }, _id: { $nin: invoicedJobIds } };
 
   const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
   const safeLimit = Math.min(50, Math.max(1, Number.parseInt(limit, 10) || 20));

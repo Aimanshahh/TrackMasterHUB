@@ -22,6 +22,7 @@ function formatCnic(value) {
 }
 
 export function AccountStateTag({ customer, installations }) {
+  if (customer?.legacy && !customer?.briefingCompleted) return <span className="state-tag" data-state="paid">Active · imported</span>;
   if (!installations) return <span className="state-tag" data-state="muted">Not installed</span>;
   if (customer?.briefingCompleted) return <span className="state-tag" data-state="paid">Active</span>;
   return <span className="state-tag" data-state="overdue">Briefing pending</span>;
@@ -34,7 +35,9 @@ export function AccountStateTag({ customer, installations }) {
  */
 export default function BriefingPanel({ customer, saving, onSave }) {
   const completed = Boolean(customer?.briefingCompleted);
-  const [editing, setEditing] = useState(!completed);
+  // Imported legacy customers are already active; recording a briefing for them is optional.
+  const legacy = Boolean(customer?.legacy) && !completed;
+  const [editing, setEditing] = useState(!completed && !legacy);
   const [form, setForm] = useState({
     ...emptyBriefing,
     cnic: customer?.briefing?.cnic ?? '',
@@ -67,7 +70,9 @@ export default function BriefingPanel({ customer, saving, onSave }) {
           <p className="panel__meta">
             {completed
               ? `Completed ${formatDay(customer.briefing?.completedAt)} · account active`
-              : 'Required before this account is activated'}
+              : legacy
+                ? 'Not required · existing customer imported from legacy records'
+                : 'Required before this account is activated'}
           </p>
         </div>
         {completed && !editing ? (
@@ -75,7 +80,16 @@ export default function BriefingPanel({ customer, saving, onSave }) {
         ) : null}
       </div>
 
-      {!completed ? (
+      {legacy && !editing ? (
+        <p className="brief-gate">
+          <span aria-hidden="true">i</span>
+          This customer was imported from the legacy system and is already active, so no briefing is needed.
+          You can still record one if you want it on file.{' '}
+          <button type="button" className="link-button" onClick={() => setEditing(true)}>Record a briefing</button>
+        </p>
+      ) : null}
+
+      {!completed && !legacy ? (
         <p className="brief-gate">
           <span aria-hidden="true">!</span>
           A finished installation does not activate an account. Record these details to activate it; the customer stays

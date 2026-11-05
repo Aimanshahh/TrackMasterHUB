@@ -1,3 +1,4 @@
+import Certificate from '../../models/Certificate.js';
 import Job from '../../models/Job.js';
 import { packageCatalog } from '../../models/Package.js';
 import { ensureTrackingLoaded, getSyncStatus, normalizePlate, statusFor, syncTracking } from '../tracking/tracking.service.js';
@@ -33,6 +34,14 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
     .populate('technician', 'name')
     .lean();
 
+  const certs = await Certificate.find({ job: { $in: jobs.map((j) => j._id) } }).sort({ issuedAt: -1 }).lean();
+  const certByJob = new Map();
+  for (const c of certs) {
+    const key = c.job.toString();
+    const current = certByJob.get(key);
+    if (!current || (c.status === 'active' && current.status !== 'active')) certByJob.set(key, c);
+  }
+
   const seen = new Set();
   const vehicles = [];
 
@@ -55,6 +64,9 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
       simNumber: job.simNumber ?? '',
       packageName: job.packageKey ? packageCatalog[job.packageKey]?.name ?? job.packageKey : '',
       technician: job.technician?.name ?? '',
+      certificate: certByJob.get(job._id.toString())
+        ? { id: certByJob.get(job._id.toString())._id.toString(), number: certByJob.get(job._id.toString()).number, status: certByJob.get(job._id.toString()).status }
+        : null,
       installedAt: (job.completedAt ?? job.updatedAt)?.toISOString?.() ?? null,
       tracking: statusFor(job.vehicle?.registration),
     });

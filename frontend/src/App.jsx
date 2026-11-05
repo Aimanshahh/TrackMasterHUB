@@ -29,6 +29,8 @@ import SalesPage from './pages/app/SalesPage.jsx';
 import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
 import AdjustmentPrintPage from './pages/billing/AdjustmentPrintPage.jsx';
+import CertificatesPage from './pages/app/CertificatesPage.jsx';
+import ImportCustomersPage from './pages/app/ImportCustomersPage.jsx';
 import CallLogsPage from './pages/app/CallLogsPage.jsx';
 import CustomerHistoryReportPage from './pages/billing/CustomerHistoryReportPage.jsx';
 import InvoicePrintPage from './pages/billing/InvoicePrintPage.jsx';
@@ -98,6 +100,8 @@ export default function App() {
             <Route path="operations" element={<OperationsPage />} />
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
             <Route path="vehicles" element={<VehicleRecordsPage />} />
+            <Route path="certificates" element={<CertificatesPage />} />
+            <Route path="import" element={<ImportCustomersPage />} />
             <Route path="complaints" element={<ComplaintsPage />} />
             <Route path="calls" element={<CallLogsPage />} />
             <Route path="reports" element={<ReportsPage />} />
@@ -130,6 +134,7 @@ export default function App() {
             <Route path="customers/:customerId" element={<ManagerCustomerDetailPage />} />
             <Route path="briefing-pending" element={<ManagerBriefingPendingPage />} />
             <Route path="vehicles" element={<VehicleRecordsPage />} />
+            <Route path="certificates" element={<CertificatesPage />} />
             <Route path="invoices" element={<ManagerInvoicesPage />} />
             <Route path="payments" element={<ManagerPaymentsPage />} />
             <Route path="complaints" element={<ManagerComplaintsPage />} />

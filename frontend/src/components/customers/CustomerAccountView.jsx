@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import AdjustmentLedger from '../billing/AdjustmentLedger.jsx';
 import InvoiceTable from '../billing/InvoiceTable.jsx';
 import PaymentLedger from '../billing/PaymentLedger.jsx';
 import CustomerTimeline from './CustomerTimeline.jsx';
+import CertificatePreview from '../certificates/CertificatePreview.jsx';
+import CertificateTable from '../certificates/CertificateTable.jsx';
 import BriefingPanel, { AccountStateTag } from '../manager/BriefingPanel.jsx';
 import { PriorityTag, StatusPill } from '../operations/OpsStatus.jsx';
 import { formatDayTime } from '../../app/operations.js';
@@ -38,6 +41,8 @@ export default function CustomerAccountView({
 }) {
   const { customer, jobs, invoices, payments, complaints, totals } = data;
   const adjustments = data.adjustments ?? [];
+  const certificates = data.certificates ?? [];
+  const [previewing, setPreviewing] = useState(null);
   const installations = jobs.filter((job) => job.requestType === 'new_installation');
 
   const profileRows = [
@@ -46,6 +51,8 @@ export default function CustomerAccountView({
     ['Business name', customer.company],
     ['Category', customer.category],
     ['Owner', customer.owner?.name],
+    ['Address', customer.address],
+    ['Legacy ID', customer.legacy?.legacyId],
     ['Created', formatDay(customer.createdAt)],
     ['Next follow-up', customer.followUp ? formatDay(customer.followUp) : ''],
   ].filter(([, value]) => value);
@@ -72,7 +79,7 @@ export default function CustomerAccountView({
         </div>
         <div className="account-head__state">
           <AccountStateTag customer={customer} installations={installations.length} />
-          <p>{customer.briefingCompleted ? 'Briefing recorded' : installations.length ? 'Briefing required' : 'No installation yet'}</p>
+          <p>{customer.briefingCompleted ? 'Briefing recorded' : customer.legacy ? 'Imported customer · no briefing needed' : installations.length ? 'Briefing required' : 'No installation yet'}</p>
         </div>
       </section>
 
@@ -201,6 +208,17 @@ export default function CustomerAccountView({
           emptyMessage="Record a payment against an issued invoice and it appears here."
         />
       </section>
+
+      <section className="panel">
+        <div className="panel__head">
+          <div>
+            <h2 className="panel__title">Tracker certificates</h2>
+            <p className="panel__meta">Every certificate issued for this customer's vehicles, including replaced and cancelled ones.</p>
+          </div>
+        </div>
+        <CertificateTable certificates={certificates} onPreview={setPreviewing} emptyMessage="No certificate has been issued for this customer yet." />
+      </section>
+      {previewing ? <CertificatePreview certificate={previewing} onClose={() => setPreviewing(null)} /> : null}
 
       <CustomerTimeline customerId={customer.id} />
 

@@ -51,9 +51,22 @@ const customerSchema = new mongoose.Schema(
       trim: true,
       maxlength: 5000,
     },
+    address: { type: String, trim: true, maxlength: 400, default: '' },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+    },
+    /**
+     * Existing customers brought in by the bulk import. They are already active
+     * customers, so they skip new-customer onboarding and the security briefing.
+     * Columns the import did not recognise are kept in `extra`.
+     */
+    legacy: {
+      imported: { type: Boolean, default: false },
+      legacyId: { type: String, trim: true, maxlength: 80 },
+      batch: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportBatch' },
+      importedAt: { type: Date },
+      extra: { type: mongoose.Schema.Types.Mixed },
     },
     /**
      * Account state is separate from installation: a completed installation
@@ -124,6 +137,8 @@ customerSchema.methods.toApiJson = function () {
       : this.owner?._id
         ? { id: this.owner._id.toString() }
         : null,
+    address: this.address ?? '',
+    legacy: this.legacy?.imported ? { imported: true, legacyId: this.legacy.legacyId ?? '' } : null,
     accountStatus: this.accountStatus ?? 'inactive',
     briefingCompleted: Boolean(this.briefingCompleted),
     createdAt: this.createdAt.toISOString(),
