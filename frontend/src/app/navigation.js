@@ -4,6 +4,7 @@ const adminGroups = [
     items: [
       { to: '/admin', label: 'Overview', icon: 'overview', end: true },
       { to: '/admin/customers', label: 'Customers', icon: 'customers' },
+      { to: '/admin/import', label: 'Customer import', icon: 'customers' },
       { to: '/admin/follow-ups', label: 'Follow-ups', icon: 'followup' },
       { to: '/admin/sales', label: 'Sales', icon: 'sales' },
     ],
@@ -14,6 +15,7 @@ const adminGroups = [
       { to: '/admin/operations', label: 'Operations', icon: 'operations' },
       { to: '/admin/pending-installations', label: 'Pending installations', icon: 'operations' },
       { to: '/admin/vehicles', label: 'Vehicles', icon: 'operations' },
+      { to: '/admin/certificates', label: 'Certificates', icon: 'approvals' },
       { to: '/admin/complaints', label: 'Complaints', icon: 'complaints' },
       { to: '/admin/calls', label: 'Call logs', icon: 'followup' },
     ],
@@ -77,6 +79,7 @@ const managerGroups = [
       { to: '/manager/customers', label: 'Customers', icon: 'customers' },
       { to: '/manager/briefing-pending', label: 'Briefing pending', icon: 'followup' },
       { to: '/manager/vehicles', label: 'Vehicles', icon: 'operations' },
+      { to: '/manager/certificates', label: 'Certificates', icon: 'approvals' },
     ],
   },
   {

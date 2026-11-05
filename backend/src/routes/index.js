@@ -15,6 +15,8 @@ import { approvalsRouter } from '../modules/approvals/approvals.routes.js';
 import { billingRouter } from '../modules/billing/billing.routes.js';
 import { managerRouter } from '../modules/manager/manager.routes.js';
 import { callsRouter, callsWebhookRouter } from '../modules/calls/calls.routes.js';
+import { importsRouter } from '../modules/imports/imports.routes.js';
+import { certificatesRouter } from '../modules/certificates/certificates.routes.js';
 import { vehiclesRouter } from '../modules/vehicles/vehicles.routes.js';
 
 /** Every feature module mounts here. Future modules (sales, operations, etc.) follow the same pattern. */
@@ -42,6 +44,8 @@ apiRouter.get('/', (req, res) => {
       manager: '/api/manager',
       vehicles: '/api/vehicles',
       calls: '/api/calls',
+      certificates: '/api/certificates',
+      imports: '/api/imports',
     },
   });
 });
@@ -63,3 +67,5 @@ apiRouter.use('/manager', managerRouter);
 apiRouter.use('/vehicles', vehiclesRouter);
 apiRouter.use('/calls', callsRouter);
 apiRouter.use('/webhooks/robocall', callsWebhookRouter);
+apiRouter.use('/certificates', certificatesRouter);
+apiRouter.use('/imports', importsRouter);
