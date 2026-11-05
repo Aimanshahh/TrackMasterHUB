@@ -61,6 +61,15 @@ const jobSchema = new mongoose.Schema(
       label: { type: String, trim: true, maxlength: 120 },
       registration: { type: String, trim: true, maxlength: 60 },
       station: { type: String, trim: true, maxlength: 120 },
+      engineNo: { type: String, trim: true, maxlength: 60 },
+      chassisNo: { type: String, trim: true, maxlength: 60 },
+      colour: { type: String, trim: true, maxlength: 40 },
+    },
+    /** Set for vehicles brought in by the bulk import; they never went through the install workflow. */
+    legacy: {
+      imported: { type: Boolean, default: false },
+      legacyId: { type: String, trim: true, maxlength: 80 },
+      batch: { type: mongoose.Schema.Types.ObjectId, ref: 'ImportBatch' },
     },
     priority: {
       type: String,
@@ -152,7 +161,11 @@ jobSchema.methods.toApiJson = function () {
       label: this.vehicle?.label ?? '',
       registration: this.vehicle?.registration ?? '',
       station: this.vehicle?.station ?? '',
+      engineNo: this.vehicle?.engineNo ?? '',
+      chassisNo: this.vehicle?.chassisNo ?? '',
+      colour: this.vehicle?.colour ?? '',
     },
+    legacy: this.legacy?.imported ? { imported: true, legacyId: this.legacy.legacyId ?? '' } : null,
     priority: this.priority,
     status: this.status,
     statusLabel: jobStatusLabels[this.status] ?? this.status,

@@ -347,6 +347,86 @@ export function fetchManagerSummary({ signal } = {}) {
   return apiRequest('/api/manager/summary', { signal });
 }
 
+/* ---- certificates ---- */
+
+export function fetchCertificateCustomers(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/certificates/customers', params), { signal });
+}
+
+export function fetchCertificates(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/certificates', params), { signal });
+}
+
+export function fetchCertificate(id, { signal } = {}) {
+  return apiRequest(`/api/certificates/${encodeURIComponent(id)}`, { signal });
+}
+
+export function issueCertificatesRecord(input) {
+  return sendJson('/api/certificates', 'POST', input);
+}
+
+export function reissueCertificateRecord(id, input) {
+  return sendJson(`/api/certificates/${encodeURIComponent(id)}/reissue`, 'POST', input);
+}
+
+export function cancelCertificateRecord(id, input) {
+  return sendJson(`/api/certificates/${encodeURIComponent(id)}/cancel`, 'POST', input);
+}
+
+/** Fetch a binary file with the session cookie and return it as a Blob. */
+async function fetchBlob(path) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include', cache: 'no-store' });
+  } catch {
+    throw new ApiError('Could not reach the API. Check that the backend is running.');
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new ApiError(payload?.error?.message ?? `Request failed with status ${response.status}.`, { status: response.status });
+  }
+  return response.blob();
+}
+
+export function fetchCertificatePdf(id) {
+  return fetchBlob(`/api/certificates/${encodeURIComponent(id)}/pdf`);
+}
+
+/* ---- customer import ---- */
+
+export function fetchImports(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/imports', params), { signal });
+}
+
+export function fetchImportBatch(id, { signal } = {}) {
+  return apiRequest(`/api/imports/${encodeURIComponent(id)}`, { signal });
+}
+
+export function fetchImportRows(id, params = {}, { signal } = {}) {
+  return apiRequest(withQuery(`/api/imports/${encodeURIComponent(id)}/rows`, params), { signal });
+}
+
+/** The file goes up as raw bytes; its name travels in a header. */
+export function uploadImportFile(file) {
+  return apiRequest('/api/imports/upload', {
+    method: 'POST',
+    body: file,
+    headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
+  });
+}
+
+export function previewImportBatch(id, input) {
+  return sendJson(`/api/imports/${encodeURIComponent(id)}/preview`, 'POST', input);
+}
+
+export function confirmImportBatch(id, input) {
+  return sendJson(`/api/imports/${encodeURIComponent(id)}/confirm`, 'POST', input);
+}
+
+export function fetchImportReport(id) {
+  return fetchBlob(`/api/imports/${encodeURIComponent(id)}/report.csv`);
+}
+
 export function fetchCalls(params = {}, { signal } = {}) {
   return apiRequest(withQuery('/api/calls', params), { signal });
 }
