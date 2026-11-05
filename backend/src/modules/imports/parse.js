@@ -11,12 +11,16 @@ const bad = (message) => makeError(errorCodes.VALIDATION_ERROR, message);
 
 function cellText(value) {
   if (value === null || value === undefined) return '';
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (value instanceof Date) {
+    // Keep malformed spreadsheet dates visible to row validation instead of
+    // crashing the entire upload while serializing an invalid Date.
+    return Number.isNaN(value.getTime()) ? String(value) : value.toISOString().slice(0, 10);
+  }
   if (typeof value === 'object') {
-    if (Array.isArray(value.richText)) return value.richText.map((part) => part.text).join('').trim();
-    if ('result' in value) return cellText(value.result);
-    if ('text' in value) return cellText(value.text);
-    if ('hyperlink' in value) return String(value.hyperlink);
+    if (Array.isArray(value.richText)) return value.richText.map((part) => String(part.text ?? '')).join('').trim();
+    if (Object.prototype.hasOwnProperty.call(value, 'result')) return cellText(value.result);
+    if (Object.prototype.hasOwnProperty.call(value, 'text')) return cellText(value.text);
+    if (Object.prototype.hasOwnProperty.call(value, 'hyperlink')) return String(value.hyperlink);
     return '';
   }
   return String(value).trim();
@@ -43,11 +47,15 @@ async function readXlsx(buffer) {
   if (!sheet) throw bad('The Excel file has no data.');
 
   const rows = [];
-  sheet.eachRow({ includeEmpty: false }, (row) => {
+  const sheetValues = sheet.getSheetValues();
+  const width = sheet.actualColumnCount;
+  for (let rowNumber = 1; rowNumber < sheetValues.length; rowNumber += 1) {
+    const rowValues = sheetValues[rowNumber];
+    if (!rowValues) continue;
     const cells = [];
-    for (let c = 1; c <= sheet.actualColumnCount; c += 1) cells.push(cellText(row.getCell(c).value));
+    for (let c = 1; c <= width; c += 1) cells.push(cellText(rowValues[c]));
     rows.push(cells);
-  });
+  }
   return rows;
 }
 

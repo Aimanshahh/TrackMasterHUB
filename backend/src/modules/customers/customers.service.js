@@ -1,4 +1,6 @@
 import Customer from '../../models/Customer.js';
+import Job from '../../models/Job.js';
+import Invoice from '../../models/Invoice.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 
@@ -122,4 +124,20 @@ async function updateCustomer(id, input) {
   return populated.toApiJson();
 }
 
-export { listCustomers, getCustomerById, createCustomer, updateCustomer, buildFilter };
+async function deleteCustomer(id) {
+  const customer = await Customer.findById(id).select('_id name');
+  if (!customer) throw makeError(errorCodes.NOT_FOUND, 'No customer matches this record.');
+
+  const [jobs, invoices] = await Promise.all([
+    Job.countDocuments({ customer: id }),
+    Invoice.countDocuments({ customer: id }),
+  ]);
+  if (jobs || invoices) {
+    throw makeError(errorCodes.CONFLICT, `This customer cannot be deleted because it has ${jobs ? `${jobs} vehicle/job record${jobs === 1 ? '' : 's'}` : ''}${jobs && invoices ? ' and ' : ''}${invoices ? `${invoices} invoice${invoices === 1 ? '' : 's'}` : ''}. Preserve the history or remove linked records first.`, 409);
+  }
+
+  await Customer.deleteOne({ _id: id });
+  return { deleted: true, id: String(id) };
+}
+
+export { listCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer, buildFilter };

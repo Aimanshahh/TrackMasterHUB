@@ -1,4 +1,4 @@
-import { buildFilter, listCustomers, getCustomerById, createCustomer, updateCustomer } from './customers.service.js';
+import { buildFilter, listCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer } from './customers.service.js';
 import { getCustomerHistory } from './history.service.js';
 import { makeError } from '../../middleware/errors.js';
 import { errorCodes } from '../../config/errorCodes.js';
@@ -60,4 +60,10 @@ async function getCustomerHistoryReport(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { getCustomerHistoryReport, getCustomers, getCustomer, createCustomerRecord, patchCustomerRecord };
+async function deleteCustomerRecord(req, res, next) {
+  try {
+    return res.json({ data: await deleteCustomer(req.params.id) });
+  } catch (error) { next(error); }
+}
+
+export { getCustomerHistoryReport, getCustomers, getCustomer, createCustomerRecord, patchCustomerRecord, deleteCustomerRecord };

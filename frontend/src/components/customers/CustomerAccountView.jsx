@@ -7,6 +7,7 @@ import PaymentLedger from '../billing/PaymentLedger.jsx';
 import CustomerTimeline from './CustomerTimeline.jsx';
 import CertificatePreview from '../certificates/CertificatePreview.jsx';
 import CertificateTable from '../certificates/CertificateTable.jsx';
+import VehicleEditDrawer from './VehicleEditDrawer.jsx';
 import BriefingPanel, { AccountStateTag } from '../manager/BriefingPanel.jsx';
 import { PriorityTag, StatusPill } from '../operations/OpsStatus.jsx';
 import { formatDayTime } from '../../app/operations.js';
@@ -36,6 +37,8 @@ export default function CustomerAccountView({
   onPayInvoice,
   onCreditInvoice,
   onRefundInvoice,
+  onVehicleSaved,
+  onDeleteCustomer,
   busyInvoiceId = null,
   moneyLink,
 }) {
@@ -43,6 +46,7 @@ export default function CustomerAccountView({
   const adjustments = data.adjustments ?? [];
   const certificates = data.certificates ?? [];
   const [previewing, setPreviewing] = useState(null);
+  const [editingVehicle, setEditingVehicle] = useState(null);
   const installations = jobs.filter((job) => job.requestType === 'new_installation');
 
   const profileRows = [
@@ -81,6 +85,9 @@ export default function CustomerAccountView({
           <AccountStateTag customer={customer} installations={installations.length} />
           <p>{customer.briefingCompleted ? 'Briefing recorded' : customer.legacy ? 'Imported customer · no briefing needed' : installations.length ? 'Briefing required' : 'No installation yet'}</p>
         </div>
+        {onDeleteCustomer ? (
+          <button type="button" className="btn btn--outline btn--small customer-delete" onClick={onDeleteCustomer}>Delete customer</button>
+        ) : null}
       </section>
 
       <dl className="account-totals">
@@ -148,12 +155,15 @@ export default function CustomerAccountView({
                     <div><dt>Technician</dt><dd>{job.technician?.name || 'Unassigned'}</dd></div>
                     <div><dt>Device IMEI</dt><dd className="mono">{job.deviceImei || '—'}</dd></div>
                     <div><dt>SIM</dt><dd className="mono">{job.simNumber || '—'}</dd></div>
+                    <div><dt>Engine no.</dt><dd className="mono">{job.vehicle?.engineNo || '—'}</dd></div>
+                    <div><dt>Chassis no.</dt><dd className="mono">{job.vehicle?.chassisNo || '—'}</dd></div>
                     <div><dt>Scheduled</dt><dd>{formatDayTime(job.scheduledAt)}</dd></div>
                     <div><dt>Completed</dt><dd>{formatDayTime(job.completedAt)}</dd></div>
                   </dl>
                   <footer className="vehicle__foot">
                     <span>{job.packageName || 'No package'} · sold {formatMoney(job.quotedPrice ?? job.listPrice)}</span>
                     <span>Job {job.reference}</span>
+                    <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingVehicle(job)}>Edit details</button>
                   </footer>
                 </li>
               ))}
@@ -163,6 +173,17 @@ export default function CustomerAccountView({
 
         <BriefingPanel customer={customer} saving={saving} onSave={onSaveBriefing} />
       </div>
+
+      {editingVehicle ? (
+        <VehicleEditDrawer
+          job={editingVehicle}
+          onClose={() => setEditingVehicle(null)}
+          onSaved={async (updatedJob) => {
+            setEditingVehicle(null);
+            await onVehicleSaved?.(updatedJob);
+          }}
+        />
+      ) : null}
 
       <section className="panel">
         <div className="panel__head">

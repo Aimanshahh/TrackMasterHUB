@@ -235,6 +235,9 @@ async function updateJob(id, input, actor) {
   if (input.station !== undefined) job.vehicle.station = input.station.trim();
   if (input.vehicleLabel !== undefined) job.vehicle.label = input.vehicleLabel.trim();
   if (input.vehicleRegistration !== undefined) job.vehicle.registration = input.vehicleRegistration.trim();
+  if (input.engineNo !== undefined) job.vehicle.engineNo = input.engineNo.trim();
+  if (input.chassisNo !== undefined) job.vehicle.chassisNo = input.chassisNo.trim();
+  if (input.colour !== undefined) job.vehicle.colour = input.colour.trim();
   if (input.priority !== undefined) job.priority = input.priority;
   if (input.notes !== undefined) job.notes = input.notes.trim();
   if (input.scheduledAt !== undefined) {

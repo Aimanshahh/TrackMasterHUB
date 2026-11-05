@@ -40,28 +40,37 @@ export function normalizeRow(cells, headers, mapping, now = new Date()) {
   const errors = [];
   const warnings = [];
 
-  if (!values.name) errors.push('Customer name is missing.');
+  if (!values.name) warnings.push('Customer name is missing. A temporary name will be used until you edit the customer.');
   const key = phoneKey(values.phone);
-  if (!values.phone) errors.push('Phone number is missing.');
-  else if (!key) errors.push(`Phone number "${values.phone}" has fewer than 10 digits.`);
+  if (!values.phone) warnings.push('Phone number is missing.');
+  else if (!key) {
+    warnings.push(`Phone number "${values.phone}" is not usable and will be left blank.`);
+    values.phone = '';
+  }
   values.phoneKey = key;
 
-  if (values.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) errors.push(`Email "${values.email}" is not valid.`);
+  if (values.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) {
+    warnings.push(`Email "${values.email}" is not valid and will be left blank.`);
+    values.email = '';
+  }
 
   const vehicleFields = ['registration', 'makeModel', 'engineNo', 'chassisNo', 'colour', 'deviceImei', 'simNumber', 'installedAt'];
   const hasVehicle = vehicleFields.some((field) => values[field]);
   values.plateKey = plateKey(values.registration);
-  if (hasVehicle && values.plateKey.length < 3) errors.push('The vehicle has details but no usable registration number.');
+  if (hasVehicle && values.plateKey.length < 3) warnings.push('Vehicle details were found without a usable registration number; this vehicle will need editing before it can be added.');
 
   const imeiDigits = values.deviceImei.replace(/\D/g, '');
-  if (values.deviceImei && (imeiDigits.length < 14 || imeiDigits.length > 17)) errors.push(`IMEI "${values.deviceImei}" should be 14 to 17 digits.`);
+  if (values.deviceImei && (imeiDigits.length < 14 || imeiDigits.length > 17)) {
+    warnings.push(`IMEI "${values.deviceImei}" is not valid and will be left blank.`);
+    values.deviceImei = '';
+  }
   if (values.deviceImei) values.deviceImei = imeiDigits;
 
   values.installedDate = null;
   if (values.installedAt) {
     const date = parseDateText(values.installedAt);
-    if (!date) errors.push(`Installation date "${values.installedAt}" is not a date I can read (use 25-09-2026 or 2026-09-25).`);
-    else if (date > now) errors.push('The installation date is in the future.');
+    if (!date) warnings.push(`Installation date "${values.installedAt}" is not readable and will be left blank.`);
+    else if (date > now) warnings.push('The installation date is in the future and will be left blank.');
     else values.installedDate = date;
   }
   if (hasVehicle && values.plateKey && !values.installedAt) warnings.push('No installation date. The certificate date will need to be set by hand.');

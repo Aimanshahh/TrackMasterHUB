@@ -32,7 +32,7 @@ operationsRouter.get('/jobs', deskOnly, getJobs);
 // A salesperson can push a customer request into the queue; only the desk can
 // list the queue or change an existing job.
 operationsRouter.post('/jobs', requireRole('admin', 'operations', 'salesperson'), postJob);
-operationsRouter.patch('/jobs/:id', deskOnly, patchJob);
+operationsRouter.patch('/jobs/:id', requireRole('admin', 'operations', 'manager'), patchJob);
 
 operationsRouter.get('/technicians', deskOnly, getTechnicians);
 operationsRouter.post('/technicians', deskOnly, postTechnician);

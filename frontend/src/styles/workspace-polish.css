@@ -143,6 +143,12 @@
 .customer-table__header { background: #f7f6f3; }
 .customer-table__row { width: 100%; border: 0; border-top: 1px solid #eeece7; background: #fff; color: inherit; text-align: left; font: inherit; cursor: pointer; }
 .customer-table__row:focus-visible { outline-offset: -3px; }
+.customer-table__cell { min-width: 0; }
+.customer-table__cell > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.customer-table__meta { overflow: hidden; color: #85898f; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.customer-priority { display: inline-block !important; width: fit-content; padding: 4px 7px; border: 1px solid #e3e0da; border-radius: 999px; color: #666b72; font-size: 9px; text-transform: capitalize; }
+.customer-priority[data-priority="urgent"] { border-color: #e5b7b7; background: #fff3f2; color: #a20f15; }
+.customer-priority[data-priority="high"] { border-color: #ead4a7; background: #fff9eb; color: #8a5b08; }
 .users-toolbar { background: #fbfaf8; }
 .users-toolbar input:focus, .users-toolbar select:focus { border-color: #aa171d; outline: 0; box-shadow: 0 0 0 3px #d7131b14; }
 .app-empty { padding: 40px 22px; }
