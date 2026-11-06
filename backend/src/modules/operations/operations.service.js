@@ -12,6 +12,8 @@ import { notifyUser } from '../notifications/notifications.service.js';
 import { getPackagePricing } from '../pricing/pricing.service.js';
 
 /** A station is flagged when it has fewer available devices than this. */
+import { CHECKLIST_ITEMS, CHECKLIST_KEYS, ENGINE_KILL_STATUSES, completionMissing, engineKillLabels } from '../../utils/installation.js';
+
 export const LOW_STOCK_THRESHOLD = 3;
 
 /** Do not repeat the same station warning within this window. */
@@ -23,6 +25,34 @@ function pageParams(page, limit) {
   const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
   const safeLimit = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || 20));
   return { page: safePage, limit: safeLimit, skip: (safePage - 1) * safeLimit };
+}
+
+function parseOptionalDate(value, label) {
+  if (value === undefined) return undefined;
+  if (!value) return null;
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) throw makeError(errorCodes.VALIDATION_ERROR, `Enter a valid ${label}.`);
+  return date;
+}
+
+function parseOptionalYear(value) {
+  if (value === undefined) return undefined;
+  if (value === '' || value === null) return null;
+  const year = Number(value);
+  if (!Number.isInteger(year) || year < 1900 || year > 2200) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter a valid record year.');
+  }
+  return year;
+}
+
+function parseOptionalMonth(value) {
+  if (value === undefined) return undefined;
+  if (value === '' || value === null) return null;
+  const month = Number(value);
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter an installation month from 1 to 12.');
+  }
+  return month;
 }
 
 /* ---------------------------------- Jobs --------------------------------- */
@@ -155,6 +185,12 @@ async function createJob(input, actor) {
     priority: input.priority ?? 'normal',
     scheduledAt,
     notes: input.notes?.trim(),
+    simMode: input.simMode?.trim(),
+    loginId: input.loginId?.trim(),
+    oldVrn: input.oldVrn?.trim(),
+    installationDate: parseOptionalDate(input.installationDate, 'installation date'),
+    installationMonth: parseOptionalMonth(input.installationMonth),
+    recordYear: parseOptionalYear(input.recordYear),
     packageKey,
     listPrice,
     quotedPrice,
@@ -208,11 +244,140 @@ async function releaseSim(number, jobId) {
   await Sim.updateOne({ number, job: jobId }, { $set: { status: 'in_stock' }, $unset: { job: 1, technician: 1 } });
 }
 
+const actorName = (actor) => String(actor?.name ?? actor?.email ?? '').trim();
+
+const text = (value, label, max) => {
+  const out = String(value ?? '').trim();
+  if (out.length > max) throw makeError(errorCodes.VALIDATION_ERROR, `${label} can be at most ${max} characters.`);
+  return out;
+};
+
+/** Applies the installation details Operations enters from the technician's report. Returns the labels of what changed. */
+function applyInstallationDetails(job, input, actor) {
+  const changed = [];
+  const inst = job.installation;
+  const fields = [
+    ['deviceModel', 'Device model', 120],
+    ['placement', 'Device location in vehicle', 160],
+    ['address', 'Installation address', 400],
+    ['testResult', 'Testing results', 1000],
+    ['technicianRemarks', 'Technician remarks', 1000],
+    ['operationsRemarks', 'Operations remarks', 1000],
+  ];
+
+  for (const [key, label, max] of fields) {
+    if (input[key] === undefined) continue;
+    const next = text(input[key], label, max);
+    if (next !== (inst[key] ?? '')) { inst[key] = next; changed.push(label); }
+  }
+
+  if (input.batteryTemperatureC !== undefined) {
+    const raw = input.batteryTemperatureC;
+    const next = raw === null || raw === '' ? null : Number(raw);
+    if (next !== null && (!Number.isFinite(next) || next < -50 || next > 150)) {
+      throw makeError(errorCodes.VALIDATION_ERROR, 'Battery temperature must be a number between -50 and 150 °C.');
+    }
+    if (next !== (inst.batteryTemperatureC ?? null)) { inst.batteryTemperatureC = next; changed.push('Battery temperature'); }
+  }
+
+  for (const [key, label] of [['engineNo', 'Engine number'], ['chassisNo', 'Chassis number']]) {
+    if (input[key] === undefined) continue;
+    const next = text(input[key], label, 60);
+    if (next !== (job.vehicle[key] ?? '')) { job.vehicle[key] = next; changed.push(label); }
+  }
+
+  if (changed.length) {
+    job.history.push({ status: job.status, kind: 'details', note: `Installation details updated: ${changed.join(', ')}.`, at: new Date(), by: actor.id, byName: actorName(actor) });
+  }
+
+  if (input.checklist && typeof input.checklist === 'object') {
+    const flips = [];
+    for (const item of CHECKLIST_ITEMS) {
+      if (input.checklist[item.key] === undefined) continue;
+      const next = Boolean(input.checklist[item.key]);
+      if (next !== Boolean(inst.checklist?.[item.key])) {
+        inst.checklist[item.key] = next;
+        flips.push({ key: item.key, label: item.label, value: next });
+      }
+    }
+    if (flips.length) {
+      inst.checklistUpdatedAt = new Date();
+      job.history.push({
+        status: job.status,
+        kind: 'checklist',
+        note: `Checklist updated: ${flips.map((f) => `${f.label} ${f.value ? '✓' : '✗'}`).join('; ')}.`,
+        data: { changes: flips, checklist: Object.fromEntries(CHECKLIST_KEYS.map((k) => [k, Boolean(inst.checklist[k])])) },
+        at: new Date(),
+        by: actor.id,
+        byName: actorName(actor),
+      });
+      changed.push('Checklist');
+    }
+  }
+
+  return changed;
+}
+
+/**
+ * Engine kill is recorded on its own, separate from GPS installation status.
+ * "Not implemented" needs a reason; every change is kept in engineKillHistory.
+ */
+function applyEngineKill(job, input, actor) {
+  const status = input?.status;
+  if (!ENGINE_KILL_STATUSES.includes(status) || status === 'not_set') {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Choose Implemented or Not implemented for the engine kill.');
+  }
+  const reason = text(input.reason, 'Reason', 400);
+  if (status === 'not_implemented' && !reason) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Give a reason when engine kill is not implemented.');
+  }
+
+  const current = job.installation.engineKill ?? {};
+  const from = current.status ?? 'not_set';
+  const nextReason = status === 'not_implemented' ? reason : reason; // keep any note on implemented too
+  if (from === status && (current.reason ?? '') === nextReason) return false;
+
+  const now = new Date();
+  job.installation.engineKill = { status, reason: nextReason, updatedAt: now, updatedByName: actorName(actor) };
+  job.engineKillHistory.push({ from, to: status, reason: nextReason, at: now, by: actor.id, byName: actorName(actor) });
+  job.history.push({
+    status: job.status,
+    kind: 'engine_kill',
+    note: `Engine kill ${engineKillLabels[status].toLowerCase()}${nextReason ? ` — ${nextReason}` : ''}.`,
+    data: { from, to: status, reason: nextReason },
+    at: now,
+    by: actor.id,
+    byName: actorName(actor),
+  });
+  return true;
+}
+
+async function updateEngineKill(id, input, actor) {
+  const job = await Job.findById(id);
+  if (!job) throw makeError(errorCodes.NOT_FOUND, 'No operations job matches that id.');
+  if (job.requestType !== 'new_installation') {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Engine kill is recorded on installation jobs only.');
+  }
+  if (job.status === 'cancelled') throw makeError(errorCodes.CONFLICT, 'This job was cancelled.', 409);
+  applyEngineKill(job, input ?? {}, actor);
+  await job.save();
+  const refreshed = await Job.findById(job._id).populate('technician', 'name station');
+  return refreshed.toApiJson();
+}
+
 async function updateJob(id, input, actor) {
   const job = await Job.findById(id);
   if (!job) throw makeError(errorCodes.NOT_FOUND, 'No operations job matches that id.');
 
   const previousStatus = job.status;
+
+  /* Installation tests, device placement, remarks and engine kill belong to Operations (and the admin). */
+  if (actor?.role === 'manager') {
+    const operationsOnly = ['checklist', 'engineKill', 'deviceModel', 'placement', 'address', 'batteryTemperatureC', 'testResult', 'technicianRemarks', 'operationsRemarks', 'completedAt'];
+    if (operationsOnly.some((key) => input[key] !== undefined)) {
+      throw makeError(errorCodes.FORBIDDEN, 'Only Operations or the admin can change installation tests, device placement or engine kill.', 403);
+    }
+  }
 
   if (input.status !== undefined && !JOB_STATUSES.includes(input.status)) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Choose a valid job status.');
@@ -235,8 +400,17 @@ async function updateJob(id, input, actor) {
   if (input.station !== undefined) job.vehicle.station = input.station.trim();
   if (input.vehicleLabel !== undefined) job.vehicle.label = input.vehicleLabel.trim();
   if (input.vehicleRegistration !== undefined) job.vehicle.registration = input.vehicleRegistration.trim();
+  if (input.engineNo !== undefined) job.vehicle.engineNo = input.engineNo.trim();
+  if (input.chassisNo !== undefined) job.vehicle.chassisNo = input.chassisNo.trim();
+  if (input.colour !== undefined) job.vehicle.colour = input.colour.trim();
   if (input.priority !== undefined) job.priority = input.priority;
   if (input.notes !== undefined) job.notes = input.notes.trim();
+  if (input.simMode !== undefined) job.simMode = String(input.simMode ?? '').trim();
+  if (input.loginId !== undefined) job.loginId = String(input.loginId ?? '').trim();
+  if (input.oldVrn !== undefined) job.oldVrn = String(input.oldVrn ?? '').trim();
+  if (input.installationDate !== undefined) job.installationDate = parseOptionalDate(input.installationDate, 'installation date');
+  if (input.installationMonth !== undefined) job.installationMonth = parseOptionalMonth(input.installationMonth);
+  if (input.recordYear !== undefined) job.recordYear = parseOptionalYear(input.recordYear);
   if (input.scheduledAt !== undefined) {
     job.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
     if (job.scheduledAt && Number.isNaN(job.scheduledAt.getTime())) {
@@ -253,17 +427,21 @@ async function updateJob(id, input, actor) {
 
       if (imei) {
         const device = await Device.findOne({ imei });
-        if (!device) throw makeError(errorCodes.VALIDATION_ERROR, 'That IMEI is not recorded in device stock.');
-        if (device.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That device is marked out of service and cannot be assigned.');
-        if (device.job && String(device.job) !== String(job._id)) {
-          throw makeError(errorCodes.CONFLICT, 'That device is already assigned to another job.', 409);
+        if (!device && !job.legacy?.imported && job.status !== 'completed') {
+          throw makeError(errorCodes.VALIDATION_ERROR, 'That IMEI is not recorded in device stock.');
         }
+        if (device) {
+          if (device.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That device is marked out of service and cannot be assigned.');
+          if (device.job && String(device.job) !== String(job._id)) {
+            throw makeError(errorCodes.CONFLICT, 'That device is already assigned to another job.', 409);
+          }
 
-        device.status = 'assigned';
-        device.job = job._id;
-        device.technician = job.technician ?? device.technician ?? null;
-        device.station = job.vehicle.station ?? device.station;
-        await device.save();
+          device.status = 'assigned';
+          device.job = job._id;
+          device.technician = job.technician ?? device.technician ?? null;
+          device.station = job.vehicle.station ?? device.station;
+          await device.save();
+        }
       }
 
       job.deviceImei = imei;
@@ -279,27 +457,36 @@ async function updateJob(id, input, actor) {
 
       if (number) {
         const sim = await Sim.findOne({ number });
-        if (!sim) throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM number is not recorded in SIM stock.');
-        if (sim.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM is marked out of service and cannot be assigned.');
-        if (sim.job && String(sim.job) !== String(job._id)) {
-          throw makeError(errorCodes.CONFLICT, 'That SIM is already assigned to another job.', 409);
+        if (!sim && !job.legacy?.imported && job.status !== 'completed') {
+          throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM number is not recorded in SIM stock.');
         }
+        if (sim) {
+          if (sim.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM is marked out of service and cannot be assigned.');
+          if (sim.job && String(sim.job) !== String(job._id)) {
+            throw makeError(errorCodes.CONFLICT, 'That SIM is already assigned to another job.', 409);
+          }
 
-        sim.status = 'assigned';
-        sim.job = job._id;
-        sim.technician = job.technician ?? sim.technician ?? null;
-        sim.station = job.vehicle.station ?? sim.station;
-        await sim.save();
+          sim.status = 'assigned';
+          sim.job = job._id;
+          sim.technician = job.technician ?? sim.technician ?? null;
+          sim.station = job.vehicle.station ?? sim.station;
+          await sim.save();
+        }
       }
 
       job.simNumber = number;
     }
   }
 
+  /* Installation details, checklist and engine kill */
+  const detailsTouched = applyInstallationDetails(job, input, actor).length > 0;
+  let engineKillTouched = false;
+  if (input.engineKill !== undefined) engineKillTouched = applyEngineKill(job, input.engineKill, actor);
+
   /* Status */
   const nextStatus = input.status ?? job.status;
 
-  if (['assigned', 'scheduled', 'in_progress', 'completed'].includes(nextStatus) && !job.technician) {
+  if (nextStatus !== previousStatus && ['assigned', 'scheduled', 'in_progress', 'completed'].includes(nextStatus) && !job.technician) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Assign a technician before moving this job forward.');
   }
 
@@ -320,9 +507,33 @@ async function updateJob(id, input, actor) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Record the device IMEI and SIM number before completing the installation.');
   }
 
+  /* An installation is only complete when its essential details and applicable
+     tests are on record. Opening the form, or ticking nothing, never completes it.
+     Imported legacy vehicles are already installed and are not held to this. */
+  if (
+    nextStatus === 'completed' && job.requestType === 'new_installation' && !job.legacy?.imported
+    && (previousStatus !== 'completed' || detailsTouched || engineKillTouched)
+  ) {
+    const missing = completionMissing(job);
+    if (missing.length) {
+      throw makeError(
+        errorCodes.VALIDATION_ERROR,
+        `This installation is not ready to complete. Still needed: ${missing.map((m) => m.label).join('; ')}.`,
+        400,
+        { missing },
+      );
+    }
+  }
+
   job.status = nextStatus;
 
   if (nextStatus === 'completed' && previousStatus !== 'completed') job.completedAt = new Date();
+  if (nextStatus === 'completed' && input.completedAt) {
+    const when = new Date(input.completedAt);
+    if (Number.isNaN(when.getTime())) throw makeError(errorCodes.VALIDATION_ERROR, 'Enter a valid completion date and time.');
+    if (when.getTime() > Date.now() + 5 * 60 * 1000) throw makeError(errorCodes.VALIDATION_ERROR, 'The completion time cannot be in the future.');
+    job.completedAt = when;
+  }
   if (nextStatus !== 'completed') job.completedAt = null;
 
   const statusChanged = nextStatus !== previousStatus;
@@ -333,6 +544,7 @@ async function updateJob(id, input, actor) {
       note: input.note?.trim() || (statusChanged ? `Status moved to ${jobStatusLabels[nextStatus]}.` : ''),
       at: new Date(),
       by: actor.id,
+      byName: actorName(actor),
     });
   }
 
@@ -805,6 +1017,7 @@ export {
   listJobs,
   createJob,
   updateJob,
+  updateEngineKill,
   getOperationsSummary,
   getStockByStation,
   getStockByTechnician,

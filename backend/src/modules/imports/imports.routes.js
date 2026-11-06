@@ -5,6 +5,7 @@ import {
   batchReportCsv,
   confirmBatch,
   createBatchFromUpload,
+  deleteBatch,
   getBatch,
   getBatchRows,
   importFields,
@@ -39,6 +40,10 @@ importsRouter.get('/:id', wrap(async (req, res) => {
 
 importsRouter.get('/:id/rows', wrap(async (req, res) => {
   res.json(await getBatchRows(req.params.id, { status: req.query.status, page: req.query.page, limit: req.query.limit }));
+}));
+
+importsRouter.delete('/:id', wrap(async (req, res) => {
+  res.json({ data: await deleteBatch(req.params.id) });
 }));
 
 importsRouter.get('/:id/report.csv', wrap(async (req, res) => {

@@ -43,9 +43,10 @@ test('rows are validated and unmapped columns are kept', () => {
   assert.deepEqual(ok.extra, { Branch: 'Lahore' });
 
   const bad = normalizeRow(['', '123', '', 'tomorrow', ''], headers, mapping);
-  assert.ok(bad.errors.length >= 3);
+  assert.equal(bad.errors.length, 0);
+  assert.ok(bad.warnings.length >= 3);
   const future = normalizeRow(['Ali', '03001234567', 'X-1', '01-01-2999', ''], headers, mapping);
-  assert.match(future.errors.join(' '), /future/);
+  assert.match(future.warnings.join(' '), /future/);
 });
 
 test('CSV (with BOM and quoted commas) and real .xlsx files are parsed; other files are refused', async () => {
@@ -63,6 +64,16 @@ test('CSV (with BOM and quoted commas) and real .xlsx files are parsed; other fi
 
   await assert.rejects(parseUpload(Buffer.from('%PDF-1.4 hello'), 'a.pdf'), (e) => /Excel|CSV/.test(e.message));
   await assert.rejects(parseUpload(csv('only,a,header\n'), 'a.csv'), (e) => /header row/.test(e.message));
+});
+
+test('invalid Excel dates do not crash the upload parser', async () => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Customers');
+  ws.addRow(['Name', 'Phone', 'Installed']);
+  ws.addRow(['Sara', '03211234567', new Date(Number.NaN)]);
+
+  const parsed = await parseUpload(Buffer.from(await wb.xlsx.writeBuffer()), 'invalid-date.xlsx');
+  assert.equal(parsed.rows[0].cells[2], 'Invalid Date');
 });
 
 const skip = hasDb ? false : 'set TEST_MONGO_URI to run database tests';
@@ -136,9 +147,9 @@ test('upload, preview and confirm over HTTP: admin only', { skip }, async () => 
   const p = (await prev.json()).data;
   previewHash = p.batch.previewHash;
   const s = p.batch.summary;
-  assert.equal(s.newCustomers, 2); // Ahmed (2 vehicles, one profile), Sana
-  assert.equal(s.newVehicles, 4); // LEA-100, LEA-200, KHI-300, NEW-400 (added to existing Basheer)
-  assert.equal(s.errors, 1); // no phone
+  assert.equal(s.newCustomers, 3); // Ahmed (2 vehicles, one profile), Sana, and the row with no phone (imported with a warning)
+  assert.equal(s.newVehicles, 5); // LEA-100, LEA-200, KHI-300, NEW-400 (added to existing Basheer), ZZZ-1
+  assert.equal(s.errors, 0); // a missing phone is a warning now, not an error
   assert.equal(s.duplicates, 2); // AYM-118 in DB, KHI-300 again in file
 
   // Nothing was written by the preview.
@@ -156,8 +167,8 @@ test('confirm needs the exact preview, imports once, and a retry changes nothing
   const retry = await svc.confirmBatch(batchId, { previewHash }, actor());
   assert.equal(retry.repeated, true);
 
-  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 2);
-  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 4);
+  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 3);
+  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 5);
   assert.equal(await Customer.countDocuments({ phone: /1234567/ }), 1); // Basheer was not duplicated
 });
 
@@ -194,8 +205,8 @@ test('uploading the same file again imports nothing new', { skip }, async () => 
   assert.equal(prev.batch.summary.newCustomers, 0);
   assert.equal(prev.batch.summary.newVehicles, 0);
   await svc.confirmBatch(again.batch.id, { previewHash: prev.batch.previewHash }, actor());
-  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 2);
-  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 4);
+  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 3);
+  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 5);
 });
 
 test('skip mode leaves existing customers alone, history and error report are available', { skip }, async () => {
@@ -210,7 +221,7 @@ test('skip mode leaves existing customers alone, history and error report are av
   assert.ok(history.data[0].status === 'completed');
 
   const errors = await svc.getBatchRows(batchId, { status: 'error' });
-  assert.equal(errors.meta.total, 1);
+  assert.equal(errors.meta.total, 0);
   const { csv: report } = await svc.batchReportCsv(batchId);
   assert.match(report, /Phone number is missing/);
 });

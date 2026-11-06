@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { makeReference } from '../utils/reference.js';
 import { PACKAGE_KEYS, packageCatalog } from './Package.js';
+import { CHECKLIST_KEYS, ENGINE_KILL_STATUSES, completionStatus, engineKillLabels } from '../utils/installation.js';
 
 export const JOB_STATUSES = [
   'unassigned',
@@ -26,6 +27,39 @@ const historySchema = new mongoose.Schema(
     note: { type: String, trim: true, maxlength: 1000 },
     at: { type: Date, default: Date.now },
     by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // Who did it, kept as text so the history still reads correctly if the account is later renamed.
+    byName: { type: String, trim: true, maxlength: 120 },
+    // What kind of entry this is. `data` carries the checklist or engine-kill change it recorded.
+    kind: { type: String, enum: ['status', 'details', 'checklist', 'engine_kill'], default: 'status' },
+    data: { type: mongoose.Schema.Types.Mixed },
+  },
+  { _id: false },
+);
+
+const checklistFlags = Object.fromEntries(CHECKLIST_KEYS.map((key) => [key, { type: Boolean, default: false }]));
+
+/**
+ * What the technician found and fitted. The technician has no login: Operations
+ * enters everything here from what the technician reports.
+ */
+const installationSchema = new mongoose.Schema(
+  {
+    deviceModel: { type: String, trim: true, maxlength: 120, default: '' },
+    placement: { type: String, trim: true, maxlength: 160, default: '' },
+    address: { type: String, trim: true, maxlength: 400, default: '' },
+    batteryTemperatureC: { type: Number, default: null },
+    testResult: { type: String, trim: true, maxlength: 1000, default: '' },
+    technicianRemarks: { type: String, trim: true, maxlength: 1000, default: '' },
+    operationsRemarks: { type: String, trim: true, maxlength: 1000, default: '' },
+    checklist: { type: new mongoose.Schema(checklistFlags, { _id: false }), default: () => ({}) },
+    checklistUpdatedAt: { type: Date },
+    /** Engine immobilization is tracked on its own: it never decides whether the GPS installation is complete. */
+    engineKill: {
+      status: { type: String, enum: ENGINE_KILL_STATUSES, default: 'not_set' },
+      reason: { type: String, trim: true, maxlength: 400, default: '' },
+      updatedAt: { type: Date },
+      updatedByName: { type: String, trim: true, maxlength: 120 },
+    },
   },
   { _id: false },
 );
@@ -65,6 +99,19 @@ const jobSchema = new mongoose.Schema(
       chassisNo: { type: String, trim: true, maxlength: 60 },
       colour: { type: String, trim: true, maxlength: 40 },
     },
+    installation: { type: installationSchema, default: () => ({}) },
+    /** Append-only record of every engine-kill status change, newest last. */
+    engineKillHistory: {
+      type: [new mongoose.Schema({
+        from: { type: String, enum: ENGINE_KILL_STATUSES },
+        to: { type: String, enum: ENGINE_KILL_STATUSES, required: true },
+        reason: { type: String, trim: true, maxlength: 400, default: '' },
+        at: { type: Date, default: Date.now },
+        by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        byName: { type: String, trim: true, maxlength: 120 },
+      }, { _id: false })],
+      default: [],
+    },
     /** Set for vehicles brought in by the bulk import; they never went through the install workflow. */
     legacy: {
       imported: { type: Boolean, default: false },
@@ -94,6 +141,34 @@ const jobSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 40,
+    },
+    simMode: {
+      type: String,
+      trim: true,
+      maxlength: 40,
+    },
+    loginId: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+    oldVrn: {
+      type: String,
+      trim: true,
+      maxlength: 60,
+    },
+    installationDate: {
+      type: Date,
+    },
+    installationMonth: {
+      type: Number,
+      min: 1,
+      max: 12,
+    },
+    recordYear: {
+      type: Number,
+      min: 1900,
+      max: 2200,
     },
     /* The commercial side of the sale. The package rate is copied from the
        admin's pricing when the job is created, so a later price change cannot
@@ -149,6 +224,35 @@ jobSchema.pre('validate', function (next) {
   next();
 });
 
+function installationJson(job) {
+  const i = job.installation ?? {};
+  const checklist = {};
+  for (const key of CHECKLIST_KEYS) checklist[key] = Boolean(i.checklist?.[key]);
+  return {
+    deviceModel: i.deviceModel ?? '',
+    placement: i.placement ?? '',
+    address: i.address ?? '',
+    batteryTemperatureC: i.batteryTemperatureC ?? null,
+    testResult: i.testResult ?? '',
+    technicianRemarks: i.technicianRemarks ?? '',
+    operationsRemarks: i.operationsRemarks ?? '',
+    checklist,
+    checklistUpdatedAt: i.checklistUpdatedAt?.toISOString?.() ?? null,
+  };
+}
+
+function engineKillJson(job) {
+  const e = job.installation?.engineKill ?? {};
+  const status = e.status ?? 'not_set';
+  return {
+    status,
+    label: engineKillLabels[status],
+    reason: e.reason ?? '',
+    updatedAt: e.updatedAt?.toISOString?.() ?? null,
+    updatedBy: e.updatedByName ?? '',
+  };
+}
+
 jobSchema.methods.toApiJson = function () {
   return {
     id: this._id.toString(),
@@ -174,6 +278,12 @@ jobSchema.methods.toApiJson = function () {
       : this.technician?.toString() ?? null,
     deviceImei: this.deviceImei ?? '',
     simNumber: this.simNumber ?? '',
+    simMode: this.simMode ?? '',
+    loginId: this.loginId ?? '',
+    oldVrn: this.oldVrn ?? '',
+    installationDate: this.installationDate?.toISOString() ?? null,
+    installationMonth: this.installationMonth ?? null,
+    recordYear: this.recordYear ?? null,
     packageKey: this.packageKey ?? null,
     packageName: this.packageKey ? packageCatalog[this.packageKey]?.name ?? this.packageKey : '',
     listPrice: this.listPrice ?? null,
@@ -188,7 +298,23 @@ jobSchema.methods.toApiJson = function () {
       statusLabel: jobStatusLabels[entry.status] ?? entry.status,
       note: entry.note ?? '',
       at: entry.at?.toISOString(),
+      kind: entry.kind ?? 'status',
+      by: entry.byName ?? '',
+      data: entry.data ?? null,
     })),
+    installation: installationJson(this),
+    engineKill: engineKillJson(this),
+    engineKillHistory: (this.engineKillHistory ?? []).map((entry) => ({
+      from: entry.from ?? 'not_set',
+      to: entry.to,
+      toLabel: engineKillLabels[entry.to],
+      reason: entry.reason ?? '',
+      at: entry.at?.toISOString(),
+      by: entry.byName ?? '',
+    })),
+    completion: this.requestType === 'new_installation' && this.status !== 'completed' && this.status !== 'cancelled'
+      ? completionStatus(this)
+      : null,
     createdBy: this.createdBy?.toString(),
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),

@@ -36,8 +36,18 @@ function cleanMapping(input, headers) {
   return mapping;
 }
 
-function cleanOptions(input) {
-  return { onExisting: input?.onExisting === 'skip' ? 'skip' : 'attach' };
+function cleanOptions(input, headers, mapping) {
+  const mappedHeaders = new Set(Object.values(mapping ?? {}).filter(Boolean));
+  const availableExtras = headers.filter((header) => !mappedHeaders.has(header));
+  const requestedExtras = input?.extraHeaders;
+  const extraHeaders = requestedExtras === undefined
+    ? availableExtras
+    : [...new Set(requestedExtras)].filter((header) => availableExtras.includes(header));
+
+  return {
+    onExisting: input?.onExisting === 'skip' ? 'skip' : 'attach',
+    extraHeaders,
+  };
 }
 
 /* ------------------------------------------------------------------ upload */
@@ -98,14 +108,16 @@ async function buildPlan(batch) {
   const filePlates = new Map(); // plate -> first row number
   const results = [];
   const prepared = [];
+  const selectedExtraHeaders = new Set(options.extraHeaders ?? headers);
 
   for (const row of batch.rows) {
     const { values, errors, warnings, extra } = normalizeRow(row.cells, headers, mapping);
+    const keptExtra = Object.fromEntries(Object.entries(extra).filter(([header]) => selectedExtraHeaders.has(header)));
     const result = {
       n: row.n, status: 'ok', outcome: '', message: '', warnings: [...warnings],
       customerName: values.name, phone: values.phone, legacyId: values.legacyId, registration: values.registration,
     };
-    prepared.push({ values, extra });
+    prepared.push({ values, extra: keptExtra });
 
     if (errors.length) {
       Object.assign(result, { status: 'error', outcome: 'error', message: errors.join(' ') });
@@ -114,7 +126,13 @@ async function buildPlan(batch) {
     }
 
     // Who is this customer? Legacy ID first, then phone number.
-    const identity = values.legacyId ? `L:${values.legacyId}` : `P:${values.phoneKey}`;
+    const identity = values.legacyId
+      ? `L:${values.legacyId}`
+      : values.phoneKey
+        ? `P:${values.phoneKey}`
+        : values.name
+          ? `N:${values.name.toLowerCase().replace(/\s+/g, ' ')}`
+          : `R:${row.n}`;
     let customer = fileCustomers.get(identity);
 
     if (!customer) {
@@ -221,7 +239,7 @@ export async function previewBatch(id, { mapping, options } = {}) {
   if (['importing', 'completed'].includes(batch.status)) throw makeError(errorCodes.CONFLICT, 'This import has already been started and can no longer be changed.', 409);
 
   batch.mapping = cleanMapping(mapping ?? batch.mapping, batch.headers);
-  batch.options = cleanOptions(options ?? batch.options);
+  batch.options = cleanOptions(options ?? batch.options, batch.headers, batch.mapping);
 
   const { results } = await buildPlan(batch);
   batch.results = results;
@@ -272,13 +290,19 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
       const result = results[i];
       if (result.status !== 'ok' || !COUNTED[result.outcome]) continue;
       const { values, extra } = prepared[i];
-      const identity = values.legacyId ? `L:${values.legacyId}` : `P:${values.phoneKey}`;
+      const identity = values.legacyId
+        ? `L:${values.legacyId}`
+        : values.phoneKey
+          ? `P:${values.phoneKey}`
+          : values.name
+            ? `N:${values.name.toLowerCase().replace(/\s+/g, ' ')}`
+            : `R:${result.n}`;
       const group = fileCustomers.get(identity);
 
       try {
         if (result.outcome !== 'add_vehicle' && !group.customerId) {
           const customer = await Customer.create({
-            name: values.name,
+            name: values.name || `Imported customer row ${result.n}`,
             phone: values.phone,
             email: values.email,
             company: values.company,
@@ -368,6 +392,14 @@ export async function getBatchRows(id, { status, page = 1, limit = 50 } = {}) {
   const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
   const safeLimit = Math.min(200, Math.max(1, Number.parseInt(limit, 10) || 50));
   return { data: all.slice((safePage - 1) * safeLimit, safePage * safeLimit), meta: { total: all.length, page: safePage, limit: safeLimit, pages: Math.ceil(all.length / safeLimit) } };
+}
+
+export async function deleteBatch(id) {
+  const batch = await ImportBatch.findById(id).select('status');
+  if (!batch) throw makeError(errorCodes.NOT_FOUND, 'No import matches that id.');
+  if (batch.status === 'completed') throw makeError(errorCodes.CONFLICT, 'Completed imports cannot be deleted from history.', 409);
+  await ImportBatch.deleteOne({ _id: id });
+  return { deleted: true };
 }
 
 const csvCell = (value) => {

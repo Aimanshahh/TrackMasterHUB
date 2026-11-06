@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import {
   confirmImportBatch,
+  deleteImportBatch,
   fetchImportBatch,
+  fetchImportFields,
   fetchImportReport,
   fetchImportRows,
   fetchImports,
@@ -83,7 +85,7 @@ function RowsTable({ rows }) {
   );
 }
 
-function BatchHistory({ refreshKey, onOpen }) {
+function BatchHistory({ refreshKey, onOpen, onDeleted }) {
   const [state, setState] = useState({ status: 'loading', rows: [], error: null });
 
   useEffect(() => {
@@ -107,7 +109,7 @@ function BatchHistory({ refreshKey, onOpen }) {
       {state.rows.length > 0 ? (
         <div className="ledger-scroll">
           <table className="ledger">
-            <thead><tr><th scope="col">File</th><th scope="col">When</th><th scope="col">By</th><th scope="col">Result</th><th scope="col">Status</th><th scope="col" className="ledger__action-col"><span className="ledger__sr">Open</span></th></tr></thead>
+            <thead><tr><th scope="col">File</th><th scope="col">When</th><th scope="col">By</th><th scope="col">Result</th><th scope="col">Status</th><th scope="col" className="ledger__action-col"><span className="ledger__sr">Actions</span></th></tr></thead>
             <tbody>
               {state.rows.map((batch) => (
                 <tr key={batch.id}>
@@ -120,7 +122,12 @@ function BatchHistory({ refreshKey, onOpen }) {
                       : batch.error || '—'}
                   </td>
                   <td><span className="state-tag" data-state={STATUS_TONES[batch.status] ?? 'muted'}>{batch.statusLabel}</span></td>
-                  <td className="ledger__action-col"><button type="button" className="btn btn--outline btn--small" onClick={() => onOpen(batch.id)}>Details</button></td>
+                  <td className="ledger__action-col">
+                    <button type="button" className="btn btn--outline btn--small" onClick={() => onOpen(batch.id)}>Details</button>
+                    {batch.status !== 'completed' ? (
+                      <button type="button" className="btn btn--outline btn--small" onClick={() => onDeleted(batch.id)}>Remove</button>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -131,7 +138,7 @@ function BatchHistory({ refreshKey, onOpen }) {
   );
 }
 
-function BatchDetail({ id, onClose }) {
+function BatchDetail({ id, onClose, onContinue }) {
   const [batch, setBatch] = useState(null);
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('');
@@ -157,6 +164,9 @@ function BatchDetail({ id, onClose }) {
           <p className="panel__meta">{batch ? `${batch.statusLabel} · ${formatDateTime(batch.completedAt ?? batch.createdAt)}` : 'Loading…'}</p>
         </div>
         <div className="cert-preview__actions">
+          {batch?.status === 'uploaded' || batch?.status === 'previewed' ? (
+            <button type="button" className="btn btn--primary btn--small" onClick={() => onContinue(batch)}>Continue import</button>
+          ) : null}
           <button type="button" className="btn btn--outline btn--small" onClick={report}>Download report (CSV)</button>
           <button type="button" className="btn btn--outline btn--small" onClick={onClose}>Close</button>
         </div>
@@ -180,6 +190,7 @@ export default function ImportCustomersPage() {
   const [step, setStep] = useState(0);
   const [upload, setUpload] = useState(null); // { batch, sample, alreadyImported, fields }
   const [mapping, setMapping] = useState({});
+  const [extraHeaders, setExtraHeaders] = useState([]);
   const [onExisting, setOnExisting] = useState('attach');
   const [preview, setPreview] = useState(null); // { batch, rows }
   const [acknowledged, setAcknowledged] = useState(false);
@@ -188,6 +199,43 @@ export default function ImportCustomersPage() {
   const [error, setError] = useState(null);
   const [historyKey, setHistoryKey] = useState(0);
   const [detailId, setDetailId] = useState(null);
+
+  async function removeBatch(id) {
+    if (!window.confirm('Remove this uploaded import from history? No customer or vehicle records will be changed.')) return;
+    setError(null);
+    try {
+      await deleteImportBatch(id);
+      setDetailId((current) => (current === id ? null : current));
+      setHistoryKey((key) => key + 1);
+    } catch (error_) {
+      setError(error_.message || 'The import could not be removed.');
+    }
+  }
+
+  async function continueBatch(batch) {
+    setError(null);
+    setBusy(true);
+    try {
+      const fieldsPayload = await fetchImportFields();
+      const restored = {
+        batch,
+        sample: [],
+        alreadyImported: null,
+        fields: fieldsPayload.data.fields,
+      };
+      setUpload(restored);
+      setMapping(batch.mapping ?? {});
+      setExtraHeaders(batch.options?.extraHeaders ?? batch.headers ?? []);
+      setPreview(null);
+      setResult(null);
+      setStep(1);
+      setDetailId(null);
+    } catch (error_) {
+      setError(error_.message || 'The import could not be resumed.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const reset = useCallback(() => {
     setStep(0); setUpload(null); setMapping({}); setPreview(null); setResult(null); setAcknowledged(false); setError(null); setOnExisting('attach');
@@ -203,6 +251,7 @@ export default function ImportCustomersPage() {
       const payload = await uploadImportFile(file);
       setUpload(payload.data);
       setMapping(payload.data.batch.mapping ?? {});
+      setExtraHeaders(payload.data.batch.options?.extraHeaders ?? payload.data.batch.headers ?? []);
       setStep(1);
       setHistoryKey((key) => key + 1);
     } catch (error_) {
@@ -216,7 +265,7 @@ export default function ImportCustomersPage() {
     setError(null);
     setBusy(true);
     try {
-      const payload = await previewImportBatch(upload.batch.id, { mapping, options: { onExisting } });
+      const payload = await previewImportBatch(upload.batch.id, { mapping, options: { onExisting, extraHeaders } });
       setPreview(payload.data);
       setAcknowledged(false);
       setStep(2);
@@ -248,6 +297,8 @@ export default function ImportCustomersPage() {
 
   const headers = upload?.batch.headers ?? [];
   const groups = upload ? [...new Set(upload.fields.map((field) => field.group))] : [];
+  const mappedHeaders = new Set(Object.values(mapping).filter(Boolean));
+  const extraColumns = headers.filter((header) => !mappedHeaders.has(header));
   const sampleFor = (header) => (upload?.sample ?? []).map((cells) => cells[headers.indexOf(header)]).filter(Boolean).slice(0, 2).join(' · ');
   const errorCount = preview?.batch.summary?.errors ?? 0;
   const importable = (preview?.batch.summary?.newCustomers ?? 0) + (preview?.batch.summary?.newVehicles ?? 0) > 0;
@@ -309,7 +360,26 @@ export default function ImportCustomersPage() {
             <label><input type="radio" name="onExisting" checked={onExisting === 'attach'} onChange={() => setOnExisting('attach')} /> Add the new vehicles to them (their details are never changed)</label>
             <label><input type="radio" name="onExisting" checked={onExisting === 'skip'} onChange={() => setOnExisting('skip')} /> Leave them alone completely</label>
           </fieldset>
-          <p className="field__hint" style={{ padding: '4px 18px 0' }}>Columns you do not match are kept on the customer as legacy information, not thrown away.</p>
+          <p className="field__hint" style={{ padding: '4px 18px 0' }}>The original file remains available in import history. Mapped fields are imported into TrackMasterHUB, and selected unmapped values are kept as legacy customer information.</p>
+          {extraColumns.length > 0 ? (
+            <fieldset className="imp-confirm" style={{ border: 0, display: 'grid', gap: 8, paddingTop: 14 }}>
+              <legend className="field__label">Unmapped fields to keep</legend>
+              <p className="field__hint">All source columns are retained in the import record. Choose which unmapped values should also be copied into legacy customer information.</p>
+              {extraColumns.map((header) => (
+                <label key={header}>
+                  <input
+                    type="checkbox"
+                    checked={extraHeaders.includes(header)}
+                    onChange={(event) => setExtraHeaders((current) => event.target.checked
+                      ? [...current, header]
+                      : current.filter((value) => value !== header))}
+                  />
+                  {header}
+                  <span className="ledger__sub">{sampleFor(header) || 'No sample value'}</span>
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
           <div className="imp-actions">
             <button type="button" className="btn btn--outline" onClick={reset} disabled={busy}>Start over</button>
             <button type="button" className="btn btn--primary" onClick={runPreview} disabled={busy || !mapping.name || !mapping.phone}>{busy ? 'Checking…' : 'Preview import'}</button>
@@ -360,8 +430,8 @@ export default function ImportCustomersPage() {
         </section>
       ) : null}
 
-      {detailId ? <BatchDetail id={detailId} onClose={() => setDetailId(null)} /> : null}
-      <BatchHistory refreshKey={historyKey} onOpen={setDetailId} />
+      {detailId ? <BatchDetail id={detailId} onClose={() => setDetailId(null)} onContinue={continueBatch} /> : null}
+      <BatchHistory refreshKey={historyKey} onOpen={setDetailId} onDeleted={removeBatch} />
     </div>
   );
 }

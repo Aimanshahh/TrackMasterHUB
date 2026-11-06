@@ -10,7 +10,7 @@ export default function CustomerTable({ customers, onSelect, showToolbar = true 
     const rows = customers.filter((customer) => {
       if (!query) return true;
       return (
-        [customer.name, customer.email, customer.category, customer.priority].join(' ').toLowerCase().includes(query)
+        [customer.name, customer.email, customer.phone, customer.company, customer.category, customer.priority, customer.source].join(' ').toLowerCase().includes(query)
       );
     });
 
@@ -31,7 +31,7 @@ export default function CustomerTable({ customers, onSelect, showToolbar = true 
 
   const columns = [
     { key: 'name', label: 'Customer' },
-    { key: 'email', label: 'Email' },
+    { key: 'contact', label: 'Contact' },
     { key: 'category', label: 'Category' },
     { key: 'priority', label: 'Priority' },
     { key: 'createdAt', label: 'Created' },
@@ -74,7 +74,7 @@ export default function CustomerTable({ customers, onSelect, showToolbar = true 
       <div className="customer-table__body">
         <div className="customer-table__header">
           <div className="customer-table__cell customer-table__cell--label">Customer</div>
-          <div className="customer-table__cell customer-table__cell--label">Email</div>
+          <div className="customer-table__cell customer-table__cell--label">Contact</div>
           <div className="customer-table__cell customer-table__cell--label">Category</div>
           <div className="customer-table__cell customer-table__cell--label">Priority</div>
           <div className="customer-table__cell customer-table__cell--label">Created</div>
@@ -89,11 +89,16 @@ export default function CustomerTable({ customers, onSelect, showToolbar = true 
           >
             <div className="customer-table__cell">
               <span className="customer-table__name">{customer.name}</span>
-              <span className="customer-table__meta">{customer.id}</span>
+              <span className="customer-table__meta">{customer.legacy?.imported ? 'Imported legacy record' : customer.id}</span>
             </div>
-            <div className="customer-table__cell customer-table__cell--muted">{customer.email}</div>
-            <div className="customer-table__cell">{customer.category}</div>
-            <div className="customer-table__cell">{customer.priority}</div>
+            <div className="customer-table__cell customer-table__cell--muted">
+              <span>{customer.phone || 'No phone'}</span>
+              <span className="customer-table__meta">{customer.email || customer.company || 'No email or company'}</span>
+            </div>
+            <div className="customer-table__cell">{customer.category || 'Unclassified'}</div>
+            <div className="customer-table__cell">
+              <span className="customer-priority" data-priority={customer.priority}>{customer.priority || 'normal'}</span>
+            </div>
             <div className="customer-table__cell customer-table__cell--muted">{customer.createdAt ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(customer.createdAt)) : '—'}</div>
           </button>
         ))}

@@ -1,9 +1,15 @@
-import { getSyncStatus, listVehicles, refreshVehicleStatus } from './vehicles.service.js';
+import { getSyncStatus, getVehicleProfile, listVehicles, refreshVehicleStatus } from './vehicles.service.js';
 
 async function getVehicles(req, res, next) {
   try {
     const { q, status, page, limit } = req.query;
     return res.json(await listVehicles({ q, status, page, limit }));
+  } catch (error) { next(error); }
+}
+
+async function getProfile(req, res, next) {
+  try {
+    return res.json(await getVehicleProfile(req.params.id));
   } catch (error) { next(error); }
 }
 
@@ -19,4 +25,4 @@ async function postRefresh(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { getVehicles, getStatus, postRefresh };
+export { getProfile, getVehicles, getStatus, postRefresh };

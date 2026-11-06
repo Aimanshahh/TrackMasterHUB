@@ -14,6 +14,7 @@ import './styles/operations.css';
 import './styles/salesperson.css';
 import './styles/commercial.css';
 import './styles/manager.css';
+import './styles/installation.css';
 
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import App from './App.jsx';
