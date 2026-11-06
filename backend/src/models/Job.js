@@ -95,6 +95,34 @@ const jobSchema = new mongoose.Schema(
       trim: true,
       maxlength: 40,
     },
+    simMode: {
+      type: String,
+      trim: true,
+      maxlength: 40,
+    },
+    loginId: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+    oldVrn: {
+      type: String,
+      trim: true,
+      maxlength: 60,
+    },
+    installationDate: {
+      type: Date,
+    },
+    installationMonth: {
+      type: Number,
+      min: 1,
+      max: 12,
+    },
+    recordYear: {
+      type: Number,
+      min: 1900,
+      max: 2200,
+    },
     /* The commercial side of the sale. The package rate is copied from the
        admin's pricing when the job is created, so a later price change cannot
        rewrite an existing sale. */
@@ -174,6 +202,12 @@ jobSchema.methods.toApiJson = function () {
       : this.technician?.toString() ?? null,
     deviceImei: this.deviceImei ?? '',
     simNumber: this.simNumber ?? '',
+    simMode: this.simMode ?? '',
+    loginId: this.loginId ?? '',
+    oldVrn: this.oldVrn ?? '',
+    installationDate: this.installationDate?.toISOString() ?? null,
+    installationMonth: this.installationMonth ?? null,
+    recordYear: this.recordYear ?? null,
     packageKey: this.packageKey ?? null,
     packageName: this.packageKey ? packageCatalog[this.packageKey]?.name ?? this.packageKey : '',
     listPrice: this.listPrice ?? null,

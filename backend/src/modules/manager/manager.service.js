@@ -300,6 +300,11 @@ async function saveBriefing(customerId, input, actor) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'The E-PIN must be 4 to 8 digits.');
   }
 
+  const tPin = String(input.tPin ?? '').trim();
+  if (!tPin) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the customer T-PIN.');
+  }
+
   const secondaryPhone = String(input.secondaryPhone ?? '').trim();
   if (secondaryPhone.length < 7) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the secondary user’s phone number.');
@@ -319,6 +324,7 @@ async function saveBriefing(customerId, input, actor) {
     cnic,
     dob,
     ePin,
+    tPin,
     secondaryPhone,
     secondaryRelation,
     geofenceAddress,

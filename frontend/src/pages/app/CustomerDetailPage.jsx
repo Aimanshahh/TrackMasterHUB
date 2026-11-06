@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import CustomerAccountView from '../../components/customers/CustomerAccountView.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useManagerCustomer } from '../../hooks/useManager.js';
-import { deleteCustomerRecord } from '../../lib/api.js';
+import { deleteCustomerRecord, updateCustomer } from '../../lib/api.js';
 
 /**
  * The admin's view of one customer. It reads the same profile endpoint as the
@@ -34,7 +34,7 @@ export default function CustomerDetailPage() {
   if (!profile.data) return null;
 
   async function deleteCustomer() {
-    const confirmed = window.confirm(`Delete ${customer.name}? This cannot be undone. Customers with vehicle or invoice history cannot be deleted.`);
+    const confirmed = window.confirm(`Delete ${customer.name}? This cannot be undone. Customers with invoice history cannot be deleted.`);
     if (!confirmed) return;
     try {
       await deleteCustomerRecord(customerId);
@@ -42,6 +42,11 @@ export default function CustomerDetailPage() {
     } catch (error) {
       window.alert(error.message || 'The customer could not be deleted.');
     }
+  }
+
+  async function saveCustomer(input) {
+    await updateCustomer(customerId, input);
+    await profile.refresh();
   }
 
   return (
@@ -53,6 +58,7 @@ export default function CustomerDetailPage() {
       onSaveBriefing={profile.saveBriefing}
       moneyLink="/admin/money"
       onVehicleSaved={() => profile.refresh()}
+      onSaveCustomer={saveCustomer}
       onDeleteCustomer={deleteCustomer}
     />
   );

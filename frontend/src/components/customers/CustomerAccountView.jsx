@@ -38,6 +38,7 @@ export default function CustomerAccountView({
   onCreditInvoice,
   onRefundInvoice,
   onVehicleSaved,
+  onSaveCustomer,
   onDeleteCustomer,
   busyInvoiceId = null,
   moneyLink,
@@ -47,6 +48,10 @@ export default function CustomerAccountView({
   const certificates = data.certificates ?? [];
   const [previewing, setPreviewing] = useState(null);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [category, setCategory] = useState(customer.category ?? '');
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryError, setCategoryError] = useState(null);
   const installations = jobs.filter((job) => job.requestType === 'new_installation');
 
   const profileRows = [
@@ -104,7 +109,45 @@ export default function CustomerAccountView({
             <h2 className="panel__title">Customer information</h2>
             <p className="panel__meta">The contact and ownership details recorded for this account.</p>
           </div>
+          {onSaveCustomer && !editingCategory ? (
+            <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingCategory(true)}>Edit category</button>
+          ) : null}
         </div>
+        {editingCategory ? (
+          <form
+            className="field-grid"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setCategorySaving(true);
+              setCategoryError(null);
+              try {
+                await onSaveCustomer({ category });
+                setEditingCategory(false);
+              } catch (error) {
+                setCategoryError(error.message || 'The category could not be updated.');
+              } finally {
+                setCategorySaving(false);
+              }
+            }}
+          >
+            <label className="field">
+              <span className="field__label">Customer category</span>
+              <select className="input" value={category} onChange={(event) => setCategory(event.target.value)}>
+                <option value="">Unclassified</option>
+                <option value="Individual">Individual</option>
+                <option value="Fleet">Fleet</option>
+                <option value="Corporate">Corporate</option>
+                <option value="Dealer">Dealer</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+            <div className="drawer__foot">
+              <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingCategory(false)} disabled={categorySaving}>Cancel</button>
+              <button type="submit" className="btn btn--primary btn--small" disabled={categorySaving}>{categorySaving ? 'Saving…' : 'Save category'}</button>
+            </div>
+            {categoryError ? <p className="form-alert" role="alert">{categoryError}</p> : null}
+          </form>
+        ) : null}
         <dl className="account-facts">
           {profileRows.map(([label, value]) => (
             <div key={label}>
@@ -155,6 +198,12 @@ export default function CustomerAccountView({
                     <div><dt>Technician</dt><dd>{job.technician?.name || 'Unassigned'}</dd></div>
                     <div><dt>Device IMEI</dt><dd className="mono">{job.deviceImei || '—'}</dd></div>
                     <div><dt>SIM</dt><dd className="mono">{job.simNumber || '—'}</dd></div>
+                    <div><dt>SIM mode</dt><dd>{job.simMode || '—'}</dd></div>
+                    <div><dt>Login ID</dt><dd>{job.loginId || '—'}</dd></div>
+                    <div><dt>Old VRN</dt><dd>{job.oldVrn || '—'}</dd></div>
+                    <div><dt>Installation date</dt><dd>{formatDay(job.installationDate)}</dd></div>
+                    <div><dt>Installation month</dt><dd>{job.installationMonth || '—'}</dd></div>
+                    <div><dt>Record year</dt><dd>{job.recordYear || '—'}</dd></div>
                     <div><dt>Engine no.</dt><dd className="mono">{job.vehicle?.engineNo || '—'}</dd></div>
                     <div><dt>Chassis no.</dt><dd className="mono">{job.vehicle?.chassisNo || '—'}</dd></div>
                     <div><dt>Scheduled</dt><dd>{formatDayTime(job.scheduledAt)}</dd></div>

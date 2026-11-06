@@ -2,6 +2,10 @@ import { useState } from 'react';
 
 import { updateJobRecord } from '../../lib/api.js';
 
+function toDateInput(value) {
+  return value ? new Date(value).toISOString().slice(0, 10) : '';
+}
+
 export default function VehicleEditDrawer({ job, onClose, onSaved }) {
   const [form, setForm] = useState({
     vehicleLabel: job.vehicle?.label ?? '',
@@ -10,6 +14,14 @@ export default function VehicleEditDrawer({ job, onClose, onSaved }) {
     engineNo: job.vehicle?.engineNo ?? '',
     chassisNo: job.vehicle?.chassisNo ?? '',
     colour: job.vehicle?.colour ?? '',
+    deviceImei: job.deviceImei ?? '',
+    simNumber: job.simNumber ?? '',
+    simMode: job.simMode ?? '',
+    loginId: job.loginId ?? '',
+    oldVrn: job.oldVrn ?? '',
+    installationDate: toDateInput(job.installationDate),
+    installationMonth: job.installationMonth ?? '',
+    recordYear: job.recordYear ?? '',
     note: '',
   });
   const [saving, setSaving] = useState(false);
@@ -52,9 +64,17 @@ export default function VehicleEditDrawer({ job, onClose, onSaved }) {
             <label className="field"><span className="field__label">Engine number</span><input className="input" maxLength={60} value={form.engineNo} onChange={update('engineNo')} placeholder="Engine number" /></label>
             <label className="field"><span className="field__label">Chassis number</span><input className="input" maxLength={60} value={form.chassisNo} onChange={update('chassisNo')} placeholder="Chassis number" /></label>
             <label className="field"><span className="field__label">Colour</span><input className="input" maxLength={40} value={form.colour} onChange={update('colour')} placeholder="Vehicle colour" /></label>
+            <label className="field"><span className="field__label">Device IMEI</span><input className="input" maxLength={20} value={form.deviceImei} onChange={update('deviceImei')} placeholder="IMEI" /></label>
+            <label className="field"><span className="field__label">SIM number</span><input className="input" maxLength={40} value={form.simNumber} onChange={update('simNumber')} placeholder="SIM number" /></label>
+            <label className="field"><span className="field__label">SIM mode</span><input className="input" maxLength={40} value={form.simMode} onChange={update('simMode')} placeholder="e.g. prepaid" /></label>
+            <label className="field"><span className="field__label">Login ID</span><input className="input" maxLength={120} value={form.loginId} onChange={update('loginId')} /></label>
+            <label className="field"><span className="field__label">Old VRN</span><input className="input" maxLength={60} value={form.oldVrn} onChange={update('oldVrn')} /></label>
+            <label className="field"><span className="field__label">Installation date</span><input className="input" type="date" value={form.installationDate} onChange={update('installationDate')} /></label>
+            <label className="field"><span className="field__label">Installation month</span><input className="input" type="number" min="1" max="12" value={form.installationMonth} onChange={update('installationMonth')} placeholder="1–12" /></label>
+            <label className="field"><span className="field__label">Record year</span><input className="input" type="number" min="1900" max="2200" value={form.recordYear} onChange={update('recordYear')} /></label>
             <label className="field field--full"><span className="field__label">Correction note</span><textarea className="input input--area" rows={3} maxLength={1000} value={form.note} onChange={update('note')} placeholder="What was corrected?" /></label>
           </div>
-          <p className="field__hint">Device IMEI and SIM allocation remain controlled by Operations stock records.</p>
+          <p className="field__hint">Legacy IMEI and SIM values can be entered here even when they were never added to stock.</p>
           {error ? <p className="form-alert" role="alert">{error}</p> : null}
           <footer className="drawer__foot">
             <button type="button" className="btn btn--outline" onClick={onClose} disabled={saving}>Cancel</button>
