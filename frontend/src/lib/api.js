@@ -203,6 +203,14 @@ export function createJobRecord(input) {
   return sendJson('/api/operations/jobs', 'POST', input);
 }
 
+export function updateEngineKill(jobId, input) {
+  return sendJson(`/api/operations/jobs/${encodeURIComponent(jobId)}/engine-kill`, 'PATCH', input);
+}
+
+export function fetchVehicleProfile(id, { signal } = {}) {
+  return apiRequest(`/api/vehicles/${encodeURIComponent(id)}/profile`, { signal });
+}
+
 export function updateJobRecord(id, input) {
   return sendJson(`/api/operations/jobs/${encodeURIComponent(id)}`, 'PATCH', input);
 }
