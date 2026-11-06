@@ -147,9 +147,9 @@ test('upload, preview and confirm over HTTP: admin only', { skip }, async () => 
   const p = (await prev.json()).data;
   previewHash = p.batch.previewHash;
   const s = p.batch.summary;
-  assert.equal(s.newCustomers, 2); // Ahmed (2 vehicles, one profile), Sana
-  assert.equal(s.newVehicles, 4); // LEA-100, LEA-200, KHI-300, NEW-400 (added to existing Basheer)
-  assert.equal(s.errors, 1); // no phone
+  assert.equal(s.newCustomers, 3); // Ahmed (2 vehicles, one profile), Sana, and the row with no phone (imported with a warning)
+  assert.equal(s.newVehicles, 5); // LEA-100, LEA-200, KHI-300, NEW-400 (added to existing Basheer), ZZZ-1
+  assert.equal(s.errors, 0); // a missing phone is a warning now, not an error
   assert.equal(s.duplicates, 2); // AYM-118 in DB, KHI-300 again in file
 
   // Nothing was written by the preview.
@@ -167,8 +167,8 @@ test('confirm needs the exact preview, imports once, and a retry changes nothing
   const retry = await svc.confirmBatch(batchId, { previewHash }, actor());
   assert.equal(retry.repeated, true);
 
-  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 2);
-  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 4);
+  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 3);
+  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 5);
   assert.equal(await Customer.countDocuments({ phone: /1234567/ }), 1); // Basheer was not duplicated
 });
 
@@ -205,8 +205,8 @@ test('uploading the same file again imports nothing new', { skip }, async () => 
   assert.equal(prev.batch.summary.newCustomers, 0);
   assert.equal(prev.batch.summary.newVehicles, 0);
   await svc.confirmBatch(again.batch.id, { previewHash: prev.batch.previewHash }, actor());
-  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 2);
-  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 4);
+  assert.equal(await Customer.countDocuments({ 'legacy.imported': true }), 3);
+  assert.equal(await Job.countDocuments({ 'legacy.imported': true }), 5);
 });
 
 test('skip mode leaves existing customers alone, history and error report are available', { skip }, async () => {
@@ -221,7 +221,7 @@ test('skip mode leaves existing customers alone, history and error report are av
   assert.ok(history.data[0].status === 'completed');
 
   const errors = await svc.getBatchRows(batchId, { status: 'error' });
-  assert.equal(errors.meta.total, 1);
+  assert.equal(errors.meta.total, 0);
   const { csv: report } = await svc.batchReportCsv(batchId);
   assert.match(report, /Phone number is missing/);
 });
