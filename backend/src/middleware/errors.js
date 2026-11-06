@@ -1,10 +1,11 @@
 import { errorCodes } from '../config/errorCodes.js';
 
-export function makeError(code, message, status = 400) {
+export function makeError(code, message, status = 400, details = undefined) {
   return {
     code,
     message,
     status,
+    ...(details ? { details } : {}),
     requestId: crypto.randomUUID(),
   };
 }
@@ -14,7 +15,7 @@ export function errorHandler(err, req, res, next) {
   const status = err.status || 500;
 
   if (err.code === errorCodes.VALIDATION_ERROR) {
-    return res.status(status).json({ error: { code: err.code, message: err.message, requestId: err.requestId } });
+    return res.status(status).json({ error: { code: err.code, message: err.message, requestId: err.requestId, ...(err.details ? { details: err.details } : {}) } });
   }
 
   if (err.status === 429) {

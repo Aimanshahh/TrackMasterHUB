@@ -10,6 +10,7 @@ import {
   getTechnicians,
   patchDevice,
   patchJob,
+  patchEngineKill,
   patchSim,
   patchTechnician,
   postDevice,
@@ -33,6 +34,8 @@ operationsRouter.get('/jobs', deskOnly, getJobs);
 // list the queue or change an existing job.
 operationsRouter.post('/jobs', requireRole('admin', 'operations', 'salesperson'), postJob);
 operationsRouter.patch('/jobs/:id', deskOnly, patchJob);
+// Engine kill status is updated on its own, even after the installation is complete.
+operationsRouter.patch('/jobs/:id/engine-kill', deskOnly, patchEngineKill);
 
 operationsRouter.get('/technicians', deskOnly, getTechnicians);
 operationsRouter.post('/technicians', deskOnly, postTechnician);

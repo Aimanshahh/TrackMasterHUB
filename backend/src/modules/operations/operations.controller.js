@@ -12,6 +12,7 @@ import {
   listTechnicians,
   updateDevice,
   updateJob,
+  updateEngineKill,
   updateSim,
   updateTechnician,
 } from './operations.service.js';
@@ -52,6 +53,13 @@ async function postJob(req, res, next) {
 async function patchJob(req, res, next) {
   try {
     const job = await updateJob(req.params.id, req.body ?? {}, req.user);
+    return res.json({ data: { job } });
+  } catch (error) { next(error); }
+}
+
+async function patchEngineKill(req, res, next) {
+  try {
+    const job = await updateEngineKill(req.params.id, req.body ?? {}, req.user);
     return res.json({ data: { job } });
   } catch (error) { next(error); }
 }
@@ -128,6 +136,7 @@ export {
   getJobs,
   postJob,
   patchJob,
+  patchEngineKill,
   getTechnicians,
   postTechnician,
   patchTechnician,
