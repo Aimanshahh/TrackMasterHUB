@@ -162,6 +162,10 @@ export function updateCustomer(id, input) {
   });
 }
 
+export function deleteCustomerRecord(id) {
+  return apiRequest(`/api/customers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 /* ---------------- Operations, complaints and notifications ---------------- */
 
 function withQuery(path, params = {}) {
@@ -410,8 +414,16 @@ export function fetchImportBatch(id, { signal } = {}) {
   return apiRequest(`/api/imports/${encodeURIComponent(id)}`, { signal });
 }
 
+export function fetchImportFields({ signal } = {}) {
+  return apiRequest('/api/imports/fields', { signal });
+}
+
 export function fetchImportRows(id, params = {}, { signal } = {}) {
   return apiRequest(withQuery(`/api/imports/${encodeURIComponent(id)}/rows`, params), { signal });
+}
+
+export function deleteImportBatch(id) {
+  return apiRequest(`/api/imports/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 /** The file goes up as raw bytes; its name travels in a header. */

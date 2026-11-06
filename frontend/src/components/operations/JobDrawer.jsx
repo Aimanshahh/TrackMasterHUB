@@ -38,6 +38,10 @@ function Section({ step, title, hint, children }) {
   );
 }
 
+function toDateInput(value) {
+  return value ? new Date(value).toISOString().slice(0, 10) : '';
+}
+
 /**
  * The installation record. Operations enters what the technician reports; the
  * technician has no login. Completion is only offered once the essentials, the
@@ -59,6 +63,12 @@ export default function JobDrawer({ job, onClose, onSaved }) {
     technicianId: job.technician?.id ?? '',
     deviceImei: job.deviceImei ?? '',
     simNumber: job.simNumber ?? '',
+    simMode: job.simMode ?? '',
+    loginId: job.loginId ?? '',
+    oldVrn: job.oldVrn ?? '',
+    installationDate: toDateInput(job.installationDate),
+    installationMonth: job.installationMonth ?? '',
+    recordYear: job.recordYear ?? '',
     station: job.vehicle?.station ?? '',
     scheduledAt: toLocalInput(job.scheduledAt),
     note: '',
@@ -106,6 +116,12 @@ export default function JobDrawer({ job, onClose, onSaved }) {
       technicianId: form.technicianId || null,
       deviceImei: form.deviceImei,
       simNumber: form.simNumber,
+      simMode: form.simMode,
+      loginId: form.loginId,
+      oldVrn: form.oldVrn,
+      installationDate: form.installationDate || null,
+      installationMonth: form.installationMonth || null,
+      recordYear: form.recordYear || null,
       station: form.station,
       scheduledAt: form.scheduledAt || null,
       note: form.note,
@@ -183,29 +199,21 @@ export default function JobDrawer({ job, onClose, onSaved }) {
             </div>
           </Section>
 
-          <Section step={isInstall ? '2' : null} title={isInstall ? 'Device & SIM' : 'Stock allocation'} hint="Station stock and stock already handed to a technician can be fitted. An item already fitted to another job is rejected.">
+          <Section step={isInstall ? '2' : null} title={isInstall ? 'Device & SIM' : 'Stock allocation'}>
             <div className="field-grid">
               <label className="field">
-                <span className="field__label">Device IMEI</span>
-                <select className="input" value={form.deviceImei} onChange={update('deviceImei')}>
-                  <option value="">No device allocated</option>
-                  {deviceOptions.map((device) => (
-                    <option key={device.imei} value={device.imei}>
-                      {device.imei}{device.technician?.name ? ` · with ${device.technician.name}` : ' · station stock'}
-                    </option>
-                  ))}
-                </select>
+              <span className="field__label">Device IMEI</span>
+              <input className="input" list="job-device-options" value={form.deviceImei} onChange={update('deviceImei')} placeholder="IMEI" />
+              <datalist id="job-device-options">
+                {deviceOptions.map((device) => <option key={device.imei} value={device.imei} />)}
+              </datalist>
               </label>
               <label className="field">
-                <span className="field__label">SIM number</span>
-                <select className="input" value={form.simNumber} onChange={update('simNumber')}>
-                  <option value="">No SIM allocated</option>
-                  {simOptions.map((sim) => (
-                    <option key={sim.number} value={sim.number}>
-                      {sim.number}{sim.technician?.name ? ` · with ${sim.technician.name}` : ' · station stock'}
-                    </option>
-                  ))}
-                </select>
+              <span className="field__label">SIM number</span>
+              <input className="input" list="job-sim-options" value={form.simNumber} onChange={update('simNumber')} placeholder="SIM number" />
+              <datalist id="job-sim-options">
+                {simOptions.map((sim) => <option key={sim.number} value={sim.number} />)}
+              </datalist>
               </label>
               {isInstall ? (
                 <>
@@ -222,6 +230,18 @@ export default function JobDrawer({ job, onClose, onSaved }) {
               ) : null}
             </div>
           </Section>
+
+          <p className="field__hint">Stock items are allocated automatically. For completed or imported legacy records, you can also type an IMEI or SIM that predates stock tracking.</p>
+
+          <div className="drawer__section-label">Legacy installation record</div>
+          <div className="field-grid">
+            <label className="field"><span className="field__label">SIM mode</span><input className="input" maxLength={40} value={form.simMode} onChange={update('simMode')} placeholder="e.g. prepaid" /></label>
+            <label className="field"><span className="field__label">Login ID</span><input className="input" maxLength={120} value={form.loginId} onChange={update('loginId')} /></label>
+            <label className="field"><span className="field__label">Old VRN</span><input className="input" maxLength={60} value={form.oldVrn} onChange={update('oldVrn')} /></label>
+            <label className="field"><span className="field__label">Installation date</span><input className="input" type="date" value={form.installationDate} onChange={update('installationDate')} /></label>
+            <label className="field"><span className="field__label">Installation month</span><input className="input" type="number" min="1" max="12" value={form.installationMonth} onChange={update('installationMonth')} placeholder="1–12" /></label>
+            <label className="field"><span className="field__label">Record year</span><input className="input" type="number" min="1900" max="2200" value={form.recordYear} onChange={update('recordYear')} /></label>
+          </div>
 
           {isInstall ? (
             <>

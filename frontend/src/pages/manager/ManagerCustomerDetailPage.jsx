@@ -81,6 +81,10 @@ export default function ManagerCustomerDetailPage() {
         onCreditInvoice={(invoice) => setAdjusting({ invoice, kind: 'credit_note' })}
         onRefundInvoice={(invoice) => setAdjusting({ invoice, kind: 'refund' })}
         busyInvoiceId={busyId}
+        onVehicleSaved={() => {
+          profile.refresh();
+          setNotice('Vehicle details updated.');
+        }}
       />
 
       <PaymentDrawer

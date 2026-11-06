@@ -27,6 +27,34 @@ function pageParams(page, limit) {
   return { page: safePage, limit: safeLimit, skip: (safePage - 1) * safeLimit };
 }
 
+function parseOptionalDate(value, label) {
+  if (value === undefined) return undefined;
+  if (!value) return null;
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) throw makeError(errorCodes.VALIDATION_ERROR, `Enter a valid ${label}.`);
+  return date;
+}
+
+function parseOptionalYear(value) {
+  if (value === undefined) return undefined;
+  if (value === '' || value === null) return null;
+  const year = Number(value);
+  if (!Number.isInteger(year) || year < 1900 || year > 2200) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter a valid record year.');
+  }
+  return year;
+}
+
+function parseOptionalMonth(value) {
+  if (value === undefined) return undefined;
+  if (value === '' || value === null) return null;
+  const month = Number(value);
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter an installation month from 1 to 12.');
+  }
+  return month;
+}
+
 /* ---------------------------------- Jobs --------------------------------- */
 
 async function listJobs({ status, priority, q, technician, pending, awaitingApproval, page = 1, limit = 20 }) {
@@ -157,6 +185,12 @@ async function createJob(input, actor) {
     priority: input.priority ?? 'normal',
     scheduledAt,
     notes: input.notes?.trim(),
+    simMode: input.simMode?.trim(),
+    loginId: input.loginId?.trim(),
+    oldVrn: input.oldVrn?.trim(),
+    installationDate: parseOptionalDate(input.installationDate, 'installation date'),
+    installationMonth: parseOptionalMonth(input.installationMonth),
+    recordYear: parseOptionalYear(input.recordYear),
     packageKey,
     listPrice,
     quotedPrice,
@@ -337,6 +371,14 @@ async function updateJob(id, input, actor) {
 
   const previousStatus = job.status;
 
+  /* Installation tests, device placement, remarks and engine kill belong to Operations (and the admin). */
+  if (actor?.role === 'manager') {
+    const operationsOnly = ['checklist', 'engineKill', 'deviceModel', 'placement', 'address', 'batteryTemperatureC', 'testResult', 'technicianRemarks', 'operationsRemarks', 'completedAt'];
+    if (operationsOnly.some((key) => input[key] !== undefined)) {
+      throw makeError(errorCodes.FORBIDDEN, 'Only Operations or the admin can change installation tests, device placement or engine kill.', 403);
+    }
+  }
+
   if (input.status !== undefined && !JOB_STATUSES.includes(input.status)) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Choose a valid job status.');
   }
@@ -358,8 +400,17 @@ async function updateJob(id, input, actor) {
   if (input.station !== undefined) job.vehicle.station = input.station.trim();
   if (input.vehicleLabel !== undefined) job.vehicle.label = input.vehicleLabel.trim();
   if (input.vehicleRegistration !== undefined) job.vehicle.registration = input.vehicleRegistration.trim();
+  if (input.engineNo !== undefined) job.vehicle.engineNo = input.engineNo.trim();
+  if (input.chassisNo !== undefined) job.vehicle.chassisNo = input.chassisNo.trim();
+  if (input.colour !== undefined) job.vehicle.colour = input.colour.trim();
   if (input.priority !== undefined) job.priority = input.priority;
   if (input.notes !== undefined) job.notes = input.notes.trim();
+  if (input.simMode !== undefined) job.simMode = String(input.simMode ?? '').trim();
+  if (input.loginId !== undefined) job.loginId = String(input.loginId ?? '').trim();
+  if (input.oldVrn !== undefined) job.oldVrn = String(input.oldVrn ?? '').trim();
+  if (input.installationDate !== undefined) job.installationDate = parseOptionalDate(input.installationDate, 'installation date');
+  if (input.installationMonth !== undefined) job.installationMonth = parseOptionalMonth(input.installationMonth);
+  if (input.recordYear !== undefined) job.recordYear = parseOptionalYear(input.recordYear);
   if (input.scheduledAt !== undefined) {
     job.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
     if (job.scheduledAt && Number.isNaN(job.scheduledAt.getTime())) {
@@ -376,17 +427,21 @@ async function updateJob(id, input, actor) {
 
       if (imei) {
         const device = await Device.findOne({ imei });
-        if (!device) throw makeError(errorCodes.VALIDATION_ERROR, 'That IMEI is not recorded in device stock.');
-        if (device.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That device is marked out of service and cannot be assigned.');
-        if (device.job && String(device.job) !== String(job._id)) {
-          throw makeError(errorCodes.CONFLICT, 'That device is already assigned to another job.', 409);
+        if (!device && !job.legacy?.imported && job.status !== 'completed') {
+          throw makeError(errorCodes.VALIDATION_ERROR, 'That IMEI is not recorded in device stock.');
         }
+        if (device) {
+          if (device.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That device is marked out of service and cannot be assigned.');
+          if (device.job && String(device.job) !== String(job._id)) {
+            throw makeError(errorCodes.CONFLICT, 'That device is already assigned to another job.', 409);
+          }
 
-        device.status = 'assigned';
-        device.job = job._id;
-        device.technician = job.technician ?? device.technician ?? null;
-        device.station = job.vehicle.station ?? device.station;
-        await device.save();
+          device.status = 'assigned';
+          device.job = job._id;
+          device.technician = job.technician ?? device.technician ?? null;
+          device.station = job.vehicle.station ?? device.station;
+          await device.save();
+        }
       }
 
       job.deviceImei = imei;
@@ -402,17 +457,21 @@ async function updateJob(id, input, actor) {
 
       if (number) {
         const sim = await Sim.findOne({ number });
-        if (!sim) throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM number is not recorded in SIM stock.');
-        if (sim.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM is marked out of service and cannot be assigned.');
-        if (sim.job && String(sim.job) !== String(job._id)) {
-          throw makeError(errorCodes.CONFLICT, 'That SIM is already assigned to another job.', 409);
+        if (!sim && !job.legacy?.imported && job.status !== 'completed') {
+          throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM number is not recorded in SIM stock.');
         }
+        if (sim) {
+          if (sim.status === 'out_of_service') throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM is marked out of service and cannot be assigned.');
+          if (sim.job && String(sim.job) !== String(job._id)) {
+            throw makeError(errorCodes.CONFLICT, 'That SIM is already assigned to another job.', 409);
+          }
 
-        sim.status = 'assigned';
-        sim.job = job._id;
-        sim.technician = job.technician ?? sim.technician ?? null;
-        sim.station = job.vehicle.station ?? sim.station;
-        await sim.save();
+          sim.status = 'assigned';
+          sim.job = job._id;
+          sim.technician = job.technician ?? sim.technician ?? null;
+          sim.station = job.vehicle.station ?? sim.station;
+          await sim.save();
+        }
       }
 
       job.simNumber = number;
@@ -427,7 +486,7 @@ async function updateJob(id, input, actor) {
   /* Status */
   const nextStatus = input.status ?? job.status;
 
-  if (['assigned', 'scheduled', 'in_progress', 'completed'].includes(nextStatus) && !job.technician) {
+  if (nextStatus !== previousStatus && ['assigned', 'scheduled', 'in_progress', 'completed'].includes(nextStatus) && !job.technician) {
     throw makeError(errorCodes.VALIDATION_ERROR, 'Assign a technician before moving this job forward.');
   }
 

@@ -4,6 +4,7 @@ const emptyBriefing = {
   cnic: '',
   dob: '',
   ePin: '',
+  tPin: '',
   secondaryPhone: '',
   secondaryRelation: '',
   geofenceAddress: '',
@@ -43,6 +44,7 @@ export default function BriefingPanel({ customer, saving, onSave }) {
     cnic: customer?.briefing?.cnic ?? '',
     dob: customer?.briefing?.dob ? String(customer.briefing.dob).slice(0, 10) : '',
     ePin: customer?.briefing?.ePin ?? '',
+    tPin: customer?.briefing?.tPin ?? '',
     secondaryPhone: customer?.briefing?.secondaryPhone ?? '',
     secondaryRelation: customer?.briefing?.secondaryRelation ?? '',
     geofenceAddress: customer?.briefing?.geofenceAddress ?? '',
@@ -102,6 +104,7 @@ export default function BriefingPanel({ customer, saving, onSave }) {
           <div><dt>CNIC</dt><dd>{formatCnic(customer.briefing?.cnic)}</dd></div>
           <div><dt>Date of birth</dt><dd>{formatDay(customer.briefing?.dob)}</dd></div>
           <div><dt>E-PIN</dt><dd className="brief-readout__secret">{customer.briefing?.ePin || '—'}</dd></div>
+          <div><dt>T-PIN</dt><dd className="brief-readout__secret">{customer.briefing?.tPin || '—'}</dd></div>
           <div><dt>Secondary user</dt><dd>{customer.briefing?.secondaryPhone || '—'} <small>{customer.briefing?.secondaryRelation}</small></dd></div>
           <div className="brief-readout__wide"><dt>Vehicle station / geofence</dt><dd>{customer.briefing?.geofenceAddress || '—'}</dd></div>
         </dl>
@@ -121,6 +124,10 @@ export default function BriefingPanel({ customer, saving, onSave }) {
             <label className="field">
               <span className="field__label">E-PIN <i>4–8 digits</i></span>
               <input className="input" inputMode="numeric" maxLength={12} value={form.ePin} onChange={update('ePin')} required />
+            </label>
+            <label className="field">
+              <span className="field__label">T-PIN</span>
+              <input className="input" maxLength={40} value={form.tPin} onChange={update('tPin')} required />
             </label>
             <label className="field">
               <span className="field__label">Secondary user phone</span>

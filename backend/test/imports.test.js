@@ -43,9 +43,10 @@ test('rows are validated and unmapped columns are kept', () => {
   assert.deepEqual(ok.extra, { Branch: 'Lahore' });
 
   const bad = normalizeRow(['', '123', '', 'tomorrow', ''], headers, mapping);
-  assert.ok(bad.errors.length >= 3);
+  assert.equal(bad.errors.length, 0);
+  assert.ok(bad.warnings.length >= 3);
   const future = normalizeRow(['Ali', '03001234567', 'X-1', '01-01-2999', ''], headers, mapping);
-  assert.match(future.errors.join(' '), /future/);
+  assert.match(future.warnings.join(' '), /future/);
 });
 
 test('CSV (with BOM and quoted commas) and real .xlsx files are parsed; other files are refused', async () => {
@@ -63,6 +64,16 @@ test('CSV (with BOM and quoted commas) and real .xlsx files are parsed; other fi
 
   await assert.rejects(parseUpload(Buffer.from('%PDF-1.4 hello'), 'a.pdf'), (e) => /Excel|CSV/.test(e.message));
   await assert.rejects(parseUpload(csv('only,a,header\n'), 'a.csv'), (e) => /header row/.test(e.message));
+});
+
+test('invalid Excel dates do not crash the upload parser', async () => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Customers');
+  ws.addRow(['Name', 'Phone', 'Installed']);
+  ws.addRow(['Sara', '03211234567', new Date(Number.NaN)]);
+
+  const parsed = await parseUpload(Buffer.from(await wb.xlsx.writeBuffer()), 'invalid-date.xlsx');
+  assert.equal(parsed.rows[0].cells[2], 'Invalid Date');
 });
 
 const skip = hasDb ? false : 'set TEST_MONGO_URI to run database tests';
