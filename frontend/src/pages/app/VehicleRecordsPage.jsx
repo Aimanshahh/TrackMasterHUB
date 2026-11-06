@@ -5,6 +5,7 @@ import { useAuth } from '../../context/auth.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useVehicles } from '../../hooks/useVehicles.js';
 import { formatDateTime } from '../../lib/format.js';
+import { EngineKillBadge } from '../../components/operations/EngineKill.jsx';
 
 const FILTERS = [
   { value: '', label: 'All vehicles', count: 'total' },
@@ -65,7 +66,10 @@ function SyncBanner({ sync }) {
 export default function VehicleRecordsPage() {
   useDocumentTitle('Vehicles');
   const { user } = useAuth();
-  const customerBase = user?.role === 'admin' ? '/admin/customers' : '/manager/customers';
+  const base = user?.role === 'admin' ? '/admin' : user?.role === 'manager' ? '/manager' : '/operations';
+  const customerBase = `${base}/customers`;
+  const canOpenCustomer = user?.role !== 'operations';
+  const canRefresh = user?.role !== 'operations';
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
   const vehicles = useVehicles({ q: search, status: filter });
@@ -85,9 +89,9 @@ export default function VehicleRecordsPage() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </div>
-        <button type="button" className="btn btn--outline btn--small" onClick={vehicles.refreshStatus} disabled={vehicles.refreshing || !sync?.configured}>
+        {canRefresh ? <button type="button" className="btn btn--outline btn--small" onClick={vehicles.refreshStatus} disabled={vehicles.refreshing || !sync?.configured}>
           {vehicles.refreshing ? 'Refreshing…' : 'Refresh status'}
-        </button>
+        </button> : null}
       </div>
 
       <div className="sp-chips" role="group" aria-label="Filter by status">
@@ -124,6 +128,7 @@ export default function VehicleRecordsPage() {
                 <th scope="col">Customer</th>
                 <th scope="col">Device</th>
                 <th scope="col">Installed</th>
+                <th scope="col">Engine kill</th>
                 <th scope="col">Certificate</th>
                 <th scope="col">Status</th>
                 <th scope="col">Last seen</th>
@@ -135,11 +140,11 @@ export default function VehicleRecordsPage() {
                 return (
                   <tr key={row.id}>
                     <td>
-                      <span className="ledger__strong">{row.vehicle.registration || '—'}</span>
+                      <Link className="ledger__link" to={`${base}/vehicles/${row.id}`}><span className="ledger__strong">{row.vehicle.registration || '—'}</span></Link>
                       <span className="ledger__sub">{row.vehicle.label || 'No name recorded'}</span>
                     </td>
                     <td>
-                      {row.customer.id ? (
+                      {canOpenCustomer && row.customer.id ? (
                         <Link className="ledger__link" to={`${customerBase}/${row.customer.id}`}>{row.customer.name || 'Customer'}</Link>
                       ) : (
                         <span className="ledger__strong">{row.customer.name || 'Customer'}</span>
@@ -154,6 +159,7 @@ export default function VehicleRecordsPage() {
                       <span className="ledger__muted">{row.installedAt ? new Date(row.installedAt).toLocaleDateString('en-GB') : '—'}</span>
                       <span className="ledger__sub">{[row.vehicle.station, row.packageName].filter(Boolean).join(' · ')}</span>
                     </td>
+                    <td><EngineKillBadge status={row.engineKill?.status} label={row.engineKill?.label} /></td>
                     <td>
                       {row.certificate ? (
                         <>

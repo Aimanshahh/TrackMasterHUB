@@ -22,6 +22,7 @@ import OperationsPage from './pages/app/OperationsPage.jsx';
 import OverviewPage from './pages/app/OverviewPage.jsx';
 import MoneyPage from './pages/app/MoneyPage.jsx';
 import PendingInstallationsPage from './pages/app/PendingInstallationsPage.jsx';
+import VehicleProfilePage from './pages/app/VehicleProfilePage.jsx';
 import VehicleRecordsPage from './pages/app/VehicleRecordsPage.jsx';
 import PricingPage from './pages/app/PricingPage.jsx';
 import ReportsPage from './pages/app/ReportsPage.jsx';
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="operations" element={<OperationsPage />} />
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
             <Route path="vehicles" element={<VehicleRecordsPage />} />
+            <Route path="vehicles/:id" element={<VehicleProfilePage />} />
             <Route path="certificates" element={<CertificatesPage />} />
             <Route path="import" element={<ImportCustomersPage />} />
             <Route path="complaints" element={<ComplaintsPage />} />
@@ -134,6 +136,7 @@ export default function App() {
             <Route path="customers/:customerId" element={<ManagerCustomerDetailPage />} />
             <Route path="briefing-pending" element={<ManagerBriefingPendingPage />} />
             <Route path="vehicles" element={<VehicleRecordsPage />} />
+            <Route path="vehicles/:id" element={<VehicleProfilePage />} />
             <Route path="certificates" element={<CertificatesPage />} />
             <Route path="invoices" element={<ManagerInvoicesPage />} />
             <Route path="payments" element={<ManagerPaymentsPage />} />
@@ -148,6 +151,8 @@ export default function App() {
             <Route index element={<OperationsOverviewPage />} />
             <Route path="queue" element={<OperationsQueuePage />} />
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
+            <Route path="vehicles" element={<VehicleRecordsPage />} />
+            <Route path="vehicles/:id" element={<VehicleProfilePage />} />
             <Route path="complaints" element={<OperationsComplaintsPage />} />
             <Route path="calls" element={<CallLogsPage />} />
             <Route path="inventory" element={<OperationsInventoryPage />} />

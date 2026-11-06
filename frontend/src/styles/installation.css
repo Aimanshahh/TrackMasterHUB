@@ -1,0 +1,80 @@
+/* Installation record, engine kill and vehicle profile */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.req { margin-left: 4px; color: #a20f15; font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+
+.drawer--wide { width: min(780px, 100%); }
+.inst-section { display: grid; gap: 14px; padding: 18px 18px 20px; border: 1px solid #e8e5df; background: #fff; }
+.inst-section__head { display: flex; gap: 12px; align-items: flex-start; }
+.inst-section__head h3 { font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+.inst-section__head p { margin-top: 3px; color: #7b7f85; font-size: 10px; line-height: 1.55; }
+.inst-section__step { display: grid; flex: none; width: 22px; height: 22px; place-items: center; background: #171a1f; color: #fff; font-size: 10px; font-weight: 700; }
+
+.inst-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.inst-checklist label { display: flex; gap: 10px; align-items: flex-start; height: 100%; padding: 11px 12px; border: 1px solid #e3e0d9; background: #fbfaf8; font-size: 11px; line-height: 1.4; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.inst-checklist label:hover { border-color: #c9c5bc; }
+.inst-checklist label.is-on { border-color: #b9d1c2; background: #f1f8f4; color: #1f6b46; }
+.inst-checklist input { margin-top: 2px; accent-color: #1f6b46; }
+.inst-checklist small { display: block; margin-top: 3px; color: #85898e; font-size: 9px; }
+
+.inst-ready { padding: 13px 15px; border-left: 3px solid #c98a12; background: #fdf8ec; color: #6f5010; font-size: 11px; line-height: 1.6; }
+.inst-ready ul { margin: 7px 0 0 16px; list-style: disc; }
+.inst-ready.is-ready { border-left-color: #1f6b46; background: #f1f8f4; color: #1f6b46; }
+
+.inst-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.inst-chips li { display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border: 1px solid #e3e0d9; background: #f7f6f3; color: #8a8e94; font-size: 9.5px; }
+.inst-chips li.is-yes { border-color: #b9d1c2; background: #f1f8f4; color: #1f6b46; }
+
+.inst-history { display: grid; }
+.inst-history__item { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 11px; padding: 11px 0; border-bottom: 1px solid #f0eeea; font-size: 11px; }
+.inst-history__item:last-child { border-bottom: 0; }
+.inst-history__mark { width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: #c9c5bc; }
+.inst-history__item--checklist .inst-history__mark { background: #1f6b46; }
+.inst-history__item--engine_kill .inst-history__mark { background: #c98a12; }
+.inst-history__item--details .inst-history__mark { background: #4b6a9b; }
+.inst-history__title { font-weight: 650; }
+.inst-history__item p + p { margin-top: 3px; }
+.inst-history__item p { color: #5d6268; line-height: 1.55; }
+.inst-history time { color: #85898e; font-size: 9.5px; text-align: right; white-space: nowrap; }
+.inst-history time small { display: block; margin-top: 2px; }
+
+.inst-choice { display: grid; gap: 8px; border: 0; padding: 0; }
+.inst-choice__option { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border: 1px solid #e3e0d9; font-size: 12px; cursor: pointer; }
+.inst-choice__option.is-on { border-color: #171a1f; background: #fbfaf8; font-weight: 600; }
+
+.vp { display: grid; gap: 18px; padding-top: 18px; }
+.vp__back { color: #6b6f76; font-size: 11px; }
+.vp__back:hover { color: #a20f15; }
+.vp__hero { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; justify-content: space-between; padding: 22px 24px; border: 1px solid #e1dfda; border-left: 4px solid #d7282f; background: #fff; }
+.vp__eyebrow { color: #a20f15; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.vp__plate { margin-top: 6px; font-size: 30px; letter-spacing: -.03em; }
+.vp__owner { margin-top: 6px; color: #5d6268; font-size: 12px; }
+.vp__owner a { color: inherit; border-bottom: 1px solid #c9c5bc; }
+.vp__badges { display: flex; gap: 22px; }
+.vp__badges > div { display: grid; gap: 6px; }
+.vp__badges span:first-child { color: #85898f; font-size: 9px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+.vp__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.vp__wide { grid-column: 1 / -1; }
+.vp__h { margin-top: 6px; font-size: 14px; font-weight: 650; }
+.vp-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.vp-fact { display: grid; gap: 4px; align-content: start; }
+.vp-fact span { color: #85898f; font-size: 9px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+.vp-fact strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.vp__ek-now { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; }
+.vp__ek-now small { color: #85898e; }
+.vp-ek-history { display: grid; margin-top: 12px; border-top: 1px solid #eceae5; }
+.vp-ek-history li { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #f0eeea; font-size: 11px; }
+.vp-ek-history time { color: #85898e; font-size: 10px; }
+.vp-install__body { display: grid; gap: 14px; }
+.vp-install__history summary { cursor: pointer; color: #5d6268; font-size: 11px; font-weight: 600; }
+.vp-install__history .inst-history { margin-top: 8px; }
+.vp-list li { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr auto; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #f0eeea; font-size: 11px; }
+.vp-list li:last-child { border-bottom: 0; }
+.vp-list time { color: #85898e; }
+
+@media (max-width: 700px) {
+  .inst-checklist, .vp__grid, .vp-facts { grid-template-columns: 1fr; }
+  .inst-section { padding: 14px; }
+  .vp-list li { grid-template-columns: 1fr; gap: 3px; }
+  .inst-history__item { grid-template-columns: 12px minmax(0, 1fr); }
+  .inst-history time { grid-column: 2; text-align: left; }
+}
