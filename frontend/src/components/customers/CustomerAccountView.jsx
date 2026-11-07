@@ -52,6 +52,18 @@ export default function CustomerAccountView({
   const [category, setCategory] = useState(customer.category ?? '');
   const [categorySaving, setCategorySaving] = useState(false);
   const [categoryError, setCategoryError] = useState(null);
+  const [editingContact, setEditingContact] = useState(false);
+  const [contact, setContact] = useState({ phone: customer.phone ?? '', address: customer.address ?? '' });
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState(null);
+  const [editingCommercial, setEditingCommercial] = useState(false);
+  const [commercial, setCommercial] = useState({
+    packageKey: customer.packageKey ?? '',
+    packagePrice: customer.packagePrice ?? '',
+    deviceOwnership: customer.deviceOwnership ?? 'company',
+  });
+  const [commercialSaving, setCommercialSaving] = useState(false);
+  const [commercialError, setCommercialError] = useState(null);
   const installations = jobs.filter((job) => job.requestType === 'new_installation');
 
   const profileRows = [
@@ -64,6 +76,10 @@ export default function CustomerAccountView({
     ['Legacy ID', customer.legacy?.legacyId],
     ['Created', formatDay(customer.createdAt)],
     ['Next follow-up', customer.followUp ? formatDay(customer.followUp) : ''],
+    ['Package', customer.packageName],
+    ['Package price', customer.packagePrice !== null && customer.packagePrice !== undefined ? formatMoney(customer.packagePrice) : ''],
+    ['Additional features', customer.packageFeatures?.join(', ')],
+    ['Device ownership', customer.deviceOwnership === 'customer' ? 'Customer-owned' : 'Company-owned'],
   ].filter(([, value]) => value);
 
   return (
@@ -109,10 +125,46 @@ export default function CustomerAccountView({
             <h2 className="panel__title">Customer information</h2>
             <p className="panel__meta">The contact and ownership details recorded for this account.</p>
           </div>
-          {onSaveCustomer && !editingCategory ? (
-            <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingCategory(true)}>Edit category</button>
+          {onSaveCustomer && !editingCategory && !editingContact && !editingCommercial ? (
+            <div className="customer-info-actions">
+              <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingContact(true)}>Edit contact</button>
+              <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingCategory(true)}>Edit category</button>
+              <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingCommercial(true)}>Edit package</button>
+            </div>
           ) : null}
         </div>
+        {editingContact ? (
+          <form
+            className="field-grid"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setContactSaving(true);
+              setContactError(null);
+              try {
+                await onSaveCustomer(contact);
+                setEditingContact(false);
+              } catch (error) {
+                setContactError(error.message || 'The contact details could not be updated.');
+              } finally {
+                setContactSaving(false);
+              }
+            }}
+          >
+            <label className="field">
+              <span className="field__label">Phone number</span>
+              <input className="input" type="tel" maxLength={60} value={contact.phone} onChange={(event) => setContact((current) => ({ ...current, phone: event.target.value }))} />
+            </label>
+            <label className="field field--full">
+              <span className="field__label">Address</span>
+              <textarea className="input input--area" rows={3} maxLength={400} value={contact.address} onChange={(event) => setContact((current) => ({ ...current, address: event.target.value }))} />
+            </label>
+            <div className="drawer__foot">
+              <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingContact(false)} disabled={contactSaving}>Cancel</button>
+              <button type="submit" className="btn btn--primary btn--small" disabled={contactSaving}>{contactSaving ? 'Saving…' : 'Save contact'}</button>
+            </div>
+            {contactError ? <p className="form-alert" role="alert">{contactError}</p> : null}
+          </form>
+        ) : null}
         {editingCategory ? (
           <form
             className="field-grid"
@@ -146,6 +198,52 @@ export default function CustomerAccountView({
               <button type="submit" className="btn btn--primary btn--small" disabled={categorySaving}>{categorySaving ? 'Saving…' : 'Save category'}</button>
             </div>
             {categoryError ? <p className="form-alert" role="alert">{categoryError}</p> : null}
+          </form>
+        ) : null}
+        {editingCommercial ? (
+          <form
+            className="field-grid"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setCommercialSaving(true);
+              setCommercialError(null);
+              try {
+                await onSaveCustomer({ ...commercial, packagePrice: commercial.packagePrice === '' ? null : Number(commercial.packagePrice) });
+                setEditingCommercial(false);
+              } catch (error) {
+                setCommercialError(error.message || 'The package details could not be updated.');
+              } finally {
+                setCommercialSaving(false);
+              }
+            }}
+          >
+            <label className="field">
+              <span className="field__label">Package</span>
+              <select className="input" value={commercial.packageKey} onChange={(event) => setCommercial((current) => ({ ...current, packageKey: event.target.value }))}>
+                <option value="">Not assigned</option>
+                <option value="basic">Basic</option>
+                <option value="standard">Standard</option>
+                <option value="premium">Premium</option>
+                <option value="customize">Customize</option>
+                <option value="personal">Personal</option>
+              </select>
+            </label>
+            <label className="field">
+              <span className="field__label">Dedicated price (PKR)</span>
+              <input className="input" type="number" min="0" step="1" value={commercial.packagePrice} onChange={(event) => setCommercial((current) => ({ ...current, packagePrice: event.target.value }))} />
+            </label>
+            <label className="field">
+              <span className="field__label">Device ownership</span>
+              <select className="input" value={commercial.deviceOwnership} onChange={(event) => setCommercial((current) => ({ ...current, deviceOwnership: event.target.value }))}>
+                <option value="company">Company-owned</option>
+                <option value="customer">Customer-owned</option>
+              </select>
+            </label>
+            <div className="drawer__foot">
+              <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingCommercial(false)} disabled={commercialSaving}>Cancel</button>
+              <button type="submit" className="btn btn--primary btn--small" disabled={commercialSaving}>{commercialSaving ? 'Saving…' : 'Save package'}</button>
+            </div>
+            {commercialError ? <p className="form-alert" role="alert">{commercialError}</p> : null}
           </form>
         ) : null}
         <dl className="account-facts">

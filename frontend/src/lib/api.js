@@ -98,6 +98,30 @@ export function createUser(input) {
   });
 }
 
+export function fetchSalespersonPerformance(id, { signal } = {}) {
+  return apiRequest(`/api/users/${encodeURIComponent(id)}/performance`, { signal });
+}
+
+export function fetchCustomerMessages(customerId, { signal } = {}) {
+  return apiRequest(`/api/messages/customers/${encodeURIComponent(customerId)}`, { signal });
+}
+
+export function sendCustomerWhatsAppMessage(customerId, body) {
+  return apiRequest(`/api/messages/customers/${encodeURIComponent(customerId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function sendWhatsAppBroadcast(body) {
+  return apiRequest('/api/messages/broadcast', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body }),
+  });
+}
+
 /* ---------------- Authentication ---------------- */
 
 export function fetchAuthStatus({ signal } = {}) {
@@ -211,8 +235,9 @@ export function updateEngineKill(jobId, input) {
   return sendJson(`/api/operations/jobs/${encodeURIComponent(jobId)}/engine-kill`, 'PATCH', input);
 }
 
-export function fetchVehicleProfile(id, { signal } = {}) {
-  return apiRequest(`/api/vehicles/${encodeURIComponent(id)}/profile`, { signal });
+export function fetchVehicleProfile(id, { signal, lookup } = {}) {
+  const query = lookup ? `?lookup=${encodeURIComponent(lookup)}` : '';
+  return apiRequest(`/api/vehicles/${encodeURIComponent(id)}/profile${query}`, { signal });
 }
 
 export function updateJobRecord(id, input) {

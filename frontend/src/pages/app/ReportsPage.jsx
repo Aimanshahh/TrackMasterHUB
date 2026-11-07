@@ -1,6 +1,7 @@
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useDashboard } from '../../hooks/useDashboard.js';
 import Panel from '../../components/app/Panel.jsx';
+import { formatMoney } from '../../lib/format.js';
 
 const reportRows = [
   ['Customer records', 'totalCustomers'],
@@ -14,6 +15,7 @@ export default function ReportsPage() {
   useDocumentTitle('Reports');
   const dashboard = useDashboard();
   const counts = dashboard.data?.counts;
+  const packagePerformance = dashboard.data?.packagePerformance ?? [];
 
   return (
     <Panel heading="Available business data" action={<button type="button" className="btn btn--outline btn--small" onClick={dashboard.refresh}>Refresh</button>}>
@@ -21,6 +23,14 @@ export default function ReportsPage() {
       {dashboard.error ? <p className="app-notice app-notice--error" role="alert">Report data is unavailable: {dashboard.error}</p> : null}
       {dashboard.status === 'loading' ? <p className="data-state" role="status">Loading report data…</p> : null}
       {counts ? <div className="users-table-wrap"><table className="users-table"><thead><tr><th>Record type</th><th>Current total</th></tr></thead><tbody>{reportRows.map(([label, key]) => <tr key={key}><td>{label}</td><td>{counts[key] ?? 0}</td></tr>)}</tbody></table></div> : null}
+      {packagePerformance.length ? (
+        <div className="users-table-wrap">
+          <h3>Package performance</h3>
+          <table className="users-table"><thead><tr><th>Package</th><th>Customers</th><th>Dedicated revenue</th></tr></thead><tbody>
+            {packagePerformance.map((row) => <tr key={row.packageKey}><td>{row.packageKey}</td><td>{row.customers}</td><td>{formatMoney(row.quotedRevenue)}</td></tr>)}
+          </tbody></table>
+        </div>
+      ) : null}
     </Panel>
   );
 }

@@ -105,7 +105,7 @@ async function listJobs({ status, priority, q, technician, pending, awaitingAppr
     };
   }
 
-  return { data: rows.map((job) => job.toApiJson()), meta };
+  return { data: rows.map((job) => job.toApiJson({ includeFinancials: false })), meta };
 }
 
 async function getJobById(id) {
@@ -194,6 +194,8 @@ async function createJob(input, actor) {
     packageKey,
     listPrice,
     quotedPrice,
+    packageFeatures: Array.isArray(input.packageFeatures) ? input.packageFeatures.map(String).filter(Boolean).slice(0, 20) : [],
+    deviceOwnership: input.deviceOwnership === 'customer' ? 'customer' : 'company',
     approvalStatus,
     createdBy: actor.id,
     history: [
@@ -209,6 +211,15 @@ async function createJob(input, actor) {
   });
 
   await job.save();
+
+  await Customer.updateOne({ _id: customer._id }, {
+    $set: {
+      packageKey,
+      packagePrice: quotedPrice,
+      packageFeatures: job.packageFeatures,
+      deviceOwnership: job.deviceOwnership,
+    },
+  });
 
   if (approvalStatus === 'pending') {
     const approval = await createApprovalForJob(
@@ -233,7 +244,7 @@ async function createJob(input, actor) {
     await job.save();
   }
 
-  return job.toApiJson();
+  return job.toApiJson({ includeFinancials: actor.role !== 'operations' });
 }
 
 async function releaseDevice(imei, jobId) {
@@ -362,7 +373,7 @@ async function updateEngineKill(id, input, actor) {
   applyEngineKill(job, input ?? {}, actor);
   await job.save();
   const refreshed = await Job.findById(job._id).populate('technician', 'name station');
-  return refreshed.toApiJson();
+  return refreshed.toApiJson({ includeFinancials: actor.role !== 'operations' });
 }
 
 async function updateJob(id, input, actor) {
@@ -588,7 +599,7 @@ async function updateJob(id, input, actor) {
     });
   }
 
-  return refreshed.toApiJson();
+  return refreshed.toApiJson({ includeFinancials: actor.role !== 'operations' });
 }
 
 /**

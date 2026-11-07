@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import { engineKillLabel } from '../../app/installation.js';
 import { formatDayTime } from '../../app/operations.js';
@@ -20,6 +20,7 @@ function Fact({ label, children }) {
 export default function VehicleProfilePage() {
   useDocumentTitle('Vehicle');
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const base = user?.role === 'admin' ? '/admin' : user?.role === 'manager' ? '/manager' : '/operations';
   const canEditEngineKill = user?.role === 'admin' || user?.role === 'operations';
@@ -30,12 +31,12 @@ export default function VehicleProfilePage() {
 
   const load = useCallback(async (signal) => {
     try {
-      const payload = await fetchVehicleProfile(id, { signal });
+      const payload = await fetchVehicleProfile(id, { signal, lookup: searchParams.get('lookup') ?? undefined });
       setState({ status: 'ready', data: payload.data, error: null });
     } catch (error) {
       if (error.name !== 'AbortError') setState({ status: 'error', data: null, error: error.message });
     }
-  }, [id]);
+  }, [id, searchParams]);
 
   useEffect(() => {
     const controller = new AbortController();

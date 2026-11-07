@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
  * admin creates: the salesperson always chooses one of these keys. Only the
  * rate and the wording are configuration, and the admin owns both.
  */
-export const PACKAGE_KEYS = ['basic', 'standard', 'premium'];
+export const PACKAGE_KEYS = ['basic', 'standard', 'premium', 'customize', 'personal'];
 
 export const packageCatalog = {
   basic: {
@@ -22,6 +22,16 @@ export const packageCatalog = {
     key: 'premium',
     name: 'Premium',
     summary: 'Full fleet-grade tracking with priority support.',
+  },
+  customize: {
+    key: 'customize',
+    name: 'Customize',
+    summary: 'A tailored package with selected features from other plans.',
+  },
+  personal: {
+    key: 'personal',
+    name: 'Personal',
+    summary: 'The tracking device is sold to and owned by the customer.',
   },
 };
 

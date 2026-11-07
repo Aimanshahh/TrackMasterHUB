@@ -1,5 +1,6 @@
 import { phoneKey } from '../../utils/phone.js';
 import { FIELD_KEYS } from './fields.js';
+import { PACKAGE_KEYS } from '../../models/Package.js';
 
 const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 
@@ -48,6 +49,28 @@ export function normalizeRow(cells, headers, mapping, now = new Date()) {
     values.phone = '';
   }
   values.phoneKey = key;
+  if (values.packageKey) {
+    const packageKey = values.packageKey.toLowerCase().trim().replace(/\s+/g, '_');
+    if (PACKAGE_KEYS.includes(packageKey)) values.packageKey = packageKey;
+    else warnings.push(`Package "${values.packageKey}" is not recognised and will be left blank.`);
+  }
+  if (values.packagePrice) {
+    const packagePrice = Number(values.packagePrice.replace(/[^0-9.-]/g, ''));
+    if (Number.isFinite(packagePrice) && packagePrice >= 0) values.packagePrice = packagePrice;
+    else {
+      warnings.push(`Package price "${values.packagePrice}" is not valid and will be left blank.`);
+      values.packagePrice = '';
+    }
+  }
+  if (values.deviceOwnership) {
+    const ownership = values.deviceOwnership.toLowerCase().trim();
+    if (['customer', 'personal', 'owned'].includes(ownership)) values.deviceOwnership = 'customer';
+    else if (['company', 'business', 'rented'].includes(ownership)) values.deviceOwnership = 'company';
+    else warnings.push(`Device ownership "${values.deviceOwnership}" is not recognised and will be left blank.`);
+  }
+  if (values.packageFeatures) {
+    values.packageFeatures = values.packageFeatures.split(/[|;,]/).map((feature) => feature.trim()).filter(Boolean).slice(0, 20);
+  }
 
   if (values.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) {
     warnings.push(`Email "${values.email}" is not valid and will be left blank.`);

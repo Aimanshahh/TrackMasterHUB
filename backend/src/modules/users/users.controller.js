@@ -1,7 +1,7 @@
 import { requireAdmin } from '../../middleware/auth.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
-import { createUser, getUsers, getUserById, changeRole } from './users.service.js';
+import { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole } from './users.service.js';
 
 async function getUsersList(req, res, next) {
   try {
@@ -40,4 +40,10 @@ async function changeUserRole(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { createUserAccount, getUsersList, getMe, changeUserRole };
+async function getSalespersonProfile(req, res, next) {
+  try {
+    return res.json({ data: await getSalespersonPerformance(req.params.id) });
+  } catch (error) { next(error); }
+}
+
+export { createUserAccount, getUsersList, getMe, getSalespersonProfile, changeUserRole };

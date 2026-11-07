@@ -108,10 +108,26 @@ const plateRegex = (plate) => new RegExp(`^${[...String(plate).replace(/[^A-Za-z
  * (with checklist and remarks) and the service jobs since. A vehicle is
  * identified by its plate, so a redo or a later service job joins the same profile.
  */
-async function getVehicleProfile(id) {
+async function getVehicleProfile(id, lookup = '') {
   const anchor = await Job.findById(id).lean().catch(() => null);
   if (!anchor || anchor.requestType !== 'new_installation') {
     throw makeError(errorCodes.NOT_FOUND, 'No vehicle matches that id.', 404);
+  }
+  if (lookup) {
+    const needle = String(lookup).trim().toLowerCase();
+    const searchable = [
+      anchor.vehicle?.registration,
+      anchor.vehicle?.label,
+      anchor.customerName,
+      anchor.phone,
+      anchor.deviceImei,
+      anchor.simNumber,
+    ].map((value) => String(value ?? '').toLowerCase());
+    const plateNeedle = normalizePlate(lookup);
+    const plateMatch = plateNeedle && normalizePlate(anchor.vehicle?.registration).includes(plateNeedle);
+    if (!searchable.some((value) => value.includes(needle)) && !plateMatch) {
+      throw makeError(errorCodes.NOT_FOUND, 'No vehicle matches that search.', 404);
+    }
   }
 
   const plate = normalizePlate(anchor.vehicle?.registration);

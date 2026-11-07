@@ -14,13 +14,13 @@ async function getCustomers(req, res, next) {
     const safeDirection = direction === 'asc' ? 'asc' : 'desc';
     const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
     const safeLimit = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || 20));
-    return res.json(await listCustomers({ filter, sort: safeSort, direction: safeDirection, page: safePage, limit: safeLimit }));
+    return res.json(await listCustomers({ filter, sort: safeSort, direction: safeDirection, page: safePage, limit: safeLimit, includeFinancials: req.user.role !== 'operations' }));
   } catch (error) { next(error); }
 }
 
 async function getCustomer(req, res, next) {
   try {
-    const customer = await getCustomerById(req.params.id);
+    const customer = await getCustomerById(req.params.id, { includeFinancials: req.user.role !== 'operations' });
     if (req.user.role !== 'admin' && customer.owner?.id !== req.user.id) {
       return next(makeError(errorCodes.FORBIDDEN, 'You are not allowed to view this customer record.', 403));
     }

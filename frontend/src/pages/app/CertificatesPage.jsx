@@ -62,7 +62,7 @@ function VehicleRow({ vehicle, entry, onChange, onView }) {
 function IssueTab({ onIssued, onView }) {
   const [search, setSearch] = useState('');
   const query = useDebounced(search);
-  const [list, setList] = useState({ status: 'loading', rows: [], error: null });
+  const [list, setList] = useState({ status: 'idle', rows: [], error: null });
   const [selected, setSelected] = useState(null);
   const [entries, setEntries] = useState({});
   const [customerForm, setCustomerForm] = useState({ address: '', cnic: '', showCnic: true });
@@ -70,6 +70,10 @@ function IssueTab({ onIssued, onView }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (query.trim().length < 2) {
+      setList({ status: 'idle', rows: [], error: null });
+      return undefined;
+    }
     const controller = new AbortController();
     setList((current) => ({ ...current, status: 'loading', error: null }));
     fetchCertificateCustomers({ q: query, limit: 12 }, { signal: controller.signal })
@@ -131,36 +135,41 @@ function IssueTab({ onIssued, onView }) {
           </div>
         </div>
         {list.error ? <p className="app-notice app-notice--error" role="alert">{list.error}</p> : null}
+        {list.status === 'idle' ? <p className="cert-search-hint">Enter at least 2 characters to search customers by name, phone, or registration.</p> : null}
         {list.status === 'loading' && list.rows.length === 0 ? <p className="data-state" role="status">Searching…</p> : null}
         {list.status === 'ready' && list.rows.length === 0 ? <p className="data-state">No customer with a completed installation matches this search.</p> : null}
-        <ul className="cert-customers">
-          {list.rows.map((customer) => (
-            <li key={customer.id}>
-              <button type="button" className={`cert-customer${selected?.id === customer.id ? ' is-active' : ''}`} onClick={() => choose(customer)}>
-                <strong>{customer.name}</strong>
-                <span>{customer.phone || 'No phone'} · {customer.vehicles.length} {customer.vehicles.length === 1 ? 'vehicle' : 'vehicles'}</span>
-              </button>
-            </li>
+        <div className="cert-customer-list" role="list">
+          {[...list.rows].sort((a, b) => a.name.localeCompare(b.name)).map((customer) => (
+            <button type="button" role="listitem" className={`cert-customer${selected?.id === customer.id ? ' is-active' : ''}`} onClick={() => choose(customer)}>
+              <span className="cert-customer__name">{customer.name}</span>
+              <span className="cert-customer__phone">{customer.phone || 'No phone'}</span>
+              <span className="cert-customer__vehicles">{customer.vehicles.length} {customer.vehicles.length === 1 ? 'vehicle' : 'vehicles'}</span>
+              <span className="cert-customer__action">Select</span>
+            </button>
           ))}
-        </ul>
+        </div>
       </section>
 
       {selected ? (
-        <form className="panel" onSubmit={submit}>
+        <form className="panel cert-selected-panel" onSubmit={submit}>
           <div className="panel__head">
             <div>
-              <h2 className="panel__title">Certificates for {selected.name}</h2>
+              <p className="cert-selected__eyebrow">Selected customer</p>
+              <h2 className="panel__title">{selected.name}</h2>
               <p className="panel__meta">Tick the vehicles. Anything you fill in here is also saved on the vehicle and customer record.</p>
+            </div>
+            <div className="cert-selected__meta">
+              <strong>{selected.vehicles.length}</strong>
+              <span>{selected.vehicles.length === 1 ? 'vehicle' : 'vehicles'} found</span>
             </div>
           </div>
 
-          <div className="field-grid cert-customer-fields">
-            <label className="field field--full"><span className="field__label">Customer address <i>printed on the certificate</i></span><input className="input" maxLength={400} value={customerForm.address} onChange={(event) => setCustomerForm((c) => ({ ...c, address: event.target.value }))} /></label>
-            <label className="field"><span className="field__label">CNIC</span><input className="input" maxLength={20} value={customerForm.cnic} onChange={(event) => setCustomerForm((c) => ({ ...c, cnic: event.target.value }))} /></label>
-            <label className="field cert-check">
-              <input type="checkbox" checked={customerForm.showCnic} onChange={(event) => setCustomerForm((c) => ({ ...c, showCnic: event.target.checked }))} />
-              <span>Print the CNIC on the certificate</span>
-            </label>
+          <div className="cert-customer-fields">
+            <label className="field"><span className="field__label">Customer address <i>printed on the certificate</i></span><input className="input" maxLength={400} value={customerForm.address} onChange={(event) => setCustomerForm((c) => ({ ...c, address: event.target.value }))} /></label>
+            <div className="cert-cnic-row">
+              <label className="field"><span className="field__label">CNIC</span><input className="input" maxLength={20} value={customerForm.cnic} onChange={(event) => setCustomerForm((c) => ({ ...c, cnic: event.target.value }))} /></label>
+              <label className="cert-check"><input type="checkbox" checked={customerForm.showCnic} onChange={(event) => setCustomerForm((c) => ({ ...c, showCnic: event.target.checked }))} /><span>Print CNIC on certificate</span></label>
+            </div>
           </div>
 
           <ul className="cert-vehicles">
@@ -178,6 +187,7 @@ function IssueTab({ onIssued, onView }) {
           {error ? <p className="form-alert" role="alert">{error}</p> : null}
 
           <div className="cert-issue__foot">
+            <span className="cert-issue__count">{chosen.length} selected for issue</span>
             <button type="submit" className="btn btn--primary" disabled={saving || chosen.length === 0}>
               {saving ? 'Issuing…' : `Generate ${chosen.length || ''} certificate${chosen.length === 1 ? '' : 's'}`}
             </button>

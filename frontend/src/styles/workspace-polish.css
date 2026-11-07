@@ -144,11 +144,15 @@
 .customer-table__row { width: 100%; border: 0; border-top: 1px solid #eeece7; background: #fff; color: inherit; text-align: left; font: inherit; cursor: pointer; }
 .customer-table__row:focus-visible { outline-offset: -3px; }
 .customer-table__cell { min-width: 0; }
+.customer-table__cell--muted { color: #555b63; font-size: 11px; line-height: 1.25; }
+.customer-table__name { font-size: 13px; font-weight: 700; line-height: 1.25; }
+.customer-table__category { color: #4f545b; font-size: 11px; font-weight: 600; line-height: 1.25; }
 .customer-table__cell > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .customer-table__meta { overflow: hidden; color: #85898f; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .customer-priority { display: inline-block !important; width: fit-content; padding: 4px 7px; border: 1px solid #e3e0da; border-radius: 999px; color: #666b72; font-size: 9px; text-transform: capitalize; }
 .customer-priority[data-priority="urgent"] { border-color: #e5b7b7; background: #fff3f2; color: #a20f15; }
 .customer-priority[data-priority="high"] { border-color: #ead4a7; background: #fff9eb; color: #8a5b08; }
+.customer-info-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .users-toolbar { background: #fbfaf8; }
 .users-toolbar input:focus, .users-toolbar select:focus { border-color: #aa171d; outline: 0; box-shadow: 0 0 0 3px #d7131b14; }
 .app-empty { padding: 40px 22px; }
@@ -343,3 +347,90 @@
     width: min(280px, calc(100vw - 20px));
   }
 }
+/* Salesperson performance */
+.sales-performance { display: grid; gap: 18px; }
+.sales-performance__hero { display: flex; justify-content: space-between; gap: 24px; align-items: center; padding: 28px 30px; border: 1px solid #e0ddd6; border-top: 3px solid #d7131b; background: #fff; color: #20252b; }
+.sales-performance__hero h2 { font-size: clamp(28px, 4vw, 42px); }
+.sales-performance__hero p:last-child { margin-top: 8px; color: #69727d; font-size: 13px; }
+.sales-performance__score { min-width: 150px; padding-left: 24px; border-left: 1px solid #ffffff2b; }
+.sales-performance__score strong, .sales-performance__score span { display: block; }
+.sales-performance__score strong { font-size: 34px; }
+.sales-performance__score { border-left-color: #e0ddd6; }
+.sales-performance__score span { color: #69727d; font-size: 12px; }
+.sales-performance__metrics { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #e0ddd6; background: #fff; }
+.sales-performance__metric { padding: 18px; border-right: 1px solid #eceae5; border-bottom: 1px solid #eceae5; }
+.sales-performance__metric strong, .sales-performance__metric span { display: block; }
+.sales-performance__metric strong { font-size: 24px; color: #20252b; }
+.sales-performance__metric span { color: #69727d; font-size: 12px; }
+.sales-performance__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.sales-performance__grid > :last-child { grid-column: 1 / -1; }
+.sales-performance small { display: block; color: #6b6f76; }
+.sales-performance__split { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.sales-performance__split div { padding: 14px; background: #f7f8fa; border: 1px solid #eceae5; }
+.sales-performance__split strong, .sales-performance__split span { display: block; }
+.sales-performance__split span, .sales-performance__activity span { color: #6b6f76; font-size: 12px; }
+.sales-performance__activity { display: grid; gap: 10px; margin-top: 16px; }
+.sales-performance__activity div { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid #eceae5; }
+@media (max-width: 760px) { .sales-performance__hero { align-items: flex-start; flex-direction: column; } .sales-performance__score { border-left: 0; border-top: 1px solid #e0ddd6; padding: 14px 0 0; } .sales-performance__metrics { grid-template-columns: repeat(2, 1fr); } .sales-performance__grid { grid-template-columns: 1fr; } .sales-performance__grid > :last-child { grid-column: auto; } }
+.sales-workspace { display: grid; gap: 24px; padding: clamp(24px, 4vw, 42px); border: 1px solid #e0ddd6; border-top: 3px solid #d7131b; background: #fff; }
+.sales-workspace__heading h2 { margin-top: 8px; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.045em; }
+.sales-workspace__heading p:last-child { max-width: 60ch; margin-top: 10px; color: #69727d; line-height: 1.7; }
+.sales-workspace__cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding-block: 22px; border-block: 1px solid #e9e7e1; }
+.sales-workspace__cards article { display: grid; gap: 8px; padding: 18px; border: 1px solid #e5e2dc; background: #fafaf8; }
+.sales-workspace__cards strong { color: #20252b; }
+.sales-workspace__cards span, .sales-workspace__note { color: #69727d; font-size: 12px; line-height: 1.65; }
+.sales-workspace__note { margin: 0; }
+@media (max-width: 760px) { .sales-workspace__cards { grid-template-columns: 1fr; } }
+.messages-workspace { display: grid; gap: 18px; max-width: 1180px; padding: 18px 0 24px; color: #111827; }
+.messages-workspace__heading { padding: 8px 0 4px; }
+.messages-workspace__heading h2 { margin-top: 7px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.045em; }
+.messages-workspace__heading p:last-child { max-width: 62ch; margin-top: 8px; color: #69727d; font-size: 12px; line-height: 1.65; }
+.messages-workspace__notice { padding: 11px 16px; border: 1px solid #eadcae; border-radius: 10px; background: #fffaf0; color: #111827; font-size: 11px; line-height: 1.5; }
+.messages-workspace__toolbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; min-height: 88px; padding: 18px 28px; border: 1px solid #dfe2ee; border-radius: 18px; background: linear-gradient(110deg, #fff 0%, #fff 76%, #fff7fa 100%); box-shadow: 0 8px 26px #6c718c12; }
+.messages-workspace__toolbar-copy { display: flex; align-items: center; gap: 16px; }
+.messages-workspace__toolbar-copy > div { display: grid; gap: 5px; }
+.messages-workspace__toolbar-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #f2f0ec; color: #20252b; font-size: 30px; line-height: 1; transform: rotate(-35deg); }
+.messages-workspace__toolbar span { color: #111827; font-size: 11px; }
+.messages-workspace__mode { display: flex; gap: 0; padding: 0; border: 1px solid #dfe2ee; border-radius: 16px; background: #fff; overflow: hidden; }
+.messages-workspace__mode button { border: 0; padding: 14px 20px; background: transparent; color: #111827; font-size: 12px; font-weight: 650; cursor: pointer; }
+.messages-workspace__mode button span { margin-right: 7px; color: #64708a; font-size: 10px; }
+.messages-workspace__mode button.is-active { background: #20252b; color: #fff; box-shadow: 0 3px 8px #11130f22; }
+.messages-workspace__mode button.is-active span { color: #fff; }
+.messages-workspace__layout { display: grid; grid-template-columns: minmax(300px, .82fr) minmax(0, 1.18fr); gap: 18px; align-items: stretch; }
+.messages-workspace__layout > .panel { border: 1px solid #e2e4ef; border-radius: 18px; background: #fff; box-shadow: 0 8px 26px #6c718c0d; overflow: hidden; }
+.messages-workspace__layout > .panel:first-child .panel__head, .messages-workspace__layout > .panel:last-child .panel__head { padding: 22px 24px 16px; border-bottom: 0; }
+.messages-workspace__layout > .panel .panel__body { padding: 0 24px 24px; }
+.messages-workspace__panel-heading { display: inline-flex; align-items: center; gap: 12px; font-size: 17px; }
+.messages-workspace__panel-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #f2f0ec; color: #20252b; font-size: 20px; }
+.messages-workspace__panel-icon--message { font-size: 14px; letter-spacing: 1px; }
+.messages-workspace__customers { display: grid; gap: 7px; margin-top: 14px; max-height: 430px; overflow-y: auto; }
+.messages-workspace__customer { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 10px 12px; border: 1px solid #e5e7f0; border-radius: 14px; background: #fff; text-align: left; cursor: pointer; }
+.messages-workspace__customer:hover, .messages-workspace__customer.is-selected { border-color: #a9a59d; background: #f7f6f3; }
+.messages-workspace__avatar { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; background: #eef0f7; color: #10182b; font-size: 25px; }
+.messages-workspace__customer.is-selected .messages-workspace__avatar { background: #e7e4de; color: #20252b; }
+.messages-workspace__customer-copy { display: grid; flex: 1; gap: 5px; }
+.messages-workspace__customer-copy > span { color: #111827; }
+.messages-workspace__check { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; background: #20252b; color: #fff; font-weight: 700; }
+.messages-workspace__customer span, .messages-workspace__recipient, .messages-workspace__compose-footer, .messages-workspace__history small { color: #111827; font-size: 12px; }
+.messages-workspace .input { font-size: 12px; border-color: #d8ddea; border-radius: 12px; }
+.messages-workspace textarea.input { min-height: 245px; resize: vertical; line-height: 1.6; padding: 18px; }
+.messages-workspace__textarea-wrap { position: relative; }
+.messages-workspace__emoji { position: absolute; bottom: 14px; left: 18px; color: #111827; font-size: 20px; }
+.messages-workspace__recipient { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; }
+.messages-workspace__recipient strong { padding: 8px 12px; border-radius: 18px; background: #f2f0ec; color: #20252b; }
+.messages-workspace__copy { border: 0; background: transparent; color: #111827; cursor: pointer; }
+.messages-workspace__compose-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; }
+.messages-workspace__send { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 12px; }
+.messages-workspace__send:disabled { background: #20252b; color: #fff; opacity: .58; }
+.messages-workspace__history { display: grid; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid #e9e7e1; }
+.messages-workspace__history h3 { font-size: 14px; }
+.messages-workspace__history article { padding: 12px; border: 1px solid #e8e5df; background: #fafaf8; }
+.messages-workspace__history article p { white-space: pre-wrap; line-height: 1.6; }
+.messages-workspace__history small { display: block; margin-top: 8px; }
+.messages-workspace__broadcast-card { display: flex; align-items: flex-start; gap: 14px; min-height: 180px; padding: 24px; border: 1px solid #e2e4ef; border-radius: 18px; background: #fff; box-shadow: 0 8px 26px #6c718c0d; }
+.messages-workspace__broadcast-card h3 { font-size: 16px; }
+.messages-workspace__broadcast-card p { margin-top: 7px; color: #111827; font-size: 12px; line-height: 1.6; }
+.messages-workspace__broadcast-icon { display: grid; place-items: center; width: 42px; height: 42px; background: #f2f0ec; color: #20252b; font-size: 10px; font-weight: 700; }
+.messages-workspace .panel__note,
+.messages-workspace .data-state { color: #111827; }
+@media (max-width: 760px) { .messages-workspace__layout, .messages-workspace__toolbar { grid-template-columns: 1fr; } .messages-workspace__toolbar { display: grid; padding: 18px; } .messages-workspace__mode { justify-content: stretch; } .messages-workspace__mode button { flex: 1; padding-inline: 10px; } }

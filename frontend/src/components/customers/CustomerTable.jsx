@@ -92,10 +92,10 @@ export default function CustomerTable({ customers, onSelect, showToolbar = true 
               <span className="customer-table__meta">{customer.legacy?.imported ? 'Imported legacy record' : customer.id}</span>
             </div>
             <div className="customer-table__cell customer-table__cell--muted">
-              <span>{customer.phone || 'No phone'}</span>
-              <span className="customer-table__meta">{customer.email || customer.company || 'No email or company'}</span>
+              {customer.phone ? <span>{customer.phone}</span> : null}
+              {customer.email || customer.company ? <span className="customer-table__meta">{customer.email || customer.company}</span> : null}
             </div>
-            <div className="customer-table__cell">{customer.category || 'Unclassified'}</div>
+            <div className="customer-table__cell customer-table__category">{customer.category || 'Unclassified'}</div>
             <div className="customer-table__cell">
               <span className="customer-priority" data-priority={customer.priority}>{customer.priority || 'normal'}</span>
             </div>

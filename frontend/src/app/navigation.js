@@ -6,6 +6,7 @@ const adminGroups = [
       { to: '/admin/customers', label: 'Customers', icon: 'customers' },
       { to: '/admin/import', label: 'Customer import', icon: 'customers' },
       { to: '/admin/follow-ups', label: 'Follow-ups', icon: 'followup' },
+      { to: '/admin/messages', label: 'WhatsApp messages', icon: 'followup' },
       { to: '/admin/sales', label: 'Sales', icon: 'sales' },
     ],
   },

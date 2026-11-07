@@ -75,6 +75,7 @@ export default function VehicleRecordsPage() {
   const vehicles = useVehicles({ q: search, status: filter });
   const counts = vehicles.meta?.counts ?? {};
   const sync = vehicles.meta?.sync;
+  const searchRequired = user?.role === 'operations';
 
   return (
     <div className="vehicles-page">
@@ -84,7 +85,7 @@ export default function VehicleRecordsPage() {
           <input
             className="input"
             aria-label="Search vehicles"
-            placeholder="Registration, customer, phone, IMEI or SIM…"
+            placeholder={searchRequired ? 'Search registration, customer, phone, IMEI or SIM…' : 'Registration, customer, phone, IMEI or SIM…'}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -114,8 +115,8 @@ export default function VehicleRecordsPage() {
       {vehicles.status !== 'loading' && !vehicles.error && vehicles.rows.length === 0 ? (
         <div className="app-empty">
           <span className="app-empty__mark" aria-hidden="true">—</span>
-          <h2>{search || filter ? 'No vehicle matches this filter' : 'No installed vehicles yet'}</h2>
-          <p>{search || filter ? 'Clear the search or choose another status.' : 'A vehicle appears here once operations marks its installation completed.'}</p>
+          <h2>{searchRequired && !search ? 'Search for a vehicle to view it' : search || filter ? 'No vehicle matches this filter' : 'No installed vehicles yet'}</h2>
+          <p>{searchRequired && !search ? 'For security, vehicle records are hidden until you search by registration, customer, phone, IMEI or SIM.' : search || filter ? 'Clear the search or choose another status.' : 'A vehicle appears here once operations marks its installation completed.'}</p>
         </div>
       ) : null}
 
@@ -140,7 +141,7 @@ export default function VehicleRecordsPage() {
                 return (
                   <tr key={row.id}>
                     <td>
-                      <Link className="ledger__link" to={`${base}/vehicles/${row.id}`}><span className="ledger__strong">{row.vehicle.registration || '—'}</span></Link>
+                      <Link className="ledger__link" to={`${base}/vehicles/${row.id}${searchRequired ? `?lookup=${encodeURIComponent(search)}` : ''}`}><span className="ledger__strong">{row.vehicle.registration || '—'}</span></Link>
                       <span className="ledger__sub">{row.vehicle.label || 'No name recorded'}</span>
                     </td>
                     <td>

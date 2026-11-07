@@ -3,21 +3,19 @@ import { env } from '../../config/env.js';
 /**
  * Read-only link to the GPSWOX tracking server.
  *
- * The backend logs in with a service account, reads the device list on a
- * schedule and keeps the latest answer in memory. Screens read that cache, so
+ * The backend reads the device list with a server-side API hash on a schedule
+ * and keeps the latest answer in memory. Screens read that cache, so
  * a slow or unreachable tracking server never freezes the Hub, and a status is
  * only ever shown when the server really reported it.
  */
 
 class TrackingError extends Error {}
-class TrackingAuthError extends TrackingError {}
 
 // GPSWOX connection states. Anything else is reported as "unknown".
 const CONNECTED_STATES = new Set(['online', 'ack', 'engine']);
 const OFFLINE_STATES = new Set(['offline']);
 
 const state = {
-  hash: null,
   devices: new Map(),
   syncedAt: null,
   lastAttemptAt: null,
@@ -27,7 +25,7 @@ const state = {
 };
 
 export function isTrackingConfigured() {
-  return Boolean(env.trackingApiUrl && env.trackingEmail && env.trackingPassword);
+  return Boolean(env.trackingApiUrl && env.trackingApiHash);
 }
 
 /** "AYM-118", " AYM 118 " and "aym118" all become "AYM118". */
@@ -43,24 +41,19 @@ export function parseTrackerTime(value, offset = env.trackingTimeOffset) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-async function request(path, { method = 'GET', body } = {}) {
+async function request(path) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), env.trackingTimeoutMs);
 
   try {
     const response = await fetch(`${env.trackingApiUrl}${path}`, {
-      method,
-      body,
       headers: {
         Accept: 'application/json',
-        ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       },
       signal: controller.signal,
     });
 
-    if (response.status === 401 || response.status === 403) {
-      throw new TrackingAuthError('The tracking server refused the service account.');
-    }
+    if (response.status === 401 || response.status === 403) throw new TrackingError('The tracking API hash was refused by the tracking server.');
     if (!response.ok) throw new TrackingError(`The tracking server answered HTTP ${response.status}.`);
 
     try {
@@ -77,25 +70,9 @@ async function request(path, { method = 'GET', body } = {}) {
   }
 }
 
-async function login() {
-  const payload = await request('/api/login', {
-    method: 'POST',
-    body: new URLSearchParams({ email: env.trackingEmail, password: env.trackingPassword }).toString(),
-  });
-
-  if (!payload || Number(payload.status) !== 1 || !payload.user_api_hash) {
-    throw new TrackingAuthError('The tracking server rejected the service account login.');
-  }
-
-  state.hash = payload.user_api_hash;
-}
-
 /** The device list is an array of groups, each holding its vehicles in `items`. */
 export function flattenDevices(payload) {
   if (!Array.isArray(payload)) {
-    if (payload && Number(payload.status) === 0) {
-      throw new TrackingAuthError('The tracking server did not accept the saved login.');
-    }
     throw new TrackingError('The tracking server sent a device list in an unexpected shape.');
   }
 
@@ -119,23 +96,13 @@ export function toDevice(item) {
 }
 
 async function fetchDevices() {
-  const payload = await request(`/api/get_devices?lang=en&user_api_hash=${encodeURIComponent(state.hash)}`);
+  const payload = await request(`/api/get_devices?lang=en&user_api_hash=${encodeURIComponent(env.trackingApiHash)}`);
   return flattenDevices(payload).map(toDevice).filter((device) => device.plate);
 }
 
 async function runSync() {
   try {
-    if (!state.hash) await login();
-
-    let devices;
-    try {
-      devices = await fetchDevices();
-    } catch (error) {
-      if (!(error instanceof TrackingAuthError)) throw error;
-      // The saved login expired: sign in again once, then retry.
-      await login();
-      devices = await fetchDevices();
-    }
+    const devices = await fetchDevices();
 
     const next = new Map();
     for (const device of devices) {
@@ -148,7 +115,6 @@ async function runSync() {
     state.syncedAt = new Date();
     state.lastError = null;
   } catch (error) {
-    state.hash = null;
     state.lastError = error instanceof TrackingError ? error.message : 'The tracking sync failed unexpectedly.';
     console.warn(`[tracking] sync failed: ${state.lastError}`);
   } finally {

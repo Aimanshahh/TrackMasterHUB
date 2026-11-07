@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 import Activity from '../../models/Activity.js';
-import Customer from '../../models/Customer.js';
+import Customer, { CUSTOMER_CATEGORIES } from '../../models/Customer.js';
 import Counter from '../../models/Counter.js';
 import ImportBatch from '../../models/ImportBatch.js';
 import Job from '../../models/Job.js';
@@ -306,9 +306,13 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
             phone: values.phone,
             email: values.email,
             company: values.company,
-            category: values.category,
+            category: CUSTOMER_CATEGORIES.includes(values.category) ? values.category : '',
             address: values.address,
             notes: values.notes,
+            packageKey: values.packageKey || null,
+            packagePrice: values.packagePrice === '' ? null : values.packagePrice,
+            packageFeatures: values.packageFeatures ?? [],
+            deviceOwnership: values.deviceOwnership || 'company',
             source: 'Legacy import',
             accountStatus: 'active',
             briefingCompleted: false,
@@ -319,6 +323,16 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
           group.name = customer.name;
         }
         result.customerId = group.customerId;
+        if (group.customerId && values.packageKey) {
+          await Customer.updateOne({ _id: group.customerId }, {
+            $set: {
+              packageKey: values.packageKey,
+              packagePrice: values.packagePrice === '' ? null : values.packagePrice,
+              packageFeatures: values.packageFeatures ?? [],
+              deviceOwnership: values.deviceOwnership || 'company',
+            },
+          });
+        }
 
         if (COUNTED[result.outcome].vehicles && result.vehicle === 'create') {
           const job = await Job.create({

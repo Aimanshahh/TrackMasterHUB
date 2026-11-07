@@ -50,11 +50,10 @@ export const env = {
   supportEmail: process.env.SUPPORT_EMAIL ?? 'support@trackmaster.example',
   rateLimitWindowSeconds: Number(process.env.RATE_LIMIT_WINDOW_SECONDS ?? 60),
   rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS ?? 60),
-  // Live vehicle status from the GPSWOX tracking server. All three of the
-  // first values must be set for the integration to run.
-  trackingApiUrl: (process.env.TRACKING_API_URL ?? '').trim().replace(/\/+$/, ''),
-  trackingEmail: (process.env.TRACKING_EMAIL ?? '').trim(),
-  trackingPassword: process.env.TRACKING_PASSWORD ?? '',
+  // Live vehicle status from the GPSWOX tracking server. Store the API hash
+  // only on the backend; it must never be sent to the browser.
+  trackingApiUrl: (process.env.TRACKING_API_URL ?? '').trim().replace(/\/api\/get_devices\/?$/, '').replace(/\/+$/, ''),
+  trackingApiHash: (process.env.TRACKING_API_HASH ?? '').trim(),
   trackingSyncSeconds: Math.max(30, Number(process.env.TRACKING_SYNC_SECONDS ?? 300) || 300),
   trackingInactiveHours: Math.max(1, Number(process.env.TRACKING_INACTIVE_HOURS ?? 24) || 24),
   // GPSWOX sends times without a zone. This is the zone it uses (Pakistan).

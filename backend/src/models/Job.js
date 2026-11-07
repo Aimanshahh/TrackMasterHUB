@@ -186,6 +186,15 @@ const jobSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    packageFeatures: {
+      type: [String],
+      default: [],
+    },
+    deviceOwnership: {
+      type: String,
+      enum: ['company', 'customer'],
+      default: 'company',
+    },
     approvalStatus: {
       type: String,
       enum: ['not_required', 'pending', 'approved', 'rejected'],
@@ -253,7 +262,7 @@ function engineKillJson(job) {
   };
 }
 
-jobSchema.methods.toApiJson = function () {
+jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
   return {
     id: this._id.toString(),
     reference: this.reference,
@@ -286,9 +295,13 @@ jobSchema.methods.toApiJson = function () {
     recordYear: this.recordYear ?? null,
     packageKey: this.packageKey ?? null,
     packageName: this.packageKey ? packageCatalog[this.packageKey]?.name ?? this.packageKey : '',
-    listPrice: this.listPrice ?? null,
-    quotedPrice: this.quotedPrice ?? null,
+    ...(includeFinancials ? {
+      listPrice: this.listPrice ?? null,
+      quotedPrice: this.quotedPrice ?? null,
+    } : {}),
     approvalStatus: this.approvalStatus ?? 'not_required',
+    packageFeatures: this.packageFeatures ?? [],
+    deviceOwnership: this.deviceOwnership ?? 'company',
     approvalId: this.approval ? this.approval.toString() : null,
     scheduledAt: this.scheduledAt?.toISOString() ?? null,
     completedAt: this.completedAt?.toISOString() ?? null,

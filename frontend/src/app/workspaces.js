@@ -19,6 +19,7 @@ const adminPages = [
   { match: /^\/admin\/?$/, title: 'Business overview', description: 'A clear view of the records and activity currently available in TrackMaster Hub.' },
   { match: /^\/admin\/customers/, title: 'Customers', description: 'Search and review customer records stored in the business database.' },
   { match: /^\/admin\/follow-ups/, title: 'Follow-ups', description: 'Review customer follow-up work recorded by the team.' },
+  { match: /^\/admin\/messages/, title: 'WhatsApp messages', description: '', hideHeader: true },
   { match: /^\/admin\/sales/, title: 'Sales', description: 'Sales and approval information will appear here when the sales workflow is connected.' },
   { match: /^\/admin\/operations/, title: 'Operations queue', description: 'Installation work items, technician assignment and station-level stock allocation.' },
   { match: /^\/admin\/pending-installations/, title: 'Pending installations', description: 'Sold vehicles that are not installed yet, oldest first.' },

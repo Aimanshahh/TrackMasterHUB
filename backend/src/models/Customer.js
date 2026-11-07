@@ -1,4 +1,7 @@
 import mongoose from 'mongoose';
+import { PACKAGE_KEYS, packageCatalog } from './Package.js';
+
+export const CUSTOMER_CATEGORIES = ['Individual', 'Fleet', 'Corporate', 'Dealer', 'Other'];
 
 const customerSchema = new mongoose.Schema(
   {
@@ -50,6 +53,25 @@ const customerSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 5000,
+    },
+    packageKey: {
+      type: String,
+      enum: PACKAGE_KEYS,
+      default: null,
+    },
+    packagePrice: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    packageFeatures: {
+      type: [String],
+      default: [],
+    },
+    deviceOwnership: {
+      type: String,
+      enum: ['company', 'customer'],
+      default: 'company',
     },
     address: { type: String, trim: true, maxlength: 400, default: '' },
     owner: {
@@ -113,18 +135,23 @@ customerSchema.pre('save', function () {
   this.updatedAt = new Date();
 });
 
-customerSchema.methods.toApiJson = function () {
+customerSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
   return {
     id: this._id.toString(),
     name: this.name,
     email: this.email ?? '',
     phone: this.phone,
     company: this.company,
-    category: this.category,
+    category: CUSTOMER_CATEGORIES.includes(this.category) ? this.category : '',
     priority: this.priority,
     source: this.source,
     followUp: this.followUp?.toISOString(),
     notes: this.notes,
+    packageKey: this.packageKey ?? null,
+    packageName: this.packageKey ? packageCatalog[this.packageKey]?.name ?? this.packageKey : '',
+    packagePrice: includeFinancials ? this.packagePrice ?? null : null,
+    packageFeatures: this.packageFeatures ?? [],
+    deviceOwnership: this.deviceOwnership ?? 'company',
     // A populated owner is intentionally reduced to the fields the UI needs.
     // Calling the full user serializer here fails when the query only selected
     // a few fields, so build the shape explicitly.
@@ -151,8 +178,8 @@ customerSchema.methods.toApiJson = function () {
  * Detail shape used by the manager and admin customer screens. The briefing is
  * included because those are the only roles authorised to see it.
  */
-customerSchema.methods.toDetailJson = function () {
-  const base = this.toApiJson();
+customerSchema.methods.toDetailJson = function (options = {}) {
+  const base = this.toApiJson(options);
 
   return {
     ...base,

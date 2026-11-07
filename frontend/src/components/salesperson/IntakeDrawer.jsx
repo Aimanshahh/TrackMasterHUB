@@ -31,6 +31,8 @@ function newVehicle() {
     station: '',
     packageKey: '',
     quotedPrice: '',
+    packageFeatures: '',
+    deviceOwnership: 'company',
     approvalReason: '',
   };
 }
@@ -198,6 +200,8 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
           notes: form.notes,
           packageKey: vehicle.packageKey,
           quotedPrice: quote,
+          packageFeatures: vehicle.packageFeatures.split('\n').map((feature) => feature.trim()).filter(Boolean),
+          deviceOwnership: vehicle.deviceOwnership,
           approvalReason: state === 'below' ? vehicle.approvalReason : undefined,
         });
         sent += 1;
@@ -275,6 +279,21 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
               <span className="field__label">Phone <i>Required</i></span>
               <input className="input" type="tel" required maxLength={60} autoComplete="tel" placeholder="Customer’s own number" value={form.phone} onChange={update('phone')} />
             </label>
+            {pkg?.key === 'customize' ? (
+              <label className="field field--full">
+                <span className="field__label">Additional features</span>
+                <textarea className="input input--area" rows={2} maxLength={1200} placeholder="One feature per line, e.g. 2-way communication" value={vehicle.packageFeatures} onChange={updateVehicle(vehicle.id, 'packageFeatures')} />
+              </label>
+            ) : null}
+            {pkg?.key === 'personal' ? (
+              <label className="field">
+                <span className="field__label">Device ownership</span>
+                <select className="input" value={vehicle.deviceOwnership} onChange={updateVehicle(vehicle.id, 'deviceOwnership')}>
+                  <option value="customer">Customer-owned</option>
+                  <option value="company">Company-owned</option>
+                </select>
+              </label>
+            ) : null}
             <label className="field">
               <span className="field__label">Email</span>
               <input className="input" type="email" maxLength={240} autoComplete="email" placeholder="Optional" value={form.email} onChange={update('email')} />

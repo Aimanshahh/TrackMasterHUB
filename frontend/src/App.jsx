@@ -29,6 +29,8 @@ import ReportsPage from './pages/app/ReportsPage.jsx';
 import SalesPage from './pages/app/SalesPage.jsx';
 import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
+import SalespersonPerformancePage from './pages/app/SalespersonPerformancePage.jsx';
+import AdminMessagesPage from './pages/app/AdminMessagesPage.jsx';
 import AdjustmentPrintPage from './pages/billing/AdjustmentPrintPage.jsx';
 import CertificatesPage from './pages/app/CertificatesPage.jsx';
 import ImportCustomersPage from './pages/app/ImportCustomersPage.jsx';
@@ -97,6 +99,7 @@ export default function App() {
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/:customerId" element={<CustomerDetailPage />} />
             <Route path="follow-ups" element={<FollowUpsPage />} />
+            <Route path="messages" element={<AdminMessagesPage />} />
             <Route path="sales" element={<SalesPage />} />
             <Route path="operations" element={<OperationsPage />} />
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
@@ -111,6 +114,7 @@ export default function App() {
             <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="money" element={<MoneyPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="users/:id/performance" element={<SalespersonPerformancePage />} />
             <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />

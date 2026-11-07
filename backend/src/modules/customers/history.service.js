@@ -127,6 +127,9 @@ export async function getCustomerHistory(customerId, user) {
   }
 
   const detail = customer.toDetailJson();
+  const quotedRevenue = round2(jobs.reduce((sum, job) => sum + (job.quotedPrice ?? 0), 0));
+  const invoicedRevenue = round2(invoices.filter((invoice) => invoice.status === 'issued')
+    .reduce((sum, invoice) => sum + invoiceFigures(invoice).netAmount, 0));
 
   return {
     generatedAt: new Date().toISOString(),
@@ -143,6 +146,15 @@ export async function getCustomerHistory(customerId, user) {
       followUp: customer.followUp ? customer.followUp.toISOString() : null,
       notes: customer.notes ?? '',
       createdAt: customer.createdAt.toISOString(),
+      package: {
+        key: detail.packageKey,
+        name: detail.packageName,
+        price: includeMoney ? detail.packagePrice : null,
+        features: detail.packageFeatures,
+        deviceOwnership: detail.deviceOwnership,
+        quotedRevenue,
+        invoicedRevenue,
+      },
     },
     totals,
     installations,

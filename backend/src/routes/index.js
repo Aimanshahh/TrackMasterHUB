@@ -18,6 +18,7 @@ import { callsRouter, callsWebhookRouter } from '../modules/calls/calls.routes.j
 import { importsRouter } from '../modules/imports/imports.routes.js';
 import { certificatesRouter } from '../modules/certificates/certificates.routes.js';
 import { vehiclesRouter } from '../modules/vehicles/vehicles.routes.js';
+import { messagesRouter } from '../modules/messages/messages.routes.js';
 
 /** Every feature module mounts here. Future modules (sales, operations, etc.) follow the same pattern. */
 export const apiRouter = Router();
@@ -69,3 +70,4 @@ apiRouter.use('/calls', callsRouter);
 apiRouter.use('/webhooks/robocall', callsWebhookRouter);
 apiRouter.use('/certificates', certificatesRouter);
 apiRouter.use('/imports', importsRouter);
+apiRouter.use('/messages', messagesRouter);
