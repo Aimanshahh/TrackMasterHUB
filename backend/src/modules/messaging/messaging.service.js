@@ -38,14 +38,14 @@ const safeError = (error) => String(error?.message ?? 'Send failed').slice(0, 30
 const validEmail = (value) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value ?? '').trim());
 
 /**
- * Record the messages for one complaint event. This never throws: a mail
- * problem must not block logging or changing a complaint. WhatsApp has no
- * provider yet, so it is recorded as "not configured".
+ * Record the messages for one complaint event. This never throws: a delivery
+ * problem must not block logging or changing a complaint.
  */
-export async function queueComplaintMessages(complaint, template, historyIndex) {
+export async function queueComplaintMessages(complaint, template, historyIndex, { whatsappSent } = {}) {
   try {
     const customer = complaint.customer ? await Customer.findById(complaint.customer) : null;
     const to = customer?.email?.trim() ?? '';
+    const emailTemplate = template === 'whatsapp_only' ? null : template;
     const base = {
       complaint: complaint._id,
       complaintReference: complaint.reference,
@@ -54,26 +54,53 @@ export async function queueComplaintMessages(complaint, template, historyIndex) 
       historyIndex,
     };
 
-    const { subject, body } = renderComplaintEmail(
-      template,
-      { customerName: complaint.customerName, reference: complaint.reference, title: complaint.title, resolution: complaint.resolution },
-      env.mailBusinessName,
-    );
+    let subject = '';
+    let body = '';
+    let email = null;
+    if (emailTemplate) {
+      ({ subject, body } = renderComplaintEmail(
+        emailTemplate,
+        { customerName: complaint.customerName, reference: complaint.reference, title: complaint.title, resolution: complaint.resolution },
+        env.mailBusinessName,
+      ));
 
-    let status = 'pending';
-    let lastError = '';
-    if (!validEmail(to)) { status = 'skipped'; lastError = 'The customer has no valid email address on file.'; }
-    else if (!emailConfigured()) { status = 'not_configured'; lastError = 'Email sending is not set up on the server.'; }
+      let status = 'pending';
+      let lastError = '';
+      if (!validEmail(to)) { status = 'skipped'; lastError = 'The customer has no valid email address on file.'; }
+      else if (!emailConfigured()) { status = 'not_configured'; lastError = 'Email sending is not set up on the server.'; }
 
-    const email = await MessageDelivery.create({
-      ...base, channel: 'email', to, subject, body, status, lastError, nextAttemptAt: status === 'pending' ? new Date() : null,
+      email = await MessageDelivery.create({
+        ...base, channel: 'email', to, subject, body, status, lastError, nextAttemptAt: status === 'pending' ? new Date() : null,
+      });
+    }
+
+    const whatsappPhone = String(complaint.phone ?? '').replace(/\D/g, '');
+    const whatsappStatus = !whatsappPhone
+      ? 'skipped'
+      : !env.whatsappGatewayUrl
+        ? 'not_configured'
+        : whatsappSent
+          ? 'sent'
+          : 'failed';
+    const whatsapp = await MessageDelivery.create({
+      ...base,
+      channel: 'whatsapp',
+      to: complaint.phone ?? '',
+      subject,
+      body,
+      status: whatsappStatus,
+      lastError:
+        whatsappStatus === 'skipped'
+          ? 'The customer has no valid phone number on file.'
+          : whatsappStatus === 'not_configured'
+            ? 'WhatsApp gateway is not configured on the server.'
+            : whatsappStatus === 'failed'
+              ? 'WhatsApp gateway could not send the update.'
+              : '',
+      sentAt: whatsappStatus === 'sent' ? new Date() : null,
     });
 
-    await MessageDelivery.create({
-      ...base, channel: 'whatsapp', to: complaint.phone ?? '', subject, body, status: 'not_configured', lastError: 'WhatsApp is not connected yet.',
-    });
-
-    if (status === 'pending') {
+    if (email?.status === 'pending') {
       setImmediate(() => deliverMessage(email._id).catch(() => {}));
     }
   } catch (error) {

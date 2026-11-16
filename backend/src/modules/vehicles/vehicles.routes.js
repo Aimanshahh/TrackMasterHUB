@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
-import { getProfile, getStatus, getVehicles, postRefresh } from './vehicles.controller.js';
+import {
+  getPendingInspectionExport,
+  getProfile,
+  getStatus,
+  getVehicles,
+  patchInspection,
+  postRefresh,
+} from './vehicles.controller.js';
 
 export const vehiclesRouter = Router();
 
@@ -12,6 +19,8 @@ const vehicleDesk = requireRole('admin', 'manager');
 const vehicleReaders = requireRole('admin', 'manager', 'operations');
 
 vehiclesRouter.get('/', vehicleReaders, getVehicles);
+vehiclesRouter.get('/export/pending-inspections.csv', vehicleReaders, getPendingInspectionExport);
 vehiclesRouter.get('/:id/profile', vehicleReaders, getProfile);
+vehiclesRouter.patch('/:id/inspection', requireRole('admin', 'manager', 'operations'), patchInspection);
 vehiclesRouter.get('/sync-status', vehicleDesk, getStatus);
 vehiclesRouter.post('/refresh', vehicleDesk, postRefresh);

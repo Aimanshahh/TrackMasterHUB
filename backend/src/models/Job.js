@@ -21,6 +21,14 @@ export const jobStatusLabels = {
   cancelled: 'Cancelled',
 };
 
+export const PHYSICAL_STATUSES = [
+  'Verified Active',
+  'Pending Inspection',
+  'Removed',
+  'Needs Redo',
+  'Uninstalled',
+];
+
 const historySchema = new mongoose.Schema(
   {
     status: { type: String, trim: true },
@@ -98,6 +106,10 @@ const jobSchema = new mongoose.Schema(
       engineNo: { type: String, trim: true, maxlength: 60 },
       chassisNo: { type: String, trim: true, maxlength: 60 },
       colour: { type: String, trim: true, maxlength: 40 },
+      physicalStatus: { type: String, enum: PHYSICAL_STATUSES },
+      inspectionNotes: { type: String, trim: true, maxlength: 2000, default: '' },
+      lastInspectedAt: { type: Date },
+      inspectedBy: { type: String, trim: true, maxlength: 120, default: '' },
     },
     installation: { type: installationSchema, default: () => ({}) },
     /** Append-only record of every engine-kill status change, newest last. */
@@ -136,6 +148,15 @@ const jobSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 20,
+    },
+    portalSource: {
+      type: String,
+      enum: ['Main Server (Active)', 'Main Server (AMC Expired)', 'L8 Server'],
+      default: '',
+    },
+    amcExpiryDate: {
+      type: Date,
+      default: null,
     },
     simNumber: {
       type: String,
@@ -286,6 +307,8 @@ jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
       ? { id: this.technician._id.toString(), name: this.technician.name, station: this.technician.station ?? '' }
       : this.technician?.toString() ?? null,
     deviceImei: this.deviceImei ?? '',
+    portalSource: this.portalSource ?? '',
+    amcExpiryDate: this.amcExpiryDate?.toISOString() ?? null,
     simNumber: this.simNumber ?? '',
     simMode: this.simMode ?? '',
     loginId: this.loginId ?? '',

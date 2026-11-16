@@ -484,6 +484,14 @@ export function refreshVehicleStatus() {
   return apiRequest('/api/vehicles/refresh', { method: 'POST' });
 }
 
+export function updateVehicleInspection(id, input) {
+  return sendJson(`/api/vehicles/${encodeURIComponent(id)}/inspection`, 'PATCH', input);
+}
+
+export function exportPendingInspections() {
+  return fetchBlob('/api/vehicles/export/pending-inspections.csv');
+}
+
 export function fetchBriefingPending(params = {}, { signal } = {}) {
   return apiRequest(withQuery('/api/manager/briefing-pending', params), { signal });
 }

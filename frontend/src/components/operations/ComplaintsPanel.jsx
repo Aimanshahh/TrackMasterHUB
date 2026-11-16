@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 
 import { COMPLAINT_CATEGORIES, COMPLAINT_STATUS_OPTIONS, PRIORITY_OPTIONS, formatDayTime } from '../../app/operations.js';
+import CustomerPicker from '../customers/CustomerPicker.jsx';
 import { useAuth } from '../../context/auth.js';
-import { useCustomers } from '../../hooks/useCustomers.js';
 import { useComplaints } from '../../hooks/useOperations.js';
 import { createComplaintRecord, fetchComplaintMessages, markMessageManualRecord, retryMessageRecord, updateComplaintRecord } from '../../lib/api.js';
 import { PriorityTag, StatusPill } from './OpsStatus.jsx';
 
 function CreateComplaintDrawer({ onClose, onCreated }) {
-  const customers = useCustomers({ limit: 100 });
   const [form, setForm] = useState({ customerId: '', title: '', category: 'Installation', priority: 'normal', description: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -17,6 +16,10 @@ function CreateComplaintDrawer({ onClose, onCreated }) {
 
   async function submit(event) {
     event.preventDefault();
+    if (!form.customerId) {
+      setError('Select a customer from the search results.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -47,11 +50,11 @@ function CreateComplaintDrawer({ onClose, onCreated }) {
           <div className="drawer__section-label">Ticket</div>
           <label className="field">
             <span className="field__label">Customer record <i>Required</i></span>
-            <select className="input" value={form.customerId} onChange={update('customerId')} required>
-              <option value="">{customers.status === 'loading' ? 'Loading customers…' : 'Select a customer'}</option>
-              {customers.rows.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.phone ? ` · ${customer.phone}` : ''}</option>)}
-            </select>
-            {customers.status === 'ready' && customers.rows.length === 0 ? <span className="field__hint">Add the customer in the register before logging a complaint.</span> : null}
+            <CustomerPicker
+              value={form.customerId}
+              onChange={(customerId) => setForm((current) => ({ ...current, customerId }))}
+              required
+            />
           </label>
 
           <label className="field">

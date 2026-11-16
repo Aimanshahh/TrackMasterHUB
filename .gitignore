@@ -10,6 +10,9 @@ dist/
 .env.*
 !.env.example
 
+# WhatsApp gateway session keys
+/whatsapp-gateway/auth_info/
+
 # Logs
 .logs/
 *.log

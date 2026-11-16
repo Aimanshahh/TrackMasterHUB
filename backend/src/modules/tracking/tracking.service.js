@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import Job from '../../models/Job.js';
 
 /**
  * Read-only link to the GPSWOX tracking server.
@@ -17,6 +18,8 @@ const OFFLINE_STATES = new Set(['offline']);
 
 const state = {
   devices: new Map(),
+  portalDevices: new Map(),
+  portalSync: new Map(),
   syncedAt: null,
   lastAttemptAt: null,
   lastError: null,
@@ -25,12 +28,16 @@ const state = {
 };
 
 export function isTrackingConfigured() {
-  return Boolean(env.trackingApiUrl && env.trackingApiHash);
+  return env.trackingPortals.length > 0;
 }
 
 /** "AYM-118", " AYM 118 " and "aym118" all become "AYM118". */
 export function normalizePlate(value) {
   return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+export function normalizeDeviceId(value) {
+  return String(value ?? '').trim().replace(/\s+/g, '');
 }
 
 /** GPSWOX times look like "2026-11-02 11:16:02" with no zone attached. */
@@ -41,29 +48,41 @@ export function parseTrackerTime(value, offset = env.trackingTimeOffset) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-async function request(path) {
+function parseAmcExpiry(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || /^0{4}-0{2}-0{2}/.test(raw)) return null;
+
+  const candidate = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T00:00:00Z`)
+    : new Date(raw.includes('T') ? raw : raw.replace(' ', 'T'));
+  return Number.isNaN(candidate.getTime()) ? null : candidate.toISOString();
+}
+
+async function request(portal, path) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), env.trackingTimeoutMs);
 
   try {
-    const response = await fetch(`${env.trackingApiUrl}${path}`, {
+    const response = await fetch(`${portal.url}${path}`, {
       headers: {
         Accept: 'application/json',
       },
       signal: controller.signal,
     });
 
-    if (response.status === 401 || response.status === 403) throw new TrackingError('The tracking API hash was refused by the tracking server.');
-    if (!response.ok) throw new TrackingError(`The tracking server answered HTTP ${response.status}.`);
+    if (response.status === 401 || response.status === 403) throw new TrackingError(`${portal.source}: the tracking API hash was refused by the tracking server.`);
+    if (!response.ok) throw new TrackingError(`${portal.source}: the tracking server answered HTTP ${response.status}.`);
 
+    const body = await response.text();
     try {
-      return await response.json();
+      return JSON.parse(body.replace(/^\uFEFF/, '').trim());
     } catch {
-      throw new TrackingError('The tracking server sent a reply that is not JSON.');
+      const preview = body.trim().slice(0, 80).replace(/\s+/g, ' ');
+      throw new TrackingError(`${portal.source}: the tracking server sent a reply that is not JSON${preview ? ` (${preview})` : ''}.`);
     }
   } catch (error) {
     if (error instanceof TrackingError) throw error;
-    if (error.name === 'AbortError') throw new TrackingError('The tracking server did not answer in time.');
+    if (error.name === 'AbortError')     throw new TrackingError(`${portal.source}: the tracking server did not answer in time.`);
     throw new TrackingError('Could not reach the tracking server.');
   } finally {
     clearTimeout(timer);
@@ -86,34 +105,125 @@ export function flattenDevices(payload) {
 
 export function toDevice(item) {
   const lastSeen = parseTrackerTime(item.time);
+  const imei = normalizeDeviceId(item.imei ?? item.device_data?.imei);
+  const uniqueId = normalizeDeviceId(item.uniqueId ?? item.device_data?.traccar?.uniqueId);
+  const amcExpiryDate = parseAmcExpiry(
+    item.expiration_date
+      ?? item.sim_expiration_date
+      ?? item.device_data?.expiration_date
+      ?? item.device_data?.sim_expiration_date,
+  );
   return {
     trackerId: item.id ?? null,
     name: String(item.name ?? '').trim(),
     plate: normalizePlate(item.name),
+    imei,
+    uniqueId,
+    portalSource: item.portalSource ?? 'Unassigned',
+    amcExpiryDate,
     gpsState: String(item.online ?? '').trim().toLowerCase(),
     lastSeenAt: lastSeen ? lastSeen.toISOString() : null,
   };
 }
 
-async function fetchDevices() {
-  const payload = await request(`/api/get_devices?lang=en&user_api_hash=${encodeURIComponent(env.trackingApiHash)}`);
-  return flattenDevices(payload).map(toDevice).filter((device) => device.plate);
+async function fetchPortalDevices(portal) {
+  const payload = await request(
+    portal,
+    `/get_devices?user_api_hash=${encodeURIComponent(portal.hash)}&lang=en`,
+  );
+  return flattenDevices(payload)
+    .map((item) => toDevice({ ...item, portalSource: portal.source }))
+    .filter((device) => {
+      if (device.imei || device.uniqueId) return true;
+      console.warn(`[tracking] skipped a ${portal.source} device without an IMEI or uniqueId.`);
+      return false;
+    });
+}
+
+function mergePortalDevices() {
+  const next = new Map();
+  const seenByIdentifier = new Map();
+
+  for (const portal of env.trackingPortals) {
+    const devices = state.portalDevices.get(portal.id) ?? [];
+    for (const device of devices) {
+      const identifiers = [device.imei && `imei:${device.imei}`, device.uniqueId && `unique:${device.uniqueId}`].filter(Boolean);
+      for (const identifier of identifiers) {
+        const existing = seenByIdentifier.get(identifier);
+        if (existing && existing.portal.priority !== portal.priority) {
+          const winner = existing.portal.priority > portal.priority ? existing : { device, portal };
+          const loser = winner.device === device ? existing : { device, portal };
+          console.warn(`[tracking] IMEI conflict for ${identifier}; keeping ${winner.portal.source} and ignoring ${loser.portal.source}.`);
+          seenByIdentifier.set(identifier, winner);
+        } else if (!existing) {
+          seenByIdentifier.set(identifier, { device, portal });
+        }
+      }
+    }
+  }
+
+  for (const [identifier, match] of seenByIdentifier) next.set(identifier, match.device);
+  return next;
+}
+
+async function persistPortalData(devices) {
+  const localJobs = await Job.find({ requestType: 'new_installation', status: 'completed' })
+    .select('deviceImei')
+    .lean();
+  const missingImei = localJobs.filter((job) => !normalizeDeviceId(job.deviceImei)).length;
+  if (missingImei) console.warn(`[tracking] skipped ${missingImei} local vehicles without an IMEI.`);
+
+  const operations = devices
+    .filter((device) => device.imei || device.uniqueId)
+    .map((device) => ({
+      updateMany: {
+        filter: {
+          $or: [
+            ...(device.imei ? [{ deviceImei: device.imei }] : []),
+            ...(device.uniqueId ? [{ deviceImei: device.uniqueId }] : []),
+          ],
+        },
+        update: {
+          $set: {
+            portalSource: device.portalSource,
+            amcExpiryDate: device.amcExpiryDate ? new Date(device.amcExpiryDate) : null,
+          },
+        },
+      },
+    }));
+
+  if (operations.length) await Job.bulkWrite(operations, { ordered: false });
 }
 
 async function runSync() {
   try {
-    const devices = await fetchDevices();
-
-    const next = new Map();
-    for (const device of devices) {
-      // Two tracker entries for one plate: keep the one that reported last.
-      const existing = next.get(device.plate);
-      if (!existing || (device.lastSeenAt ?? '') > (existing.lastSeenAt ?? '')) next.set(device.plate, device);
+    const errors = [];
+    let successfulPortals = 0;
+    for (const portal of env.trackingPortals) {
+      try {
+        const devices = await fetchPortalDevices(portal);
+        state.portalDevices.set(portal.id, devices);
+        state.portalSync.set(portal.id, { syncedAt: new Date(), error: null });
+        successfulPortals += 1;
+      } catch (error) {
+        const message = error instanceof TrackingError ? error.message : `${portal.source}: sync failed unexpectedly.`;
+        errors.push(message);
+        state.portalSync.set(portal.id, { syncedAt: state.portalSync.get(portal.id)?.syncedAt ?? null, error: message });
+      }
     }
 
-    state.devices = next;
-    state.syncedAt = new Date();
-    state.lastError = null;
+    if (!successfulPortals && errors.length && !state.syncedAt) throw new TrackingError(errors.join(' '));
+
+    state.devices = mergePortalDevices();
+    if (successfulPortals) state.syncedAt = new Date();
+    state.lastError = errors.length ? `Some tracking portals failed: ${errors.join(' ')}` : null;
+    const devices = [...new Set(state.devices.values())];
+    try {
+      await persistPortalData(devices);
+    } catch (error) {
+      state.lastError = `${state.lastError ? `${state.lastError} ` : ''}Portal metadata could not be saved: ${error.message}`;
+      console.warn(`[tracking] metadata save failed: ${error.message}`);
+    }
   } catch (error) {
     state.lastError = error instanceof TrackingError ? error.message : 'The tracking sync failed unexpectedly.';
     console.warn(`[tracking] sync failed: ${state.lastError}`);
@@ -133,8 +243,13 @@ export function getSyncStatus() {
     syncedAt: state.syncedAt?.toISOString() ?? null,
     lastAttemptAt: state.lastAttemptAt?.toISOString() ?? null,
     error: state.lastError,
+    portals: env.trackingPortals.map((portal) => ({
+      source: portal.source,
+      syncedAt: state.portalSync.get(portal.id)?.syncedAt?.toISOString() ?? null,
+      error: state.portalSync.get(portal.id)?.error ?? null,
+    })),
     stale,
-    deviceCount: state.devices.size,
+    deviceCount: new Set(state.devices.values()).size,
     syncSeconds: env.trackingSyncSeconds,
     inactiveAfterHours: env.trackingInactiveHours,
   };
@@ -174,7 +289,7 @@ export function startTrackingSync() {
   syncTracking();
   state.timer = setInterval(() => { syncTracking(); }, env.trackingSyncSeconds * 1000);
   state.timer.unref?.();
-  console.log(`[tracking] syncing every ${env.trackingSyncSeconds}s from ${env.trackingApiUrl}`);
+  console.log(`[tracking] syncing every ${env.trackingSyncSeconds}s from ${env.trackingPortals.length} portal(s)`);
 }
 
 /**
@@ -183,28 +298,49 @@ export function startTrackingSync() {
  * code does not know, or no sync has succeeded yet. A vehicle the tracker does
  * not list at all is "not_tracked", never guessed as active or inactive.
  */
-export function statusFor(plate, now = Date.now()) {
-  const tracking = { status: 'unknown', gpsState: '', lastSeenAt: null, trackerName: '' };
+export function statusFor(plate, imeiOrNow, now = Date.now()) {
+  const imei = typeof imeiOrNow === 'number' ? '' : imeiOrNow;
+  const currentTime = typeof imeiOrNow === 'number' ? imeiOrNow : now;
+  const tracking = {
+    status: 'unknown',
+    gpsState: '',
+    lastSeenAt: null,
+    trackerName: '',
+    portalSource: '',
+    amcExpiryDate: null,
+  };
 
   if (!state.syncedAt) return tracking;
 
-  const device = state.devices.get(normalizePlate(plate));
+  const device = imei
+    ? state.devices.get(`imei:${normalizeDeviceId(imei)}`)
+      ?? state.devices.get(`unique:${normalizeDeviceId(imei)}`)
+    : null;
   if (!device) return { ...tracking, status: 'not_tracked' };
 
   tracking.gpsState = device.gpsState;
   tracking.lastSeenAt = device.lastSeenAt;
   tracking.trackerName = device.name;
+  tracking.portalSource = device.portalSource;
+  tracking.amcExpiryDate = device.amcExpiryDate;
 
   if (OFFLINE_STATES.has(device.gpsState)) return { ...tracking, status: 'inactive' };
   if (!CONNECTED_STATES.has(device.gpsState)) return tracking;
   if (!device.lastSeenAt) return { ...tracking, status: 'inactive' };
 
-  const ageMs = now - new Date(device.lastSeenAt).getTime();
+  const ageMs = currentTime - new Date(device.lastSeenAt).getTime();
   return { ...tracking, status: ageMs > env.trackingInactiveHours * 3_600_000 ? 'inactive' : 'active' };
 }
 
 /** Test hook: replace the cache without touching the network. */
 export function __setTrackingCache(devices, syncedAt = new Date()) {
-  state.devices = new Map(devices.map((device) => [device.plate, device]));
+  state.devices = new Map();
+  for (const device of devices) {
+    const keys = [
+      device.imei && `imei:${normalizeDeviceId(device.imei)}`,
+      device.uniqueId && `unique:${normalizeDeviceId(device.uniqueId)}`,
+    ].filter(Boolean);
+    for (const key of keys) state.devices.set(key, device);
+  }
   state.syncedAt = syncedAt;
 }

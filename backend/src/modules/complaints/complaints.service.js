@@ -5,6 +5,7 @@ import { makeError } from '../../middleware/errors.js';
 import { queueComplaintMessages } from '../messaging/messaging.service.js';
 import { TEMPLATE_FOR_STATUS } from '../messaging/templates.js';
 import { notifyUser } from '../notifications/notifications.service.js';
+import { sendWhatsAppUpdate } from '../../utils/whatsappGateway.js';
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -69,7 +70,12 @@ async function createComplaint(input, actor) {
   });
 
   await complaint.save();
-  await queueComplaintMessages(complaint, 'logged', 0);
+  const whatsappSent = await sendWhatsAppUpdate(
+    complaint.phone,
+    complaint.customerName,
+    `Hi ${complaint.customerName}, your complaint ${complaint.reference} has been logged.`,
+  );
+  await queueComplaintMessages(complaint, 'logged', 0, { whatsappSent });
   return complaint.toApiJson();
 }
 
@@ -105,8 +111,18 @@ async function updateComplaint(id, input, actor) {
 
   await complaint.save();
 
-  if (statusChanged && TEMPLATE_FOR_STATUS[nextStatus]) {
-    await queueComplaintMessages(complaint, TEMPLATE_FOR_STATUS[nextStatus], complaint.history.length - 1);
+  if (statusChanged) {
+    const whatsappSent = await sendWhatsAppUpdate(
+      complaint.phone,
+      complaint.customerName,
+      `Hi ${complaint.customerName}, the status of your complaint ${complaint.reference} has been updated to ${complaintStatusLabels[nextStatus]}.`,
+    );
+    await queueComplaintMessages(
+      complaint,
+      TEMPLATE_FOR_STATUS[nextStatus] ?? 'whatsapp_only',
+      complaint.history.length - 1,
+      { whatsappSent },
+    );
   }
 
   if (statusChanged && complaint.createdBy && String(complaint.createdBy) !== String(actor.id)) {

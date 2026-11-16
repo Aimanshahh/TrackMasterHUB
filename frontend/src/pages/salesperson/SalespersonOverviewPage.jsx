@@ -173,7 +173,7 @@ export default function SalespersonOverviewPage() {
       </section>
 
       <IntakeDrawer open={intakeOpen} onClose={() => setIntakeOpen(false)} onSaved={() => { summary.refresh(); }} />
-      <ComplaintDrawer open={complaintOpen} customers={customers.rows} onClose={() => setComplaintOpen(false)} onSaved={() => { summary.refresh(); notifications.refresh(); }} />
+      <ComplaintDrawer open={complaintOpen} onClose={() => setComplaintOpen(false)} onSaved={() => { summary.refresh(); notifications.refresh(); }} />
     </div>
   );
 }

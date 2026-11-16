@@ -180,6 +180,89 @@
 
 .ledger__sub { display: block; margin-top: 3px; color: #8d9197; font-size: 9.5px; line-height: 1.45; }
 .ledger__muted { color: #6f747a; font-size: 10.5px; }
+.vehicles-page__head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 4px 0 18px;
+}
+.vehicles-page__head h1 { font-size: 25px; letter-spacing: -.03em; }
+.vehicles-page__head p { margin-top: 5px; color: #777b80; font-size: 11px; }
+.vehicles-page__head > span { color: #7d8186; font-size: 10px; }
+.vehicle-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.vehicle-summary__card {
+  display: grid;
+  gap: 8px;
+  padding: 13px 14px;
+  border: 1px solid #e1dfda;
+  background: #fff;
+  color: #6f747a;
+  text-align: left;
+  cursor: pointer;
+}
+.vehicle-summary__card:hover { border-color: #bdb8ae; background: #fbfaf8; }
+.vehicle-summary__card span { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.vehicle-summary__card strong { color: #22252a; font-size: 22px; font-weight: 650; }
+.vehicle-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid #e1dfda;
+  background: #fff;
+}
+.vehicle-toolbar__filters { display: flex; flex-wrap: wrap; gap: 10px; }
+.vehicle-toolbar label, .vehicle-pagination label { display: grid; gap: 4px; color: #73777c; font-size: 9px; }
+.vehicle-toolbar .input, .vehicle-pagination .input { min-width: 130px; min-height: 32px; font-size: 10px; }
+.vehicle-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin: 14px 0 0; border-bottom: 1px solid #e1dfda; }
+.vehicle-tabs > button:not(.vehicle-tabs__export) { position: relative; padding: 11px 0; border: 0; background: none; color: #777b80; cursor: pointer; font-size: 10px; font-weight: 650; }
+.vehicle-tabs > button:not(.vehicle-tabs__export):hover, .vehicle-tabs > button.is-active { color: #25282d; }
+.vehicle-tabs > button.is-active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: #d7131b; content: ''; }
+.vehicle-tabs__export { margin-left: auto; margin-bottom: 5px; }
+.physical-status { display: inline-flex; padding: 3px 7px; border: 1px solid #d5dce7; background: #f3f6fb; color: #3b5a8a; font-size: 8.5px; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
+.physical-status--verified-active { border-color: #b7d8c0; background: #eef8f1; color: #287044; }
+.physical-status--pending-inspection { border-color: #c9d3e2; background: #f3f6fb; color: #3b5a8a; }
+.physical-status--removed,.physical-status--uninstalled { border-color: #d0d0d0; background: #eeeeec; color: #55595f; }
+.physical-status--needs-redo { border-color: #d6c6e7; background: #f5effb; color: #714596; }
+.vehicle-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  color: #73777c;
+  font-size: 10px;
+}
+.portal-badge {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 2px 5px;
+  border: 1px solid #d9d5cc;
+  color: #74716b;
+  font-size: 8px;
+  letter-spacing: .04em;
+}
+.amc-badge {
+  display: inline-flex;
+  padding: 3px 7px;
+  border: 1px solid #d9d5cc;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.amc-badge--gray { background: #f5f4f1; color: #666b71; }
+.amc-badge--green { background: #eef8f1; border-color: #b7d8c0; color: #287044; }
+.amc-badge--orange { background: #fff3e8; border-color: #e8c19d; color: #a45b1b; }
+.amc-badge--yellow { background: #fff8e8; border-color: #e4ce93; color: #8a6817; }
+.amc-badge--red { background: #fff1f0; border-color: #e4b7b4; color: #a12025; }
 
 .ledger__money {
   display: block;

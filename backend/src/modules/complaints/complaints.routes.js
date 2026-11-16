@@ -6,7 +6,7 @@ export const complaintsRouter = Router();
 
 complaintsRouter.use(requireAuth);
 complaintsRouter.get('/', requireRole('admin', 'operations', 'manager', 'salesperson'), getComplaints);
-complaintsRouter.post('/', requireRole('admin', 'operations', 'salesperson'), postComplaint);
+complaintsRouter.post('/', requireRole('admin', 'operations', 'manager', 'salesperson'), postComplaint);
 complaintsRouter.patch('/:id', requireRole('admin', 'operations'), patchComplaint);
 complaintsRouter.get('/:id/messages', requireRole('admin', 'operations', 'manager', 'salesperson'), getComplaintMessages);
 complaintsRouter.post('/messages/:messageId/retry', requireRole('admin', 'operations'), postMessageRetry);

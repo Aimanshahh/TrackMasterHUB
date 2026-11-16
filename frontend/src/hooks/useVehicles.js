@@ -23,7 +23,7 @@ export function useVehicles({ q = '', status = '' } = {}) {
     setState((previous) => ({ ...previous, status: previous.rows.length ? 'ready' : 'loading', error: null }));
 
     try {
-      const payload = await fetchVehicles({ q: debounced, status, limit: 200 }, { signal: controller.signal });
+      const payload = await fetchVehicles({ q: debounced, status, limit: 2000 }, { signal: controller.signal });
       setState((previous) => ({ ...previous, status: 'ready', rows: payload.data, meta: payload.meta, error: null }));
     } catch (error) {
       if (error.name === 'AbortError') return;

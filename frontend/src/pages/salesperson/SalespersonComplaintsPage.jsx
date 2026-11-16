@@ -3,13 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { COMPLAINT_STATUS_OPTIONS, formatDayTime } from '../../app/operations.js';
 import { StatusPill } from '../../components/operations/OpsStatus.jsx';
 import ComplaintDrawer from '../../components/salesperson/ComplaintDrawer.jsx';
-import { useCustomers } from '../../hooks/useCustomers.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { fetchComplaints } from '../../lib/api.js';
 
 export default function SalespersonComplaintsPage() {
   useDocumentTitle('Complaints');
-  const customers = useCustomers({ limit: 100 });
   const [status, setStatus] = useState('');
   const [state, setState] = useState({ status: 'loading', rows: [], error: null });
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -88,7 +86,7 @@ export default function SalespersonComplaintsPage() {
         </ul>
       ) : null}
 
-      <ComplaintDrawer open={drawerOpen} customers={customers.rows} onClose={() => setDrawerOpen(false)} onSaved={load} />
+      <ComplaintDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onSaved={load} />
     </div>
   );
 }

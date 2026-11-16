@@ -1,24 +1,49 @@
 import { useEffect, useState } from 'react';
 
 import { COMPLAINT_CATEGORIES, PRIORITY_OPTIONS } from '../../app/operations.js';
+import CustomerPicker from '../customers/CustomerPicker.jsx';
 import { createComplaintRecord } from '../../lib/api.js';
 
 /** Log a service ticket against one of the salesperson's own customers. */
-export default function ComplaintDrawer({ open, customers = [], defaultCustomerId = '', onClose, onSaved }) {
-  const [form, setForm] = useState({ customerId: defaultCustomerId, title: '', description: '', category: 'General', priority: 'normal' });
+export default function ComplaintDrawer({
+  open,
+  defaultCustomerId = '',
+  defaultCustomer = null,
+  defaultTitle = '',
+  defaultDescription = '',
+  onClose,
+  onSaved,
+}) {
+  const [form, setForm] = useState({
+    customerId: defaultCustomerId,
+    customerName: defaultCustomer?.name ?? '',
+    phone: defaultCustomer?.phone ?? '',
+    title: defaultTitle,
+    description: defaultDescription,
+    category: 'General',
+    priority: 'normal',
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!open) return undefined;
-    setForm({ customerId: defaultCustomerId, title: '', description: '', category: 'General', priority: 'normal' });
+    setForm({
+      customerId: defaultCustomerId,
+      customerName: defaultCustomer?.name ?? '',
+      phone: defaultCustomer?.phone ?? '',
+      title: defaultTitle,
+      description: defaultDescription,
+      category: 'General',
+      priority: 'normal',
+    });
     setError(null);
     const closeOnEscape = (event) => {
       if (event.key === 'Escape' && !saving) onClose();
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [open, defaultCustomerId, saving, onClose]);
+  }, [open, defaultCustomerId, defaultCustomer, defaultTitle, defaultDescription, saving, onClose]);
 
   if (!open) return null;
 
@@ -26,6 +51,10 @@ export default function ComplaintDrawer({ open, customers = [], defaultCustomerI
 
   async function submit(event) {
     event.preventDefault();
+    if (!form.customerId) {
+      setError('Select a customer from the search results.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -56,12 +85,15 @@ export default function ComplaintDrawer({ open, customers = [], defaultCustomerI
           <div className="field-grid">
             <label className="field field--full">
               <span className="field__label">Customer <i>Required</i></span>
-              <select className="input" required value={form.customerId} onChange={update('customerId')}>
-                <option value="">Choose a customer</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>{customer.name}{customer.phone ? ` · ${customer.phone}` : ''}</option>
-                ))}
-              </select>
+              {defaultCustomer ? (
+                <input className="input" value={`${defaultCustomer.name}${defaultCustomer.phone ? ` · ${defaultCustomer.phone}` : ''}`} readOnly />
+              ) : (
+                <CustomerPicker
+                  value={form.customerId}
+                  onChange={(customerId) => setForm((current) => ({ ...current, customerId }))}
+                  required
+                />
+              )}
             </label>
             <label className="field field--full">
               <span className="field__label">Short title <i>Required</i></span>

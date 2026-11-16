@@ -1,5 +1,5 @@
 import Certificate from '../../models/Certificate.js';
-import Job from '../../models/Job.js';
+import Job, { PHYSICAL_STATUSES } from '../../models/Job.js';
 import { packageCatalog } from '../../models/Package.js';
 import { engineKillLabels } from '../../utils/installation.js';
 import { makeError } from '../../middleware/errors.js';
@@ -9,6 +9,33 @@ import { ensureTrackingLoaded, getSyncStatus, normalizePlate, statusFor, syncTra
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const STATUS_FILTERS = ['active', 'inactive', 'unknown', 'not_tracked'];
+const TRACKING_UNAVAILABLE = new Set(['inactive', 'unknown', 'not_tracked']);
+
+function amcStatusFor(value, trackingStatus, now = new Date()) {
+  if (!value) return 'unknown';
+  const expiry = new Date(value);
+  if (Number.isNaN(expiry.getTime())) return 'unknown';
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  expiry.setHours(0, 0, 0, 0);
+  const daysExpired = Math.floor((today - expiry) / 86_400_000);
+  if (daysExpired > 0) return 'expired';
+  if (TRACKING_UNAVAILABLE.has(trackingStatus)) return 'active_no_tracker';
+  const daysRemaining = Math.floor((expiry - today) / 86_400_000);
+  return daysRemaining < 30 ? 'expiring_soon' : 'active';
+}
+
+function physicalStatusFor(job, trackingStatus) {
+  return job.vehicle?.physicalStatus
+    || (TRACKING_UNAVAILABLE.has(trackingStatus) ? 'Pending Inspection' : 'Verified Active');
+}
+
+function portalLabel(value) {
+  if (value === 'Portal 1' || value === 'Portal 2') return value;
+  if (String(value ?? '').includes('L8')) return 'Portal 2';
+  if (String(value ?? '').includes('Main Server')) return 'Portal 1';
+  return '';
+}
 
 /**
  * Every installed vehicle, joined with its live status from the tracking
@@ -54,6 +81,9 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
     if (seen.has(key)) continue;
     seen.add(key);
 
+    const tracking = statusFor(job.vehicle?.registration, job.deviceImei);
+    const amcExpiryDate = job.amcExpiryDate?.toISOString?.() ?? tracking.amcExpiryDate;
+    const amcStatus = amcStatusFor(amcExpiryDate, tracking.status);
     vehicles.push({
       id: job._id.toString(),
       jobReference: job.reference,
@@ -72,19 +102,28 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
         ? { id: certByJob.get(job._id.toString())._id.toString(), number: certByJob.get(job._id.toString()).number, status: certByJob.get(job._id.toString()).status }
         : null,
       installedAt: (job.completedAt ?? job.updatedAt)?.toISOString?.() ?? null,
-      tracking: statusFor(job.vehicle?.registration),
+      portalSource: portalLabel(job.portalSource) || portalLabel(tracking.portalSource) || 'Unassigned',
+      amcExpiryDate,
+      amcStatus,
+      physicalStatus: physicalStatusFor(job, tracking.status),
+      inspectionNotes: job.vehicle?.inspectionNotes ?? '',
+      lastInspectedAt: job.vehicle?.lastInspectedAt?.toISOString?.() ?? null,
+      inspectedBy: job.vehicle?.inspectedBy ?? '',
+      tracking,
     });
   }
 
   const counts = { total: vehicles.length, active: 0, inactive: 0, unknown: 0, not_tracked: 0 };
   for (const vehicle of vehicles) counts[vehicle.tracking.status] += 1;
+  const amcCounts = { active: 0, expiring_soon: 0, active_no_tracker: 0, expired: 0, unknown: 0 };
+  for (const vehicle of vehicles) amcCounts[vehicle.amcStatus] += 1;
 
   const visible = STATUS_FILTERS.includes(status)
     ? vehicles.filter((vehicle) => vehicle.tracking.status === status)
     : vehicles;
 
   const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
-  const safeLimit = Math.min(200, Math.max(1, Number.parseInt(limit, 10) || 25));
+  const safeLimit = Math.min(2000, Math.max(1, Number.parseInt(limit, 10) || 25));
 
   return {
     data: visible.slice((safePage - 1) * safeLimit, safePage * safeLimit),
@@ -94,6 +133,10 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
       limit: safeLimit,
       pages: Math.ceil(visible.length / safeLimit),
       counts,
+      amcCounts: {
+        ...amcCounts,
+        total_expired: amcCounts.expired,
+      },
       sync: getSyncStatus(),
     },
   };
@@ -145,6 +188,8 @@ async function getVehicleProfile(id, lookup = '') {
     .sort((a, b) => new Date(b.at) - new Date(a.at));
 
   const customerJob = current ?? jobs[0];
+  const tracking = statusFor(current.vehicle?.registration, current.deviceImei);
+  const amcExpiryDate = current.amcExpiryDate?.toISOString?.() ?? tracking.amcExpiryDate;
 
   return {
     data: {
@@ -161,7 +206,14 @@ async function getVehicleProfile(id, lookup = '') {
       device: { imei: current.deviceImei ?? '', simNumber: current.simNumber ?? '', model: current.installation?.deviceModel ?? '', placement: current.installation?.placement ?? '' },
       engineKill: current.toApiJson().engineKill,
       engineKillHistory,
-      tracking: statusFor(current.vehicle?.registration),
+      tracking,
+      portalSource: portalLabel(current.portalSource) || portalLabel(tracking.portalSource) || 'Unassigned',
+      amcExpiryDate,
+      amcStatus: amcStatusFor(amcExpiryDate, tracking.status),
+      physicalStatus: physicalStatusFor(current, tracking.status),
+      inspectionNotes: current.vehicle?.inspectionNotes ?? '',
+      lastInspectedAt: current.vehicle?.lastInspectedAt?.toISOString?.() ?? null,
+      inspectedBy: current.vehicle?.inspectedBy ?? '',
       installations: installs.map((j) => j.toApiJson()),
       serviceJobs: jobs.filter((j) => j.requestType !== 'new_installation').map((j) => j.toApiJson()),
       certificates: certs.map((c) => c.toApiJson()),
@@ -169,8 +221,52 @@ async function getVehicleProfile(id, lookup = '') {
   };
 }
 
+async function logVehicleInspection(id, input, actor) {
+  const job = await Job.findById(id);
+  if (!job || job.requestType !== 'new_installation' || job.status !== 'completed') {
+    throw makeError(errorCodes.NOT_FOUND, 'No completed vehicle matches that id.', 404);
+  }
+
+  if (!PHYSICAL_STATUSES.includes(input.physicalStatus)) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Choose a valid physical status.');
+  }
+
+  job.vehicle.physicalStatus = input.physicalStatus;
+  job.vehicle.inspectionNotes = String(input.inspectionNotes ?? '').trim().slice(0, 2000);
+  job.vehicle.lastInspectedAt = new Date();
+  job.vehicle.inspectedBy = String(actor.id);
+  await job.save();
+  return getVehicleProfile(id);
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+async function exportPendingInspections() {
+  const { data } = await listVehicles({ limit: 2000 });
+  const rows = data.filter((vehicle) => vehicle.physicalStatus === 'Pending Inspection');
+  const header = ['Plate', 'Customer Name', 'Phone', 'Last known Tracker ID'];
+  const lines = rows.map((vehicle) => [
+    vehicle.vehicle.registration,
+    vehicle.customer.name,
+    vehicle.customer.phone,
+    vehicle.deviceImei,
+  ].map(csvCell).join(','));
+  return [header.map(csvCell).join(','), ...lines].join('\r\n') + '\r\n';
+}
+
 async function refreshVehicleStatus() {
   return syncTracking({ manual: true });
 }
 
-export { getVehicleProfile, listVehicles, refreshVehicleStatus, getSyncStatus };
+export {
+  exportPendingInspections,
+  getVehicleProfile,
+  listVehicles,
+  logVehicleInspection,
+  refreshVehicleStatus,
+  getSyncStatus,
+  amcStatusFor,
+};

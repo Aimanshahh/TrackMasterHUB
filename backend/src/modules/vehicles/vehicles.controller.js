@@ -1,4 +1,11 @@
-import { getSyncStatus, getVehicleProfile, listVehicles, refreshVehicleStatus } from './vehicles.service.js';
+import {
+  exportPendingInspections,
+  getSyncStatus,
+  getVehicleProfile,
+  listVehicles,
+  logVehicleInspection,
+  refreshVehicleStatus,
+} from './vehicles.service.js';
 import { makeError } from '../../middleware/errors.js';
 import { errorCodes } from '../../config/errorCodes.js';
 
@@ -44,4 +51,22 @@ async function postRefresh(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { getProfile, getVehicles, getStatus, postRefresh };
+async function patchInspection(req, res, next) {
+  try {
+    return res.json({ data: await logVehicleInspection(req.params.id, req.body ?? {}, req.user) });
+  } catch (error) { next(error); }
+}
+
+async function getPendingInspectionExport(req, res, next) {
+  try {
+    const csv = await exportPendingInspections();
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="pending-inspections.csv"',
+      'Cache-Control': 'no-store',
+    });
+    return res.send(csv);
+  } catch (error) { next(error); }
+}
+
+export { getProfile, getVehicles, getStatus, getPendingInspectionExport, patchInspection, postRefresh };
