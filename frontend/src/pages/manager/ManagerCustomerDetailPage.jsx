@@ -3,16 +3,18 @@ import { useParams } from 'react-router-dom';
 
 import AdjustmentDrawer from '../../components/billing/AdjustmentDrawer.jsx';
 import PaymentDrawer from '../../components/billing/PaymentDrawer.jsx';
+import AmcPaymentDrawer from '../../components/billing/AmcPaymentDrawer.jsx';
 import CustomerAccountView from '../../components/customers/CustomerAccountView.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useManagerCustomer } from '../../hooks/useManager.js';
-import { issueInvoiceRecord, recordInvoicePayment } from '../../lib/api.js';
+import { issueInvoiceRecord, recordInvoicePayment, recordAmcPayment } from '../../lib/api.js';
 import { formatMoney } from '../../lib/format.js';
 
 export default function ManagerCustomerDetailPage() {
   const { customerId } = useParams();
   const profile = useManagerCustomer(customerId);
   const [payingInvoice, setPayingInvoice] = useState(null);
+  const [amcPaymentOpen, setAmcPaymentOpen] = useState(false);
   const [adjusting, setAdjusting] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
@@ -51,6 +53,12 @@ export default function ManagerCustomerDetailPage() {
     setNotice(`${kind === 'refund' ? 'Refund' : 'Credit note'} ${adjustment.reference} recorded for ${formatMoney(adjustment.amount)}.`);
   }
 
+  async function recordAmc(customerId, input) {
+    const payload = await recordAmcPayment(customerId, input);
+    await profile.refresh();
+    setNotice(`AMC payment recorded. ${payload.data.job.vehicle.registration || payload.data.job.reference} is renewed until ${new Date(payload.data.payment.amcExpiryDate).toLocaleDateString('en-GB')}.`);
+  }
+
   if (profile.status === 'loading') return <p className="data-state" role="status">Loading customer account…</p>;
 
   if (profile.error && !profile.data) {
@@ -78,6 +86,7 @@ export default function ManagerCustomerDetailPage() {
         onSaveBriefing={profile.saveBriefing}
         onIssueInvoice={issue}
         onPayInvoice={(invoice) => setPayingInvoice(invoice)}
+        onRecordAmcPayment={() => setAmcPaymentOpen(true)}
         onCreditInvoice={(invoice) => setAdjusting({ invoice, kind: 'credit_note' })}
         onRefundInvoice={(invoice) => setAdjusting({ invoice, kind: 'refund' })}
         busyInvoiceId={busyId}
@@ -92,6 +101,14 @@ export default function ManagerCustomerDetailPage() {
         open={Boolean(payingInvoice)}
         onClose={() => setPayingInvoice(null)}
         onSubmit={recordPayment}
+      />
+
+      <AmcPaymentDrawer
+        customer={customer}
+        jobs={profile.data?.jobs ?? []}
+        open={amcPaymentOpen}
+        onClose={() => setAmcPaymentOpen(false)}
+        onSubmit={recordAmc}
       />
 
       <AdjustmentDrawer

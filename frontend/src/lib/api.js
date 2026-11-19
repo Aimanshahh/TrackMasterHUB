@@ -380,6 +380,10 @@ export function recordInvoicePayment(id, input) {
   return sendJson(`/api/billing/invoices/${encodeURIComponent(id)}/payments`, 'POST', input);
 }
 
+export function recordAmcPayment(customerId, input) {
+  return sendJson(`/api/billing/customers/${encodeURIComponent(customerId)}/amc-payment`, 'POST', input);
+}
+
 export function fetchManagerSummary({ signal } = {}) {
   return apiRequest('/api/manager/summary', { signal });
 }

@@ -116,6 +116,9 @@ export async function getCustomerHistory(customerId, user) {
       currency: 'PKR',
       invoices: invoices.map((invoice) => invoice.toApiJson()),
       payments: payments.map((payment) => payment.toApiJson()),
+      amcPayments: payments
+        .filter((payment) => payment.type === 'amc')
+        .map((payment) => payment.toApiJson()),
       adjustments: adjustments.map((row) => row.toApiJson()),
       totals: [
         { label: 'Invoiced (after credit notes)', value: sum('netAmount'), source: 'Issued invoices' },

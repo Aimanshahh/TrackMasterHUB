@@ -48,7 +48,14 @@ export default function PaymentLedger({ payments, eyebrow, emptyMessage = 'No pa
               </td>
               <td><span className="ledger__ref">{payment.invoice?.reference || '—'}</span></td>
               <td><span className="ledger__strong">{payment.methodLabel}</span></td>
-              <td className="ledger__muted">{payment.transactionRef || payment.note || '—'}</td>
+              <td className="ledger__muted">
+                {payment.transactionRef || payment.note || '—'}
+                {payment.proof?.dataUrl ? (
+                  <a className="ledger__open" href={payment.proof.dataUrl} target="_blank" rel="noopener noreferrer">
+                    View proof
+                  </a>
+                ) : null}
+              </td>
               <td className="ledger__num">
                 <span className="ledger__money">{formatMoney(payment.amount, payment.currency)}</span>
               </td>

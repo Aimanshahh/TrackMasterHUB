@@ -3,6 +3,8 @@
 export const PAYMENT_METHOD_OPTIONS = [
   { value: 'cash', label: 'Cash' },
   { value: 'bank_transfer', label: 'Bank transfer' },
+  { value: 'jazzcash', label: 'JazzCash' },
+  { value: 'easypaisa', label: 'EasyPaisa' },
   { value: 'cheque', label: 'Cheque' },
   { value: 'card', label: 'Card' },
   { value: 'online', label: 'Online' },

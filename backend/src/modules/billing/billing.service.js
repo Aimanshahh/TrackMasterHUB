@@ -27,6 +27,10 @@ function startOfMonth(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+function startOfDay(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 /* ------------------------------------------------------------------ invoices */
 
 const STATE_FILTERS = ['unpaid', 'partial', 'paid', 'overdue', 'credited', 'refund_due'];
@@ -313,6 +317,101 @@ async function recordPayment(invoiceId, input, actor) {
   const refreshed = await Invoice.findById(invoice._id).populate('customer', 'name phone').populate('job', 'reference status');
 
   return { payment: payment.toApiJson(), invoice: refreshed.toApiJson() };
+}
+
+async function recordAmcPayment(customerId, input, actor) {
+  const customer = await Customer.findById(customerId);
+  if (!customer) throw makeError(errorCodes.NOT_FOUND, 'No customer matches that id.');
+
+  const job = await Job.findOne({
+    _id: input.jobId,
+    customer: customer._id,
+    status: 'completed',
+  });
+  if (!job) throw makeError(errorCodes.VALIDATION_ERROR, 'Choose an expired AMC vehicle from this customer.');
+
+  const oldExpiry = job.amcExpiryDate ? new Date(job.amcExpiryDate) : null;
+  if (!oldExpiry || Number.isNaN(oldExpiry.getTime()) || oldExpiry.getTime() >= startOfDay(new Date()).getTime()) {
+    throw makeError(errorCodes.CONFLICT, 'AMC payment can only be recorded for an expired vehicle AMC.');
+  }
+
+  const amount = round2(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the AMC amount the customer paid.');
+  }
+
+  const newExpiry = input.amcExpiryDate ? new Date(input.amcExpiryDate) : null;
+  if (!newExpiry || Number.isNaN(newExpiry.getTime()) || newExpiry.getTime() <= startOfDay(new Date()).getTime()) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter a new AMC expiry date in the future.');
+  }
+
+  const method = PAYMENT_METHODS.includes(input.method) ? input.method : 'cash';
+  const receivedAt = input.receivedAt ? new Date(input.receivedAt) : new Date();
+  if (Number.isNaN(receivedAt.getTime()) || receivedAt.getTime() > Date.now() + 60_000) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter a valid date received.');
+  }
+
+  let proof = null;
+  if (input.proof?.dataUrl) {
+    const dataUrl = String(input.proof.dataUrl);
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,[A-Za-z0-9+/=\r\n]+$/.exec(dataUrl);
+    if (!match || dataUrl.length > 700000) {
+      throw makeError(errorCodes.VALIDATION_ERROR, 'Payment proof must be a JPG, PNG or WebP image smaller than 500 KB.');
+    }
+    proof = {
+      name: String(input.proof.name ?? 'Payment proof').trim().slice(0, 200),
+      mimeType: match[1],
+      dataUrl,
+    };
+  }
+
+  const invoice = await Invoice.create({
+    customer: customer._id,
+    customerName: customer.name,
+    job: job._id,
+    jobReference: job.reference,
+    vehicle: job.vehicle ?? {},
+    packageKey: job.packageKey ?? null,
+    listPrice: job.listPrice ?? null,
+    amount,
+    paidAmount: amount,
+    paidAt: receivedAt,
+    currency: CURRENCY,
+    status: 'issued',
+    issuedAt: receivedAt,
+    issuedBy: actor.id,
+    dueDate: receivedAt,
+    notes: `AMC renewal payment · new expiry ${newExpiry.toISOString().slice(0, 10)}${input.note ? ` · ${String(input.note).trim().slice(0, 1000)}` : ''}`,
+  });
+
+  const payment = await Payment.create({
+    invoice: invoice._id,
+    customer: customer._id,
+    customerName: customer.name,
+    amount,
+    method,
+    transactionRef: String(input.transactionRef ?? '').trim().slice(0, 120),
+    receivedAt,
+    note: String(input.note ?? '').trim().slice(0, 400),
+    type: 'amc',
+    amcJob: job._id,
+    amcExpiryDate: newExpiry,
+    proof,
+    recordedBy: actor.id,
+  });
+
+  job.amcExpiryDate = newExpiry;
+  await job.save();
+
+  await Activity.create({
+    actor: actor.id,
+    type: 'payment.recorded',
+    label: `${money(amount)} AMC payment received from ${customer.name}`,
+    description: `${paymentMethodLabels[method]} · AMC renewed until ${newExpiry.toLocaleDateString('en-GB')} · ${invoice.reference}`,
+  });
+
+  const refreshed = await Invoice.findById(invoice._id).populate('customer', 'name phone').populate('job', 'reference status');
+  return { payment: payment.toApiJson(), invoice: refreshed.toApiJson(), job: job.toApiJson() };
 }
 
 /* ------------------------------------------------- credit notes and refunds */
@@ -634,6 +733,7 @@ export {
   getInvoiceDetail,
   createInvoice,
   issueInvoice,
+  recordAmcPayment,
   cancelInvoice,
   recordPayment,
   listPayments,

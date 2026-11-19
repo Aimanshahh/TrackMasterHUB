@@ -238,7 +238,6 @@ export default function VehicleRecordsPage() {
           <label>AMC
             <select className="input" value={amcFilter} onChange={(event) => { setViewFilter(''); setAmcFilter(event.target.value); }}>
               {AMC_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              <option value="Expired">Expired</option>
             </select>
           </label>
           <label>Portal

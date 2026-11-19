@@ -39,6 +39,23 @@ test('buildTimeline is newest first and omits money unless allowed', () => {
   assert.ok(new Date(withMoney[0].at) > new Date(withMoney[1].at));
 });
 
+test('AMC renewal payments appear explicitly in the money timeline', () => {
+  const timeline = buildTimeline({
+    payments: [{
+      type: 'amc',
+      reference: 'PAY-AMC-1',
+      receivedAt: new Date('2026-10-07T09:00:00Z'),
+      amcExpiryDate: new Date('2027-10-07T00:00:00Z'),
+      method: 'jazzcash',
+      transactionRef: 'JC-123',
+    }],
+  }, { includeMoney: true });
+
+  assert.equal(timeline[0].source, 'AMC renewal');
+  assert.match(timeline[0].title, /AMC renewal payment received/);
+  assert.match(timeline[0].detail, /JC-123/);
+});
+
 const skip = hasDb ? false : 'set TEST_MONGO_URI to run database tests';
 let ctx;
 let history;

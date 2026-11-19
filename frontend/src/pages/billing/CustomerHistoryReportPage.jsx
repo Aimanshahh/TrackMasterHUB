@@ -162,6 +162,27 @@ export default function CustomerHistoryReportPage() {
                 </tbody>
               </table>
             ) : <p className="rep-empty" style={{ marginTop: 8 }}>No invoice exists for this customer.</p>}
+
+            {data.money.amcPayments?.length > 0 ? (
+              <div style={{ marginTop: 16 }}>
+                <h2 style={{ marginBottom: 8 }}>AMC renewals</h2>
+                <table className="rep-table">
+                  <thead><tr><th>Payment date</th><th>Method</th><th>Reference</th><th>New expiry</th><th>Amount</th><th>Proof</th></tr></thead>
+                  <tbody>
+                    {data.money.amcPayments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td>{day(payment.receivedAt)}<span className="rep-sub">{payment.reference}</span></td>
+                        <td>{payment.methodLabel}</td>
+                        <td>{payment.transactionRef || '—'}{payment.note ? <span className="rep-sub">{payment.note}</span> : null}</td>
+                        <td>{day(payment.amcExpiryDate)}</td>
+                        <td>{formatMoney(payment.amount, payment.currency)}</td>
+                        <td>{payment.proof?.dataUrl ? <a href={payment.proof.dataUrl} target="_blank" rel="noopener noreferrer">View screenshot</a> : 'No screenshot'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </section>
         ) : null}
 

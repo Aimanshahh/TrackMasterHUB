@@ -78,7 +78,24 @@ export function buildTimeline({ customer, jobs = [], complaints = [], invoices =
     for (const invoice of invoices) {
       if (invoice.issuedAt) add(invoice.issuedAt, 'money', `Invoice issued: ${invoice.reference}`, '', 'Billing', invoice.reference);
     }
-    for (const payment of payments) add(payment.receivedAt, 'money', `Payment received: ${payment.reference}`, '', 'Billing', payment.reference);
+    for (const payment of payments) {
+      if (payment.type === 'amc') {
+        const expiry = payment.amcExpiryDate
+          ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(payment.amcExpiryDate))
+          : 'renewed';
+        const vehicleRef = payment.amcJob?.reference ?? payment.invoice?.jobReference ?? '';
+        add(
+          payment.receivedAt,
+          'money',
+          `AMC renewal payment received: ${payment.reference}`,
+          `Renewed until ${expiry}${payment.method ? ` · ${payment.method}` : ''}${payment.transactionRef ? ` · Ref ${payment.transactionRef}` : ''}${vehicleRef ? ` · ${vehicleRef}` : ''}`,
+          'AMC renewal',
+          payment.reference,
+        );
+      } else {
+        add(payment.receivedAt, 'money', `Payment received: ${payment.reference}`, '', 'Billing', payment.reference);
+      }
+    }
     for (const row of adjustments) add(row.issuedAt, 'money', `${row.kind === 'refund' ? 'Refund' : 'Credit note'} ${row.reference}`, row.reason, 'Billing', row.reference);
   }
 

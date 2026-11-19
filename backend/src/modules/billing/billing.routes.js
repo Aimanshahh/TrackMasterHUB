@@ -12,6 +12,7 @@ import {
   postCreditNote,
   postInvoice,
   postIssueInvoice,
+  postAmcPayment,
   postPayment,
   postRefund,
 } from './billing.controller.js';
@@ -38,6 +39,7 @@ billingRouter.get('/invoices/:id/payments', billingDesk, getInvoicePayments);
 // instalments attached to the right sale.
 billingRouter.get('/payments', billingDesk, getPayments);
 billingRouter.post('/invoices/:id/payments', billingDesk, postPayment);
+billingRouter.post('/customers/:customerId/amc-payment', billingDesk, postAmcPayment);
 
 // Corrections to an issued invoice. Both are append-only records that need a
 // written reason; nothing is edited or deleted.

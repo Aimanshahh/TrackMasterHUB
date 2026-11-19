@@ -25,8 +25,8 @@ export function createApp() {
       maxAge: 600,
     }),
   );
-  app.use(express.json({ limit: '100kb' }));
-  app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+  app.use(express.json({ limit: '700kb' }));
+  app.use(express.urlencoded({ extended: false, limit: '700kb' }));
   app.use(parseCookies);
   app.use(resolveUser);
   app.use(requestId);

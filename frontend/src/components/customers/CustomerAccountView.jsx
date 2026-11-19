@@ -12,6 +12,7 @@ import BriefingPanel, { AccountStateTag } from '../manager/BriefingPanel.jsx';
 import { PriorityTag, StatusPill } from '../operations/OpsStatus.jsx';
 import { formatDayTime } from '../../app/operations.js';
 import { formatMoney } from '../../lib/format.js';
+import { getAmcStatus } from '../../utils/amcStatus.js';
 
 function formatDay(value) {
   if (!value) return '—';
@@ -42,6 +43,7 @@ export default function CustomerAccountView({
   onDeleteCustomer,
   busyInvoiceId = null,
   moneyLink,
+  onRecordAmcPayment,
 }) {
   const { customer, jobs, invoices, payments, complaints, totals } = data;
   const adjustments = data.adjustments ?? [];
@@ -65,6 +67,11 @@ export default function CustomerAccountView({
   const [commercialSaving, setCommercialSaving] = useState(false);
   const [commercialError, setCommercialError] = useState(null);
   const installations = jobs.filter((job) => job.requestType === 'new_installation');
+  const expiredAmcJobs = jobs.filter((job) =>
+    job.status === 'completed'
+    && job.amcExpiryDate
+    && getAmcStatus(job.amcExpiryDate).label === 'Expired',
+  );
 
   const profileRows = [
     ['Phone', customer.phone],
@@ -106,6 +113,11 @@ export default function CustomerAccountView({
           <AccountStateTag customer={customer} installations={installations.length} />
           <p>{customer.briefingCompleted ? 'Briefing recorded' : customer.legacy ? 'Imported customer · no briefing needed' : installations.length ? 'Briefing required' : 'No installation yet'}</p>
         </div>
+        {expiredAmcJobs.length > 0 && onRecordAmcPayment ? (
+          <button type="button" className="btn btn--primary btn--small customer-amc-payment" onClick={onRecordAmcPayment}>
+            Record AMC payment
+          </button>
+        ) : null}
         {onDeleteCustomer ? (
           <button type="button" className="btn btn--outline btn--small customer-delete" onClick={onDeleteCustomer}>Delete customer</button>
         ) : null}

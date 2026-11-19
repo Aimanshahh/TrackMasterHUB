@@ -8,6 +8,7 @@ import {
   recordRefund,
   getMonthlySeries,
   issueInvoice,
+  recordAmcPayment,
   listInvoicePayments,
   listInvoices,
   listPayments,
@@ -80,6 +81,13 @@ async function postPayment(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function postAmcPayment(req, res, next) {
+  try {
+    const result = await recordAmcPayment(req.params.customerId, req.body ?? {}, req.user);
+    return res.status(201).json({ data: result });
+  } catch (error) { next(error); }
+}
+
 async function getInvoicePayments(req, res, next) {
   try {
     return res.json({ data: await listInvoicePayments(req.params.id) });
@@ -112,4 +120,5 @@ export {
   getInvoicePayments,
   getSummary,
   getSeries,
+  postAmcPayment,
 };

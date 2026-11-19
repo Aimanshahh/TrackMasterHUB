@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
 import { makeReference } from '../utils/reference.js';
 
-export const PAYMENT_METHODS = ['cash', 'bank_transfer', 'cheque', 'card', 'online', 'other'];
+export const PAYMENT_METHODS = ['cash', 'bank_transfer', 'jazzcash', 'easypaisa', 'cheque', 'card', 'online', 'other'];
 
 export const paymentMethodLabels = {
   cash: 'Cash',
   bank_transfer: 'Bank transfer',
+  jazzcash: 'JazzCash',
+  easypaisa: 'EasyPaisa',
   cheque: 'Cheque',
   card: 'Card',
   online: 'Online',
@@ -70,6 +72,24 @@ const paymentSchema = new mongoose.Schema(
       trim: true,
       maxlength: 400,
     },
+    type: {
+      type: String,
+      enum: ['invoice', 'amc'],
+      default: 'invoice',
+      index: true,
+    },
+    amcJob: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+    },
+    amcExpiryDate: {
+      type: Date,
+    },
+    proof: {
+      name: { type: String, trim: true, maxlength: 200 },
+      mimeType: { type: String, trim: true, maxlength: 50 },
+      dataUrl: { type: String, maxlength: 700000 },
+    },
     recordedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -103,6 +123,14 @@ paymentSchema.methods.toApiJson = function () {
     transactionRef: this.transactionRef ?? '',
     receivedAt: this.receivedAt?.toISOString() ?? this.createdAt.toISOString(),
     note: this.note ?? '',
+    type: this.type ?? 'invoice',
+    amcJob: populated(this.amcJob)
+      ? { id: this.amcJob._id.toString(), reference: this.amcJob.reference }
+      : { id: this.amcJob?.toString() ?? '', reference: '' },
+    amcExpiryDate: this.amcExpiryDate?.toISOString() ?? null,
+    proof: this.proof?.dataUrl
+      ? { name: this.proof.name ?? 'Payment proof', mimeType: this.proof.mimeType ?? '', dataUrl: this.proof.dataUrl }
+      : null,
     createdAt: this.createdAt.toISOString(),
   };
 };
