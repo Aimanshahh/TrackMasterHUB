@@ -1,6 +1,7 @@
 import { phoneKey } from '../../utils/phone.js';
 import { FIELD_KEYS } from './fields.js';
 import { PACKAGE_KEYS } from '../../models/Package.js';
+import { splitVrn } from '../../utils/vrn.js';
 
 const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 
@@ -49,10 +50,20 @@ export function normalizeRow(cells, headers, mapping, now = new Date()) {
     values.phone = '';
   }
   values.phoneKey = key;
+
+  // ABC-111(LOC) and ABC-111(IMB) are the two devices of one vehicle: keep the real plate and remember which device this row is.
+  const split = splitVrn(values.registration);
+  values.registration = split.vrn;
+  values.deviceRole = split.role;
+
+  values.packageRaw = values.packageKey;
   if (values.packageKey) {
     const packageKey = values.packageKey.toLowerCase().trim().replace(/\s+/g, '_');
     if (PACKAGE_KEYS.includes(packageKey)) values.packageKey = packageKey;
-    else warnings.push(`Package "${values.packageKey}" is not recognised and will be left blank.`);
+    else {
+      warnings.push(`Package "${values.packageKey}" is not recognised: it is kept as a legacy record and the customer's package is left blank.`);
+      values.packageKey = '';
+    }
   }
   if (values.packagePrice) {
     const packagePrice = Number(values.packagePrice.replace(/[^0-9.-]/g, ''));
@@ -75,6 +86,13 @@ export function normalizeRow(cells, headers, mapping, now = new Date()) {
   if (values.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) {
     warnings.push(`Email "${values.email}" is not valid and will be left blank.`);
     values.email = '';
+  }
+
+  values.amcExpiryDate = null;
+  if (values.amcExpiry) {
+    const date = parseDateText(values.amcExpiry);
+    if (date) values.amcExpiryDate = date;
+    else warnings.push(`AMC expiry date "${values.amcExpiry}" is not readable and will be left blank.`);
   }
 
   const vehicleFields = ['registration', 'makeModel', 'engineNo', 'chassisNo', 'colour', 'deviceImei', 'simNumber', 'installedAt'];

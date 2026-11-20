@@ -252,6 +252,7 @@ export function getSyncStatus() {
     deviceCount: new Set(state.devices.values()).size,
     syncSeconds: env.trackingSyncSeconds,
     inactiveAfterHours: env.trackingInactiveHours,
+    inactiveAfterDays: INACTIVE_AFTER_DAYS,
   };
 }
 
@@ -292,13 +293,40 @@ export function startTrackingSync() {
   console.log(`[tracking] syncing every ${env.trackingSyncSeconds}s from ${env.trackingPortals.length} portal(s)`);
 }
 
+/** A vehicle must be silent this long, with its AMC expired, before it counts as Inactive. */
+export const INACTIVE_AFTER_DAYS = 15;
+const DAY_MS = 86_400_000;
+
+/** True when the AMC expiry date is a real date that has already passed. */
+export function isAmcExpired(amcExpiryDate, now = Date.now()) {
+  if (!amcExpiryDate) return false;
+  const expiry = new Date(amcExpiryDate);
+  if (Number.isNaN(expiry.getTime())) return false;
+  return expiry.getTime() < now;
+}
+
 /**
- * Active: connected and reported recently. Inactive: offline, or silent for
- * longer than the limit. Unknown: the tracking server reported a state this
- * code does not know, or no sync has succeeded yet. A vehicle the tracker does
- * not list at all is "not_tracked", never guessed as active or inactive.
+ * The 15-day rule. A vehicle is Inactive only when it has not been seen for
+ * more than 15 days AND its AMC has expired. Either one alone is not enough, so
+ * a quiet vehicle with a valid AMC, or an expired AMC on a vehicle that still
+ * reports, is not Inactive. A vehicle that never reported counts as silent.
+ * This is about the vehicle only: a customer's Active/Inactive status comes
+ * from the security briefing and is never derived from this.
  */
-export function statusFor(plate, imeiOrNow, now = Date.now()) {
+export function isVehicleInactive({ lastSeenAt, amcExpiryDate }, now = Date.now()) {
+  const silentLongEnough = !lastSeenAt || now - new Date(lastSeenAt).getTime() > INACTIVE_AFTER_DAYS * DAY_MS;
+  return silentLongEnough && isAmcExpired(amcExpiryDate, now);
+}
+
+/**
+ * Active or Inactive from the tracking server's report plus the AMC. Unknown:
+ * the tracking server reported a state this code does not know, or no sync has
+ * succeeded yet. A vehicle the tracker does not list at all is "not_tracked",
+ * never guessed as active or inactive. `options.amcExpiryDate` is the AMC date
+ * saved in our own database; it wins, and the portal's date is only used when
+ * ours is empty.
+ */
+export function statusFor(plate, imeiOrNow, now = Date.now(), options = {}) {
   const imei = typeof imeiOrNow === 'number' ? '' : imeiOrNow;
   const currentTime = typeof imeiOrNow === 'number' ? imeiOrNow : now;
   const tracking = {
@@ -324,12 +352,10 @@ export function statusFor(plate, imeiOrNow, now = Date.now()) {
   tracking.portalSource = device.portalSource;
   tracking.amcExpiryDate = device.amcExpiryDate;
 
-  if (OFFLINE_STATES.has(device.gpsState)) return { ...tracking, status: 'inactive' };
-  if (!CONNECTED_STATES.has(device.gpsState)) return tracking;
-  if (!device.lastSeenAt) return { ...tracking, status: 'inactive' };
+  if (!OFFLINE_STATES.has(device.gpsState) && !CONNECTED_STATES.has(device.gpsState)) return tracking;
 
-  const ageMs = currentTime - new Date(device.lastSeenAt).getTime();
-  return { ...tracking, status: ageMs > env.trackingInactiveHours * 3_600_000 ? 'inactive' : 'active' };
+  const amcExpiryDate = options.amcExpiryDate ?? device.amcExpiryDate;
+  return { ...tracking, status: isVehicleInactive({ lastSeenAt: device.lastSeenAt, amcExpiryDate }, currentTime) ? 'inactive' : 'active' };
 }
 
 /** Test hook: replace the cache without touching the network. */

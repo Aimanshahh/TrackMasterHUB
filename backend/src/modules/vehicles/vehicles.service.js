@@ -4,6 +4,7 @@ import { packageCatalog } from '../../models/Package.js';
 import { engineKillLabels } from '../../utils/installation.js';
 import { makeError } from '../../middleware/errors.js';
 import { errorCodes } from '../../config/errorCodes.js';
+import { coreVrn, deviceRoleLabels, splitVrn } from '../../utils/vrn.js';
 import { ensureTrackingLoaded, getSyncStatus, normalizePlate, statusFor, syncTracking } from '../tracking/tracking.service.js';
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -23,6 +24,29 @@ function amcStatusFor(value, trackingStatus, now = new Date()) {
   if (TRACKING_UNAVAILABLE.has(trackingStatus)) return 'active_no_tracker';
   const daysRemaining = Math.floor((expiry - today) / 86_400_000);
   return daysRemaining < 30 ? 'expiring_soon' : 'active';
+}
+
+
+/** Every tracker on a job as one list. A job saved before dual devices existed has just its own IMEI and SIM. */
+function devicesOf(job) {
+  const listed = (job.devices ?? []).map((d) => ({
+    role: d.role ?? 'tracker', roleLabel: deviceRoleLabels[d.role] ?? 'Tracker', imei: d.imei ?? '', simNumber: d.simNumber ?? '', network: d.network ?? '',
+  }));
+  if (listed.length) return listed;
+  const role = splitVrn(job.vehicle?.registration).role ?? 'tracker';
+  if (!job.deviceImei && !job.simNumber) return [];
+  return [{ role, roleLabel: deviceRoleLabels[role] ?? 'Tracker', imei: job.deviceImei ?? '', simNumber: job.simNumber ?? '', network: job.network ?? '' }];
+}
+
+const TRACKING_RANK = { active: 0, inactive: 1, unknown: 2, not_tracked: 3 };
+
+/** One vehicle, possibly two devices: report the best status among them. */
+function trackingFor(job, devices) {
+  const registration = job.vehicle?.registration;
+  const options = { amcExpiryDate: job.amcExpiryDate ?? null };
+  const results = (devices.length ? devices.map((d) => d.imei) : [job.deviceImei]).map((imei) => statusFor(registration, imei, Date.now(), options));
+  return results.sort((a, b) => (TRACKING_RANK[a.status] ?? 9) - (TRACKING_RANK[b.status] ?? 9)
+    || new Date(b.lastSeenAt ?? 0) - new Date(a.lastSeenAt ?? 0))[0];
 }
 
 function physicalStatusFor(job, trackingStatus) {
@@ -72,30 +96,43 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
     if (!current || (c.status === 'active' && current.status !== 'active')) certByJob.set(key, c);
   }
 
-  const seen = new Set();
+  const seen = new Map();
   const vehicles = [];
 
   for (const job of jobs) {
-    const plate = normalizePlate(job.vehicle?.registration);
+    const plate = normalizePlate(coreVrn(job.vehicle?.registration));
     const key = plate || job._id.toString();
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (seen.has(key)) {
+      // (LOC) and (IMB) rows of one vehicle are one vehicle with two devices; a plain repeat is a redo and is ignored.
+      const first = seen.get(key);
+      if (splitVrn(job.vehicle?.registration).role && first.hasRole) {
+        const have = new Set(first.vehicle.devices.map((d) => d.imei || d.simNumber));
+        for (const device of devicesOf(job)) if (!have.has(device.imei || device.simNumber)) first.vehicle.devices.push(device);
+        first.vehicle.deviceCount = first.vehicle.devices.length;
+        first.vehicle.tracking = trackingFor(first.job, first.vehicle.devices);
+      }
+      continue;
+    }
 
-    const tracking = statusFor(job.vehicle?.registration, job.deviceImei);
+    const devices = devicesOf(job);
+    const tracking = trackingFor(job, devices);
     const amcExpiryDate = job.amcExpiryDate?.toISOString?.() ?? tracking.amcExpiryDate;
     const amcStatus = amcStatusFor(amcExpiryDate, tracking.status);
-    vehicles.push({
+    const vehicle = {
       id: job._id.toString(),
       jobReference: job.reference,
       customer: { id: job.customer?.toString() ?? '', name: job.customerName ?? '', phone: job.phone ?? '' },
       vehicle: {
         label: job.vehicle?.label ?? '',
-        registration: job.vehicle?.registration ?? '',
+        registration: coreVrn(job.vehicle?.registration) ?? '',
         station: job.vehicle?.station ?? '',
       },
       engineKill: { status: job.installation?.engineKill?.status ?? 'not_set', label: engineKillLabels[job.installation?.engineKill?.status ?? 'not_set'] },
       deviceImei: job.deviceImei ?? '',
       simNumber: job.simNumber ?? '',
+      network: job.network ?? '',
+      devices,
+      deviceCount: devices.length,
       packageName: job.packageKey ? packageCatalog[job.packageKey]?.name ?? job.packageKey : '',
       technician: job.technician?.name ?? '',
       certificate: certByJob.get(job._id.toString())
@@ -110,7 +147,9 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
       lastInspectedAt: job.vehicle?.lastInspectedAt?.toISOString?.() ?? null,
       inspectedBy: job.vehicle?.inspectedBy ?? '',
       tracking,
-    });
+    };
+    vehicles.push(vehicle);
+    seen.set(key, { vehicle, job, hasRole: Boolean(splitVrn(job.vehicle?.registration).role) });
   }
 
   const counts = { total: vehicles.length, active: 0, inactive: 0, unknown: 0, not_tracked: 0 };
@@ -143,7 +182,7 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
 }
 
 /** Matches one plate however it was typed (spaces, dashes). */
-const plateRegex = (plate) => new RegExp(`^${[...String(plate).replace(/[^A-Za-z0-9]/g, '')].map((c) => escapeRegex(c)).join('[^A-Za-z0-9]*')}$`, 'i');
+const plateRegex = (plate) => new RegExp(`^${[...String(plate).replace(/[^A-Za-z0-9]/g, '')].map((c) => escapeRegex(c)).join('[^A-Za-z0-9]*')}(?:[ -]*[(\\[] *(?:LOC|LOCATOR|IMB|IMMOBILIZER|IMMOBILISER|IMMOB) *[)\\]])?$`, 'i');
 
 /**
  * Everything known about one vehicle: the customer, the device and SIM now
@@ -173,7 +212,7 @@ async function getVehicleProfile(id, lookup = '') {
     }
   }
 
-  const plate = normalizePlate(anchor.vehicle?.registration);
+  const plate = normalizePlate(coreVrn(anchor.vehicle?.registration));
   const jobs = plate
     ? await Job.find({ 'vehicle.registration': plateRegex(plate) }).sort({ createdAt: 1 }).populate('technician', 'name station')
     : [await Job.findById(id).populate('technician', 'name station')];
@@ -188,7 +227,10 @@ async function getVehicleProfile(id, lookup = '') {
     .sort((a, b) => new Date(b.at) - new Date(a.at));
 
   const customerJob = current ?? jobs[0];
-  const tracking = statusFor(current.vehicle?.registration, current.deviceImei);
+  const deviceList = installs.filter((j) => j.status !== 'cancelled' && splitVrn(j.vehicle?.registration).role).length > 1
+    ? installs.flatMap((j) => devicesOf(j))
+    : devicesOf(current);
+  const tracking = trackingFor(current, deviceList);
   const amcExpiryDate = current.amcExpiryDate?.toISOString?.() ?? tracking.amcExpiryDate;
 
   return {
@@ -196,13 +238,14 @@ async function getVehicleProfile(id, lookup = '') {
       id: current._id.toString(),
       vehicle: {
         label: current.vehicle?.label ?? '',
-        registration: current.vehicle?.registration ?? '',
+        registration: coreVrn(current.vehicle?.registration) ?? '',
         engineNo: current.vehicle?.engineNo ?? '',
         chassisNo: current.vehicle?.chassisNo ?? '',
         colour: current.vehicle?.colour ?? '',
         station: current.vehicle?.station ?? '',
       },
       customer: { id: customerJob.customer?.toString() ?? '', name: customerJob.customerName ?? '', phone: customerJob.phone ?? '' },
+      devices: deviceList,
       device: { imei: current.deviceImei ?? '', simNumber: current.simNumber ?? '', model: current.installation?.deviceModel ?? '', placement: current.installation?.placement ?? '' },
       engineKill: current.toApiJson().engineKill,
       engineKillHistory,

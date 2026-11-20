@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { refreshCustomerCategory } from '../utils/customerCategory.js';
 import { makeReference } from '../utils/reference.js';
 import { PACKAGE_KEYS, packageCatalog } from './Package.js';
 import { CHECKLIST_KEYS, ENGINE_KILL_STATUSES, completionStatus, engineKillLabels } from '../utils/installation.js';
@@ -151,7 +152,7 @@ const jobSchema = new mongoose.Schema(
     },
     portalSource: {
       type: String,
-      enum: ['Main Server (Active)', 'Main Server (AMC Expired)', 'L8 Server'],
+      enum: ['', 'Main Server (Active)', 'Main Server (AMC Expired)', 'L8 Server'],
       default: '',
     },
     amcExpiryDate: {
@@ -162,6 +163,22 @@ const jobSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 40,
+    },
+    /** Mobile network of the SIM, from the legacy import. */
+    network: { type: String, trim: true, maxlength: 40, default: '' },
+    /**
+     * Every tracker fitted to this vehicle. Premium packages carry two (a
+     * locator and an immobilizer). `deviceImei` / `simNumber` above stay the
+     * primary device so every existing screen keeps working.
+     */
+    devices: {
+      type: [new mongoose.Schema({
+        role: { type: String, enum: ['locator', 'immobilizer', 'tracker'], default: 'tracker' },
+        imei: { type: String, trim: true, maxlength: 20, default: '' },
+        simNumber: { type: String, trim: true, maxlength: 40, default: '' },
+        network: { type: String, trim: true, maxlength: 40, default: '' },
+      }, { _id: false })],
+      default: [],
     },
     simMode: {
       type: String,
@@ -307,6 +324,8 @@ jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
       ? { id: this.technician._id.toString(), name: this.technician.name, station: this.technician.station ?? '' }
       : this.technician?.toString() ?? null,
     deviceImei: this.deviceImei ?? '',
+    network: this.network ?? '',
+    devices: (this.devices ?? []).map((d) => ({ role: d.role, imei: d.imei ?? '', simNumber: d.simNumber ?? '', network: d.network ?? '' })),
     portalSource: this.portalSource ?? '',
     amcExpiryDate: this.amcExpiryDate?.toISOString() ?? null,
     simNumber: this.simNumber ?? '',
@@ -356,5 +375,12 @@ jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
     updatedAt: this.updatedAt.toISOString(),
   };
 };
+
+/** A new vehicle can change its customer's category (3+ vehicles is a Fleet). */
+jobSchema.pre('save', function () { this.$locals.wasNew = this.isNew; });
+jobSchema.post('save', function (doc) {
+  if (!doc.$locals?.wasNew || doc.requestType !== 'new_installation' || !doc.customer) return undefined;
+  return refreshCustomerCategory(doc.customer);
+});
 
 export default mongoose.model('Job', jobSchema);
