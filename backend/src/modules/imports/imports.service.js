@@ -176,6 +176,11 @@ async function buildPlan(batch) {
       if (existingJob) {
         if (existingJob.legacy?.batch?.toString() === batchId) {
           vehicle = 'done';
+        } else if (values.inspectionStatus || values.packageRaw) {
+          // Already in the system, but the sheet knows its past (Redo, Removal, package): keep that as history only.
+          vehicle = 'history';
+          result.existingJobId = existingJob._id.toString();
+          if (existingJob.customer) result.customerId = existingJob.customer.toString();
         } else {
           Object.assign(result, {
             status: 'skipped', outcome: 'duplicate_vehicle',
@@ -202,6 +207,12 @@ async function buildPlan(batch) {
 
     // A duplicate vehicle means the row is probably a repeat or a data mix-up: skip the whole row for review.
     if (vehicle === 'duplicate') { results.push(result); continue; }
+
+    if (vehicle === 'history') {
+      Object.assign(result, { outcome: 'add_history', customerPlan: 'existing', message: `${values.registration} is already recorded. Its history from the sheet is added; nothing else is changed.` });
+      results.push(result);
+      continue;
+    }
 
     if (vehicle === 'device') {
       Object.assign(result, { outcome: 'add_device', customerPlan: customer.kind === 'create' ? 'create' : customer.kind, message: `Second device (${values.deviceRole}) added to ${values.registration}.` });
@@ -230,10 +241,11 @@ const COUNTED = {
   new_customer: { customers: 1, vehicles: 0 },
   add_vehicle: { customers: 0, vehicles: 1 },
   add_device: { customers: 0, vehicles: 0 },
+  add_history: { customers: 0, vehicles: 0 },
 };
 
 function summarize(results) {
-  const summary = { rows: results.length, newCustomers: 0, newVehicles: 0, addedToExisting: 0, duplicates: 0, addedDevices: 0, skipped: 0, errors: 0, alreadyImported: 0, warnings: 0 };
+  const summary = { rows: results.length, newCustomers: 0, newVehicles: 0, addedToExisting: 0, duplicates: 0, addedDevices: 0, addedHistory: 0, skipped: 0, errors: 0, alreadyImported: 0, warnings: 0 };
   for (const r of results) {
     if (r.warnings?.length) summary.warnings += 1;
     if (r.status === 'error') { summary.errors += 1; continue; }
@@ -241,6 +253,7 @@ function summarize(results) {
     if (r.outcome === 'already_imported') summary.alreadyImported += 1;
     if (r.status === 'skipped') { summary.skipped += 1; continue; }
     if (r.outcome === 'add_device') summary.addedDevices += 1;
+    if (r.outcome === 'add_history') summary.addedHistory += 1;
     const c = COUNTED[r.outcome];
     if (c) { summary.newCustomers += c.customers; summary.newVehicles += c.vehicles; }
     if (r.outcome === 'add_vehicle') summary.addedToExisting += 1;
@@ -309,6 +322,29 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
       const result = results[i];
       if (result.status !== 'ok' || !COUNTED[result.outcome]) continue;
       const { values, extra } = prepared[i];
+
+      // A vehicle that was already in the system: add only its legacy history, and fill an empty AMC date. Nothing else is touched.
+      if (result.outcome === 'add_history') {
+        try {
+          const fresh = [];
+          const wanted = [];
+          if (values.packageRaw) wanted.push(['package', values.packageRaw, values.packagePrice === '' ? '' : `Price ${values.packagePrice}`]);
+          if (values.inspectionStatus) wanted.push(['inspection', values.inspectionStatus, values.registration]);
+          for (const [kind, action, detail] of wanted) {
+            const key = `${result.customerId}|${values.plateKey}|${kind}|${action}`;
+            if (seenEvents.has(key)) continue;
+            seenEvents.add(key);
+            const already = await TimelineEvent.exists({ customer: result.customerId, vrn: values.registration, kind, action, isHistoricalData: true });
+            if (!already) fresh.push({ customer: result.customerId, job: result.existingJobId, vrn: values.registration, kind, action, detail, date: null, isHistoricalData: true, batch: batch._id });
+          }
+          if (fresh.length) await TimelineEvent.insertMany(fresh);
+          if (values.amcExpiryDate) await Job.updateOne({ _id: result.existingJobId, amcExpiryDate: null }, { $set: { amcExpiryDate: values.amcExpiryDate } });
+        } catch (error) {
+          Object.assign(result, { status: 'error', outcome: 'error', message: `Could not save this row: ${String(error.message).slice(0, 200)}` });
+        }
+        continue;
+      }
+
       const identity = values.legacyId
         ? `L:${values.legacyId}`
         : values.phoneKey

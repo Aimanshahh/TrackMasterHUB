@@ -4,6 +4,7 @@ import { packageCatalog } from '../../models/Package.js';
 import { engineKillLabels } from '../../utils/installation.js';
 import { makeError } from '../../middleware/errors.js';
 import { errorCodes } from '../../config/errorCodes.js';
+import TimelineEvent from '../../models/TimelineEvent.js';
 import { coreVrn, deviceRoleLabels, splitVrn } from '../../utils/vrn.js';
 import { ensureTrackingLoaded, getSyncStatus, normalizePlate, statusFor, syncTracking } from '../tracking/tracking.service.js';
 
@@ -227,6 +228,17 @@ async function getVehicleProfile(id, lookup = '') {
     .sort((a, b) => new Date(b.at) - new Date(a.at));
 
   const customerJob = current ?? jobs[0];
+
+  // Past actions from the legacy sheet (Redo, Removal, package) for this vehicle. They have no date, and no price is shown here.
+  const legacyRows = await TimelineEvent.find({
+    isHistoricalData: true,
+    $or: [{ job: { $in: jobs.map((j) => j._id) } }, ...(plate && customerJob?.customer ? [{ customer: customerJob.customer, vrn: plateRegex(plate) }] : [])],
+  }).sort({ createdAt: 1 });
+  const legacyTimeline = legacyRows.map((row) => {
+    const json = row.toApiJson();
+    return json.kind === 'package' ? { ...json, detail: '' } : json;
+  });
+
   const deviceList = installs.filter((j) => j.status !== 'cancelled' && splitVrn(j.vehicle?.registration).role).length > 1
     ? installs.flatMap((j) => devicesOf(j))
     : devicesOf(current);
@@ -249,6 +261,7 @@ async function getVehicleProfile(id, lookup = '') {
       device: { imei: current.deviceImei ?? '', simNumber: current.simNumber ?? '', model: current.installation?.deviceModel ?? '', placement: current.installation?.placement ?? '' },
       engineKill: current.toApiJson().engineKill,
       engineKillHistory,
+      legacyTimeline,
       tracking,
       portalSource: portalLabel(current.portalSource) || portalLabel(tracking.portalSource) || 'Unassigned',
       amcExpiryDate,
