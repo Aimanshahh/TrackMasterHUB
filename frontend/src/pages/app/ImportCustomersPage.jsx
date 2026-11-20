@@ -21,6 +21,7 @@ const OUTCOMES = {
   new_customer: 'New customer',
   add_vehicle: 'Vehicle added to existing customer',
   add_device: 'Second device added to the vehicle',
+  add_history: 'Already recorded: history added',
   already_imported: 'Already imported',
   duplicate_vehicle: 'Duplicate vehicle',
   duplicate_in_file: 'Repeated in this file',

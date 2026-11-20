@@ -195,3 +195,57 @@ test('vehicle list shows (LOC)/(IMB) jobs saved the old way as one vehicle with 
   assert.equal(v.deviceCount, 2);
   assert.deepEqual(v.devices.map((d) => d.imei).sort(), ['356111111111111', '356222222222222']);
 });
+
+test('a customer already in the system gets the sheet\'s Redo/Removal history, once, without other changes', { skip }, async () => {
+  const { default: User } = await import('../src/models/User.js');
+  const { default: Customer } = await import('../src/models/Customer.js');
+  const { default: Job } = await import('../src/models/Job.js');
+  const { default: TimelineEvent } = await import('../src/models/TimelineEvent.js');
+  const svc = await import('../src/modules/imports/imports.service.js');
+  const history = await import('../src/modules/customers/history.service.js');
+
+  const admin = await User.create({ name: 'History Admin', email: 'history-admin@example.com', passwordHash: 'a-long-test-password', role: 'admin' });
+  const actor = { id: admin._id.toString(), role: 'admin' };
+  const run = async (csv, name) => {
+    const up = await svc.createBatchFromUpload(Buffer.from(csv), name, actor);
+    const prev = await svc.previewBatch(up.batch.id, { mapping: up.batch.mapping });
+    const done = await svc.confirmBatch(up.batch.id, { previewHash: prev.batch.previewHash }, actor);
+    return { prev, done };
+  };
+
+  // First load: the customer and vehicle arrive with no inspection information (an older sheet).
+  const first = await run('Customer Name,Phone,VRN,IMEI\nOld Omar,03007770000,OLD-777,356000000000777', 'older.csv');
+  assert.equal(first.prev.batch.summary.errors, 0, JSON.stringify(first.prev.batch.summary));
+  const customer = await Customer.findOne({ name: 'Old Omar' });
+  const before = await Job.findOne({ customer: customer._id });
+  assert.equal(before.amcExpiryDate, null);
+  assert.equal(await TimelineEvent.countDocuments({ customer: customer._id }), 0);
+
+  // Second sheet knows more about the same vehicle.
+  const richer = 'Customer Name,Phone,VRN,IMEI,AMC Expiry Date,Inspection Status\nOld Omar,03007770000,OLD-777,356000000000777,2027-05-05,Removal';
+  const { prev } = await run(richer, 'richer.csv');
+  assert.equal(prev.batch.summary.addedHistory, 1);
+  assert.equal(prev.batch.summary.newVehicles, 0);
+
+  const events = await TimelineEvent.find({ customer: customer._id });
+  assert.equal(events.length, 1);
+  assert.ok(events[0].kind === 'inspection' && events[0].action === 'Removal' && events[0].date === null && events[0].isHistoricalData);
+  const shown = await history.getCustomerHistory(customer._id.toString(), actor);
+  assert.ok(shown.legacyTimeline.some((e) => e.title === 'Legacy Record: Inspection: Removal (Date Unknown)'));
+
+  // The vehicle's own profile lists it too, dateless and without a price.
+  const vehicles = await import('../src/modules/vehicles/vehicles.service.js');
+  const profile = await vehicles.getVehicleProfile(before._id.toString());
+  assert.ok(profile.data.legacyTimeline.some((e) => e.title === 'Legacy Record: Inspection: Removal (Date Unknown)' && e.at === null));
+
+  // Nothing else on the vehicle or customer moved, apart from the empty AMC date being filled.
+  const after2 = await Job.findOne({ customer: customer._id });
+  assert.equal(after2.deviceImei, before.deviceImei);
+  assert.equal(after2.amcExpiryDate.toISOString().slice(0, 10), '2027-05-05');
+  assert.equal(await Job.countDocuments({ customer: customer._id }), 1);
+  assert.equal((await Customer.findById(customer._id)).phone, customer.phone);
+
+  // Running the same sheet again does not repeat the history.
+  await run(richer, 'richer-again.csv');
+  assert.equal(await TimelineEvent.countDocuments({ customer: customer._id }), 1);
+});

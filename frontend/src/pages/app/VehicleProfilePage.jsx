@@ -47,7 +47,7 @@ export default function VehicleProfilePage() {
   if (state.status === 'loading') return <p className="data-state" role="status">Loading vehicle…</p>;
   if (state.status === 'error') return <p className="app-notice app-notice--error" role="alert">{state.error} <Link to={`${base}/vehicles`}>Back to vehicles</Link></p>;
 
-  const { vehicle, customer, device, engineKill, engineKillHistory, tracking, installations, serviceJobs, certificates } = state.data;
+  const { vehicle, customer, device, engineKill, engineKillHistory, legacyTimeline = [], tracking, installations, serviceJobs, certificates } = state.data;
   const [trackLabel, trackTone] = TRACK[tracking?.status] ?? TRACK.unknown;
 
   return (
@@ -163,6 +163,18 @@ export default function VehicleProfilePage() {
           <section className="panel"><ul className="vp-list">
             {certificates.map((c) => <li key={c.id}><strong>{c.number}</strong><span>{c.status === 'active' ? 'Active' : c.status === 'cancelled' ? 'Cancelled' : 'Replaced'}</span><time>{formatDateTime(c.issuedAt)}</time></li>)}
           </ul></section>
+        </>
+      ) : null}
+
+      {legacyTimeline.length ? (
+        <>
+          <h3 className="vp__h">Imported history</h3>
+          <section className="panel">
+            <p className="field__hint">Past actions from the old spreadsheet. It has no dates for them.</p>
+            <ul className="vp-list">
+              {legacyTimeline.map((event) => <li key={event.id}><strong>{event.title}</strong><span>{event.detail}</span><time>Date unknown</time></li>)}
+            </ul>
+          </section>
         </>
       ) : null}
 
