@@ -301,7 +301,7 @@ export default function VehicleRecordsPage() {
                   <tr key={row.id}>
                     <td>
                       <Link className="ledger__link" to={`${base}/vehicles/${row.id}${searchRequired ? `?lookup=${encodeURIComponent(search)}` : ''}`}><span className="ledger__strong">{row.vehicle.registration || '—'}</span></Link>
-                      <span className="ledger__sub">{row.vehicle.label || 'No name recorded'}</span>
+                      <span className="ledger__sub">{row.vehicle.label || 'No name recorded'}{row.deviceCount > 1 ? ` · Vehicle ${row.vehicle.registration} (${row.deviceCount} Devices)` : ''}</span>
                       {row.portalSource ? <span className="portal-badge">{row.portalSource}</span> : null}
                     </td>
                     <td>
@@ -313,8 +313,20 @@ export default function VehicleRecordsPage() {
                       <span className="ledger__sub">{row.customer.phone || 'No phone'}</span>
                     </td>
                     <td>
-                      <span className="ledger__strong">{row.deviceImei || 'No IMEI'}</span>
-                      <span className="ledger__sub">{row.simNumber || 'No SIM'}</span>
+                      {row.deviceCount > 1 ? (
+                        row.devices.map((device) => (
+                          <span className="device-line" key={`${device.role}-${device.imei}-${device.simNumber}`}>
+                            <span className="device-line__role">{device.roleLabel}</span>
+                            <span className="ledger__strong">{device.imei || 'No IMEI'}</span>
+                            <span className="ledger__sub">{[device.simNumber || 'No SIM', device.network].filter(Boolean).join(' · ')}</span>
+                          </span>
+                        ))
+                      ) : (
+                        <>
+                          <span className="ledger__strong">{row.deviceImei || 'No IMEI'}</span>
+                          <span className="ledger__sub">{[row.simNumber || 'No SIM', row.network].filter(Boolean).join(' · ')}</span>
+                        </>
+                      )}
                     </td>
                     <td>
                       <span className="ledger__muted">{row.installedAt ? new Date(row.installedAt).toLocaleDateString('en-GB') : '—'}</span>
@@ -359,8 +371,8 @@ export default function VehicleRecordsPage() {
       ) : null}
 
       <p className="ledger-note">
-        Matched to the tracking server by IMEI or unique ID. A vehicle is Inactive when it is offline or has sent no data for
-        {' '}{sync?.inactiveAfterHours ?? 24} hours. “Not on tracker” means no device with that identifier was found on any configured portal.
+        Matched to the tracking server by IMEI or unique ID. A vehicle is Inactive only when it has sent no data for more than
+        {' '}{sync?.inactiveAfterDays ?? 15} days and its AMC has expired. A vehicle with two devices is shown once. “Not on tracker” means no device with that identifier was found on any configured portal.
         {sync?.syncedAt ? ` Last synced ${timeAgo(sync.syncedAt)}.` : ''}
       </p>
       {filteredRows.length > 0 ? (

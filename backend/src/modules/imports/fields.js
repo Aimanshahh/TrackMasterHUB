@@ -23,6 +23,9 @@ export const IMPORT_FIELDS = [
   { key: 'colour', label: 'Colour', group: 'Vehicle', required: false, synonyms: ['colour', 'color', 'vehicle colour', 'vehicle color'] },
   { key: 'deviceImei', label: 'Tracker IMEI', group: 'Vehicle', required: false, synonyms: ['imei', 'imei no', 'device imei', 'tracker imei', 'device id', 'device no', 'tracker id', 'device imei'] },
   { key: 'simNumber', label: 'SIM number', group: 'Vehicle', required: false, synonyms: ['sim', 'sim no', 'sim number', 'sim card'] },
+  { key: 'network', label: 'SIM network', group: 'Vehicle', required: false, synonyms: ['network', 'sim network', 'operator', 'sim operator', 'carrier', 'network name'] },
+  { key: 'amcExpiry', label: 'AMC expiry date', group: 'Commercial', required: false, synonyms: ['amc expiry', 'amc expiry date', 'amc expires', 'amc end date', 'amc due date', 'amc date', 'amc'] },
+  { key: 'inspectionStatus', label: 'Inspection status (Redo, Removal, Installed)', group: 'Vehicle', required: false, synonyms: ['inspection status', 'inspection', 'redo removal', 'physical status'] },
   { key: 'installedAt', label: 'Installation date', group: 'Vehicle', required: false, synonyms: ['installation date', 'install date', 'date of installation', 'installed on', 'installed at', 'installed', 'activation date'] },
 ];
 

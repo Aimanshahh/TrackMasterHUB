@@ -4,6 +4,7 @@ import Invoice from '../../models/Invoice.js';
 import InvoiceAdjustment from '../../models/InvoiceAdjustment.js';
 import Job from '../../models/Job.js';
 import Payment from '../../models/Payment.js';
+import TimelineEvent from '../../models/TimelineEvent.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { invoiceFigures, round2 } from '../../utils/invoiceMath.js';
@@ -38,7 +39,7 @@ export async function getCustomerHistory(customerId, user) {
 
   const includeMoney = MONEY_ROLES.includes(user.role);
 
-  const [jobs, complaints, invoices, payments, adjustments, messages, calls] = await Promise.all([
+  const [jobs, complaints, invoices, payments, adjustments, messages, calls, legacyRows] = await Promise.all([
     Job.find({ customer: customer._id }).sort({ createdAt: 1 }).populate('technician', 'name'),
     Complaint.find({ customer: customer._id }).sort({ createdAt: 1 }),
     includeMoney ? Invoice.find({ customer: customer._id }).sort({ createdAt: 1 }) : [],
@@ -46,7 +47,14 @@ export async function getCustomerHistory(customerId, user) {
     includeMoney ? InvoiceAdjustment.find({ customer: customer._id }).sort({ issuedAt: 1 }) : [],
     listMessagesForCustomer(customer._id),
     CALL_ROLES.includes(user.role) ? listCallsForCustomer(customer._id) : [],
+    TimelineEvent.find({ customer: customer._id, isHistoricalData: true }).sort({ createdAt: 1 }),
   ]);
+
+  // Imported history with no known date. Prices are money, so only the roles that may see money get them.
+  const legacyTimeline = legacyRows.map((row) => {
+    const json = row.toApiJson();
+    return includeMoney ? json : { ...json, detail: json.kind === 'package' ? '' : json.detail };
+  });
 
   const installations = jobs.map((job) => {
     const json = job.toApiJson();
@@ -167,6 +175,7 @@ export async function getCustomerHistory(customerId, user) {
       ? { connected: true, label: calls.length ? `${calls.length} robocall${calls.length === 1 ? '' : 's'} recorded` : 'No robocall recorded for this customer', rows: calls }
       : { connected: false, label: 'Call history is visible to admin and operations only', rows: [] },
     money,
+    legacyTimeline,
     timeline: buildTimeline(
       { customer, jobs, complaints, invoices, payments, adjustments, messages },
       { includeMoney },

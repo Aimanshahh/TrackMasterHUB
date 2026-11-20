@@ -5,6 +5,8 @@ import Customer, { CUSTOMER_CATEGORIES } from '../../models/Customer.js';
 import Counter from '../../models/Counter.js';
 import ImportBatch from '../../models/ImportBatch.js';
 import Job from '../../models/Job.js';
+import TimelineEvent from '../../models/TimelineEvent.js';
+import { coreVrn } from '../../utils/vrn.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { phoneKey } from '../../utils/phone.js';
@@ -100,7 +102,7 @@ async function buildPlan(batch) {
   const jobs = await Job.find({ requestType: 'new_installation', status: { $ne: 'cancelled' } }).select('vehicle.registration customer customerName legacy').lean();
   const byPlate = new Map();
   for (const job of jobs) {
-    const plate = String(job.vehicle?.registration ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const plate = String(coreVrn(job.vehicle?.registration)).toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (plate) byPlate.set(plate, job);
   }
 
@@ -182,10 +184,17 @@ async function buildPlan(batch) {
           vehicle = 'duplicate';
         }
       } else if (filePlates.has(values.plateKey)) {
-        Object.assign(result, { status: 'skipped', outcome: 'duplicate_in_file', message: `${values.registration} also appears on row ${filePlates.get(values.plateKey)} of this file.` });
-        vehicle = 'duplicate';
+        const first = filePlates.get(values.plateKey);
+        // The (LOC) row and the (IMB) row of one vehicle belong together: the second becomes the vehicle's second device.
+        const secondDevice = values.deviceRole && first.role && values.deviceRole !== first.role && first.identity === identity;
+        if (secondDevice) {
+          vehicle = 'device';
+        } else {
+          Object.assign(result, { status: 'skipped', outcome: 'duplicate_in_file', message: `${values.registration} also appears on row ${first.n} of this file.` });
+          vehicle = 'duplicate';
+        }
       } else {
-        filePlates.set(values.plateKey, row.n);
+        filePlates.set(values.plateKey, { n: row.n, role: values.deviceRole, identity });
         vehicle = 'create';
       }
     }
@@ -193,6 +202,12 @@ async function buildPlan(batch) {
 
     // A duplicate vehicle means the row is probably a repeat or a data mix-up: skip the whole row for review.
     if (vehicle === 'duplicate') { results.push(result); continue; }
+
+    if (vehicle === 'device') {
+      Object.assign(result, { outcome: 'add_device', customerPlan: customer.kind === 'create' ? 'create' : customer.kind, message: `Second device (${values.deviceRole}) added to ${values.registration}.` });
+      results.push(result);
+      continue;
+    }
 
     const makesCustomer = customer.kind === 'create' && !customer.planned;
     if (makesCustomer) customer.planned = true;
@@ -214,16 +229,18 @@ const COUNTED = {
   new_customer_vehicle: { customers: 1, vehicles: 1 },
   new_customer: { customers: 1, vehicles: 0 },
   add_vehicle: { customers: 0, vehicles: 1 },
+  add_device: { customers: 0, vehicles: 0 },
 };
 
 function summarize(results) {
-  const summary = { rows: results.length, newCustomers: 0, newVehicles: 0, addedToExisting: 0, duplicates: 0, skipped: 0, errors: 0, alreadyImported: 0, warnings: 0 };
+  const summary = { rows: results.length, newCustomers: 0, newVehicles: 0, addedToExisting: 0, duplicates: 0, addedDevices: 0, skipped: 0, errors: 0, alreadyImported: 0, warnings: 0 };
   for (const r of results) {
     if (r.warnings?.length) summary.warnings += 1;
     if (r.status === 'error') { summary.errors += 1; continue; }
     if (r.outcome === 'duplicate_vehicle' || r.outcome === 'duplicate_in_file') summary.duplicates += 1;
     if (r.outcome === 'already_imported') summary.alreadyImported += 1;
     if (r.status === 'skipped') { summary.skipped += 1; continue; }
+    if (r.outcome === 'add_device') summary.addedDevices += 1;
     const c = COUNTED[r.outcome];
     if (c) { summary.newCustomers += c.customers; summary.newVehicles += c.vehicles; }
     if (r.outcome === 'add_vehicle') summary.addedToExisting += 1;
@@ -285,6 +302,8 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
   try {
     const { results, prepared, fileCustomers } = await buildPlan(batch);
     const now = new Date();
+    const jobByPlate = new Map(); // plate -> job id created by this import, so a (LOC)/(IMB) pair shares one vehicle
+    const seenEvents = new Set();
 
     for (let i = 0; i < results.length; i += 1) {
       const result = results[i];
@@ -334,6 +353,11 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
           });
         }
 
+        const device = (values.deviceImei || values.simNumber)
+          ? { role: values.deviceRole ?? 'tracker', imei: values.deviceImei, simNumber: values.simNumber, network: values.network }
+          : null;
+
+        let jobId = null;
         if (COUNTED[result.outcome].vehicles && result.vehicle === 'create') {
           const job = await Job.create({
             customer: group.customerId,
@@ -346,13 +370,48 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
             },
             deviceImei: values.deviceImei,
             simNumber: values.simNumber,
+            network: values.network,
+            devices: device ? [device] : [],
+            // The AMC date from the sheet is the source of truth; the tracking portal is only asked when this is empty.
+            amcExpiryDate: values.amcExpiryDate ?? null,
             completedAt: values.installedDate ?? undefined,
             createdBy: actor.id,
             history: [{ status: 'completed', note: `Imported from legacy records (${batch.fileName}).`, at: now }],
             legacy: { imported: true, legacyId: values.legacyId || undefined, batch: batch._id },
           });
           result.jobId = job._id.toString();
+          jobId = job._id;
+          if (values.plateKey) jobByPlate.set(values.plateKey, job._id.toString());
+        } else if (result.outcome === 'add_device') {
+          const firstJobId = jobByPlate.get(values.plateKey);
+          const job = firstJobId ? await Job.findById(firstJobId) : null;
+          if (!job) throw new Error('The first row of this vehicle could not be saved, so its second device cannot be attached.');
+          if (device) {
+            job.devices.push(device);
+            // The locator is the primary device shown everywhere a single IMEI/SIM is expected.
+            if (device.role === 'locator' && (job.devices[0]?.role !== 'locator')) {
+              job.deviceImei = device.imei || job.deviceImei;
+              job.simNumber = device.simNumber || job.simNumber;
+              job.network = device.network || job.network;
+            }
+          }
+          if (values.amcExpiryDate && !job.amcExpiryDate) job.amcExpiryDate = values.amcExpiryDate;
+          await job.save();
+          result.jobId = job._id.toString();
+          jobId = job._id;
         }
+
+        // Legacy sheets carry no dates for past actions: keep each one as a dateless historical event.
+        const legacyEvents = [];
+        const addEvent = (kind, action, detail = '') => {
+          const key = `${group.customerId}|${values.plateKey}|${kind}|${action}`;
+          if (!action || seenEvents.has(key)) return;
+          seenEvents.add(key);
+          legacyEvents.push({ customer: group.customerId, job: jobId ?? undefined, vrn: values.registration, kind, action, detail, date: null, isHistoricalData: true, batch: batch._id });
+        };
+        if (values.packageRaw) addEvent('package', values.packageRaw, values.packagePrice === '' ? '' : `Price ${values.packagePrice}`);
+        if (values.inspectionStatus) addEvent('inspection', values.inspectionStatus, values.registration);
+        if (legacyEvents.length) await TimelineEvent.insertMany(legacyEvents);
       } catch (error) {
         Object.assign(result, { status: 'error', outcome: 'error', message: `Could not save this row: ${String(error.message).slice(0, 200)}` });
       }

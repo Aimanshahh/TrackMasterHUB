@@ -86,6 +86,7 @@ export const env = {
   robocallWebhookSecret: (process.env.ROBOCALL_WEBHOOK_SECRET ?? '').trim(),
   whatsappGatewayUrl: (process.env.WHATSAPP_GATEWAY_URL ?? '').trim(),
   whatsappGatewayApiKey: (process.env.WHATSAPP_GATEWAY_API_KEY ?? '').trim(),
+  whatsappBulkDelayMs: Math.max(0, Number(process.env.WHATSAPP_BULK_DELAY_MS ?? 2200) || 0),
   whatsappGatewayTimeoutMs: Math.max(1000, Number(process.env.WHATSAPP_GATEWAY_TIMEOUT_MS ?? 10000) || 10000),
   trackingTimeoutMs: Math.max(1000, Number(process.env.TRACKING_TIMEOUT_MS ?? 60000) || 60000),
 };

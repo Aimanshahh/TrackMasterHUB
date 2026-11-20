@@ -4,6 +4,8 @@ import Panel from '../../components/app/Panel.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { fetchCustomerMessages, fetchCustomers, sendCustomerWhatsAppMessage, sendWhatsAppBroadcast } from '../../lib/api.js';
 
+const STATUS_TEXT = { sent: 'Sent', failed: 'Failed', pending: 'Sending…', not_configured: 'Not sent — gateway not configured' };
+
 function formatDate(value) {
   return value ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—';
 }
@@ -17,6 +19,13 @@ export default function AdminMessagesPage() {
   const [body, setBody] = useState('');
   const [broadcast, setBroadcast] = useState(false);
   const [state, setState] = useState({ loading: false, sending: false, error: null, notice: null });
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,23 +56,34 @@ export default function AdminMessagesPage() {
   async function send(event) {
     event.preventDefault();
     if ((!selected && !broadcast) || !body.trim()) return;
-    if (broadcast && !window.confirm('Save this message for every customer with a phone number?')) return;
+    if (broadcast && !window.confirm('Send this message to every customer with a phone number?')) return;
     setState((current) => ({ ...current, sending: true, error: null, notice: null }));
     try {
       const payload = broadcast
         ? await sendWhatsAppBroadcast(body)
         : await sendCustomerWhatsAppMessage(selected.id, body);
-      if (!broadcast) setMessages((current) => [payload.data.message, ...current]);
+      if (!broadcast) {
+        setMessages((current) => [payload.data.message, ...current]);
+        const { status, error: reason } = payload.data.message;
+        if (status === 'sent') setToast({ tone: 'success', text: `Message sent to ${selected.name}.` });
+        else if (status === 'failed') setToast({ tone: 'error', text: `Message to ${selected.name} failed${reason ? `: ${reason}` : '.'}` });
+        else setToast({ tone: 'warning', text: 'Message saved, but the WhatsApp gateway is not configured so it was not sent.' });
+      } else if (payload.data.status === 'sending') {
+        setToast({ tone: 'success', text: `Sending ${payload.data.queued} messages. Each shows Sent or Failed in the customer's history.` });
+      } else {
+        setToast({ tone: 'warning', text: `${payload.data.queued} messages saved, but the WhatsApp gateway is not configured so none were sent.` });
+      }
       setBody('');
-      setState((current) => ({ ...current, sending: false, notice: broadcast ? `${payload.data.queued} messages saved. Meta WhatsApp connection is still required to deliver them.` : 'Message saved. Meta WhatsApp connection is still required to deliver it.' }));
+      setState((current) => ({ ...current, sending: false }));
     } catch (error) {
-      setState((current) => ({ ...current, sending: false, error: error.message }));
+      setToast({ tone: 'error', text: error.message || 'The message could not be sent.' });
+      setState((current) => ({ ...current, sending: false }));
     }
   }
 
   return (
     <div className="messages-workspace">
-      <div className="messages-workspace__notice">Not connected yet: messages are saved safely in the Hub and are not sent until Meta credentials and templates are configured.</div>
+      <div className="messages-workspace__notice">Messages go out through your WhatsApp gateway. If the gateway is not set up on the server, they are saved in the Hub and not sent.</div>
       <div className="messages-workspace__toolbar">
         <div className="messages-workspace__toolbar-copy"><span className="messages-workspace__toolbar-icon" aria-hidden="true">➤</span><div><strong>Choose how to send</strong><span>Send to one customer or prepare one message for your full customer list.</span></div></div>
         <div className="messages-workspace__mode">
@@ -83,22 +103,27 @@ export default function AdminMessagesPage() {
             ))}
             {!state.loading && customers.length === 0 ? <p className="panel__note">No customers found.</p> : null}
           </div>
-        </Panel> : <section className="messages-workspace__broadcast-card"><span className="messages-workspace__broadcast-icon">ALL</span><div><h3>All customers</h3><p>The message will be saved for every customer with a phone number. Customers without a phone number will be skipped.</p></div></section>}
+        </Panel> : <section className="messages-workspace__broadcast-card"><span className="messages-workspace__broadcast-icon">ALL</span><div><h3>All customers</h3><p>The message will be sent to every customer with a phone number. Customers without a phone number will be skipped.</p></div></section>}
         <Panel heading={<span className="messages-workspace__panel-heading"><span className="messages-workspace__panel-icon messages-workspace__panel-icon--message" aria-hidden="true">•••</span>{broadcast ? 'Broadcast message' : selected ? `Message ${selected.name}` : 'Write a message'}</span>}>
           {broadcast || selected ? (
             <>
               <p className="messages-workspace__recipient">To: <strong>{broadcast ? 'All customers with phone numbers' : selected.phone || 'No phone number'}</strong><button type="button" className="messages-workspace__copy" aria-label="Copy recipient">□</button></p>
               <form onSubmit={send}>
                 <div className="messages-workspace__textarea-wrap"><textarea className="input input--area" rows="7" maxLength="4096" placeholder="Write your WhatsApp message…" value={body} onChange={(event) => setBody(event.target.value)} /><span className="messages-workspace__emoji" aria-hidden="true">☺</span></div>
-                <div className="messages-workspace__compose-footer"><span>{body.length}/4096</span><button className="btn btn--primary messages-workspace__send" type="submit" disabled={state.sending || !body.trim() || (!broadcast && !selected?.phone)}><span aria-hidden="true">➤</span>{state.sending ? 'Saving…' : 'Send message'}</button></div>
+                <div className="messages-workspace__compose-footer"><span>{body.length}/4096</span><button className="btn btn--primary messages-workspace__send" type="submit" disabled={state.sending || !body.trim() || (!broadcast && !selected?.phone)}><span aria-hidden="true">➤</span>{state.sending ? <><span className="wa-spinner" aria-hidden="true" />Sending…</> : 'Send message'}</button></div>
               </form>
-              {!broadcast && messages.length ? <div className="messages-workspace__history"><h3>Message history</h3>{messages.map((message) => <article key={message.id}><p>{message.body}</p><small>{formatDate(message.createdAt)} · Not sent — Meta setup required</small></article>)}</div> : null}
+              {!broadcast && messages.length ? <div className="messages-workspace__history"><h3>Message history</h3>{messages.map((message) => <article key={message.id}><p>{message.body}</p><small className={`wa-status wa-status--${message.status}`}>{formatDate(message.createdAt)} · {STATUS_TEXT[message.status] ?? message.status}{message.status === 'failed' && message.error ? ` (${message.error})` : ''}</small></article>)}</div> : null}
             </>
           ) : <p className="panel__note">Select a customer to write a message.</p>}
         </Panel>
       </div>
       {state.error ? <p className="app-notice app-notice--error" role="alert">{state.error}</p> : null}
-      {state.notice ? <p className="app-notice" role="status">{state.notice}</p> : null}
+      {toast ? (
+        <div className={`wa-toast wa-toast--${toast.tone}`} role={toast.tone === 'error' ? 'alert' : 'status'}>
+          <span>{toast.text}</span>
+          <button type="button" className="wa-toast__close" aria-label="Dismiss" onClick={() => setToast(null)}>×</button>
+        </div>
+      ) : null}
     </div>
   );
 }
