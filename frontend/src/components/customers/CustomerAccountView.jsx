@@ -315,20 +315,20 @@ export default function CustomerAccountView({
             </div>
           ) : (
             <div className="vehicles-summary">
-              <dl className="vehicles-summary__stats">
-                <div><dt>Vehicles</dt><dd>{installations.length}</dd></div>
-                <div><dt>Installed</dt><dd>{installations.filter((job) => job.status === 'completed').length}</dd></div>
-                <div><dt>Pending</dt><dd>{installations.filter((job) => job.status !== 'completed').length}</dd></div>
-              </dl>
-              <ul className="vehicles-summary__plates" aria-label="Registrations">
-                {installations.slice(0, 5).map((job) => (
-                  <li key={job.id} className="mono">{job.vehicle?.registration || 'No VRN'}</li>
-                ))}
-                {installations.length > 5 ? <li className="vehicles-summary__more">+{installations.length - 5} more</li> : null}
-              </ul>
-              <button type="button" className="btn btn--primary btn--small" onClick={() => setVehiclesOpen(true)}>
-                View vehicles ({installations.length})
-              </button>
+              <div className="vehicles-summary__row">
+                <dl className="vehicles-summary__stats">
+                  <div><dt>Vehicles</dt><dd>{installations.length}</dd></div>
+                  <div><dt>Installed</dt><dd>{installations.filter((job) => job.status === 'completed').length}</dd></div>
+                  <div><dt>Pending</dt><dd>{installations.filter((job) => job.status !== 'completed').length}</dd></div>
+                </dl>
+                <button type="button" className="btn btn--outline btn--small" onClick={() => setVehiclesOpen(true)}>
+                  View vehicles ({installations.length})
+                </button>
+              </div>
+              <p className="vehicles-summary__plates mono">
+                {installations.slice(0, 6).map((job) => job.vehicle?.registration || 'No VRN').join('  ·  ')}
+                {installations.length > 6 ? `  ·  +${installations.length - 6} more` : ''}
+              </p>
             </div>
           )}
         </section>
