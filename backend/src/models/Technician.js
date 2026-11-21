@@ -19,6 +19,11 @@ const technicianSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    // Other spellings of this technician's name (for example on Shezz Traders), remembered once confirmed.
+    aliases: {
+      type: [String],
+      default: [],
+    },
     active: {
       type: Boolean,
       default: true,
