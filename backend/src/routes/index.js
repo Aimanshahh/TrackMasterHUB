@@ -11,6 +11,7 @@ import { complaintsRouter } from '../modules/complaints/complaints.routes.js';
 import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
 import { salespersonRouter } from '../modules/salesperson/salesperson.routes.js';
 import { pricingRouter } from '../modules/pricing/pricing.routes.js';
+import { salesRouter } from '../modules/sales/sales.routes.js';
 import { approvalsRouter } from '../modules/approvals/approvals.routes.js';
 import { billingRouter } from '../modules/billing/billing.routes.js';
 import { managerRouter } from '../modules/manager/manager.routes.js';
@@ -39,6 +40,7 @@ apiRouter.get('/', (req, res) => {
       complaints: '/api/complaints',
       notifications: '/api/notifications',
       salesperson: '/api/salesperson',
+      sales: '/api/sales',
       packages: '/api/packages',
       approvals: '/api/approvals',
       billing: '/api/billing',
@@ -62,6 +64,7 @@ apiRouter.use('/complaints', complaintsRouter);
 apiRouter.use('/notifications', notificationsRouter);
 apiRouter.use('/salesperson', salespersonRouter);
 apiRouter.use('/packages', pricingRouter);
+apiRouter.use('/sales', salesRouter);
 apiRouter.use('/approvals', approvalsRouter);
 apiRouter.use('/billing', billingRouter);
 apiRouter.use('/manager', managerRouter);

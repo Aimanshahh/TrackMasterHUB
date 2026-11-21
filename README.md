@@ -15,10 +15,39 @@ a failed request produces an error.
 
 ## What exists today
 
-Status summary: **admin, operations and manager are feature-complete for the
-current scope, and the salesperson desk is functional end to end.** Package
-pricing, price approvals, invoices and partial payments are live. Nothing in the
-product is demo data.
+Status summary: **all four workspaces work end to end.** Package pricing, price
+approvals, sales and renewals, invoices with partial payments, certificates,
+complaints with customer messaging, call history, legacy data import, WhatsApp
+templates and the Shezz Traders device fetch are live. Nothing in the product is
+demo data.
+
+### Added since the first release
+
+- **Legacy import.** Upload the old Excel sheet, map its columns (including App
+  Login and App Password), review the plan, then confirm. Customers are created
+  or matched by phone, a vehicle is a `new_installation` record keyed by its
+  plate, and old history becomes dateless timeline events marked as legacy.
+  Customers with many vehicles become *Fleet*, single-vehicle customers
+  *Individual*; two devices on one plate (`(LOC)` / `(IMB)`) are grouped as one
+  vehicle with two devices.
+- **15-day inactivity rule** for tracked vehicles, and a customer **timeline**
+  that merges installations, inspections, AMC payments, notes, WhatsApp messages
+  and imported history.
+- **WhatsApp.** A separate gateway (`whatsapp-gateway/`) sends messages; the Hub
+  posts to it, records every message with its delivery result and never blocks a
+  status change when a send fails.
+- **Operations customer desk.** Search-first customer screen (nothing loads until
+  you search by name, phone or VRN), a customer profile with a compact vehicle
+  drawer, and customer app login / password with a show-hide toggle.
+- **WhatsApp template sender.** Pick a customer and a template, see the message
+  with the customer's details filled in, send it, and a timeline event is added.
+  Templates are stored in the database; *Helpline Numbers* and *Login Details* are
+  built in and the desk can add its own.
+- **Shezz Traders device fetch.** One read-only feed on Shezz lists the devices
+  handed to technicians; the Hub matches technician names and assigns the stock.
+- **Sales and renewals** for the salesperson and the admin (see below).
+- **Today screen** for operations, a short list of what needs doing, and a
+  simpler, quieter top bar on every workspace.
 
 ### Foundation
 
@@ -37,8 +66,13 @@ product is demo data.
 - Overview with live record counts and recent recorded activity.
 - Customer register: search, category/priority filters, sorting, add customer,
   customer record page, empty/loading/error states.
-- Follow-ups, sales (awaiting the sales workflow), operations queue, complaints,
-  reports, user access, activity log, settings.
+- Follow-ups, operations queue, complaints, reports, user access, activity log,
+  settings.
+- Sales: every sale across all salespeople (this month and all time), a table by
+  salesperson, price approvals waiting for a decision, and the renewals coming
+  due, all counted from stored records.
+- WhatsApp messages: send to one customer or to everyone with a phone number,
+  with a Sent / Failed result for each message.
 - Pricing: the admin sets the Basic, Standard and Premium package rates, plus the
   wording the salesperson sees. A package without a rate cannot be quoted.
 - Approvals: every installation quoted below the package rate arrives here for a
@@ -49,7 +83,23 @@ product is demo data.
 
 ### Operations workspace (`/operations`)
 
-- Overview with open jobs, completed jobs, available devices and SIMs.
+- **Today**: four numbers (tasks waiting for a technician, tasks being worked on,
+  open complaints, technicians low on devices) that each open the right screen,
+  and one list of what needs attention.
+- **Customers**: search-first, with a profile that shows contact details, the
+  customer's app login and password (hidden until revealed), a *View vehicles*
+  drawer, certificates, the timeline and complaints. Money records and the
+  manager's security briefing are not shown here.
+- **WhatsApp**: choose a customer and a template, check the filled-in message,
+  send. *Add template* lets the desk write more, using the variables
+  `[Customer Name]`, `[Customer Phone]`, `[Helpline Number]`, `[Login Email]` and
+  `[Password]`. A message cannot be sent while a value it needs is missing, and
+  the password is masked in the saved message log.
+- **Fetch from Shezz** on the Inventory screen: reads the devices Shezz Traders
+  handed to technicians, matches each name to a technician created here (ignoring
+  the word “Technician”, case and spacing), asks for confirmation on close
+  matches, remembers hand-picked spellings, and never moves a device that is
+  already fitted to a vehicle.
 - Work queue: push-in requests, technician assignment, scheduling, device IMEI
   and SIM allocation, status history, cancellation releases stock.
 - Complaints desk with status transitions and resolution notes.
@@ -83,8 +133,11 @@ Mobile-first: a bottom tab bar on phones, the full sidebar on desktop.
 - Installation requests with status, technician, IMEI, SIM, schedule and the
   latest history entry.
 - Complaints with status, resolution and full status history.
-- Sales & renewals is an explicit “not connected yet” page — no invented
-  numbers.
+- Sales & renewals: the salesperson's own sales this month and overall, sales
+  waiting for price approval (with how far below list each was quoted), a list of
+  their customers' vehicles whose yearly plan has expired or ends within 30 days,
+  and the package price list. Only their own figures are returned; the server
+  takes the salesperson from the session.
 - Notifications: when operations changes the status of a request or ticket the
   salesperson logged, the backend creates a notification for that owner. The bell
   in the top bar and the “Latest updates” panel read the same records.
@@ -232,9 +285,19 @@ cd backend && npm start           # production listener, no file watching
 |                | `MONGO_URI`               | MongoDB connection string                      |
 |                | `JWT_SECRET`              | Signing secret for session tokens              |
 |                | `SESSION_TTL_DAYS`        | Session lifetime, default `7`                  |
+|                | `TRACKING_API_URL`, `TRACKING_API_HASH` | GPSWOX tracking server and its API hash (server only) |
+|                | `PORTAL_1_*`, `PORTAL_2_*` | Extra tracking portals queried in turn        |
+|                | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Complaint emails; empty `SMTP_HOST` sends nothing |
+|                | `WHATSAPP_GATEWAY_URL`    | The gateway's `/api/send-update` address       |
+|                | `WHATSAPP_GATEWAY_API_KEY`| Must equal `WEBHOOK_API_KEY` in the gateway    |
+|                | `HELPLINE_NUMBER`         | Fills `[Helpline Number]` in templates         |
+|                | `ROBOCALL_WEBHOOK_SECRET` | Token the robocall provider sends; empty closes the webhook |
+|                | `SHEZZ_API_URL`, `SHEZZ_API_KEY` | Shezz Traders device feed (URL ends in `/api`) |
 | `frontend/.env`| `VITE_API_BASE_URL`       | Absolute API origin when the apps are split    |
+| `whatsapp-gateway/.env` | `PORT`, `WEBHOOK_API_KEY`, `MESSAGE_DELAY_MS` | Gateway port, shared key, pause between messages |
 
-`.env` files are ignored by git; `.env.example` is committed. A split-origin
+`.env` files are ignored by git; `.env.example` is committed and holds
+placeholders only. Never put a real secret in an example file. A split-origin
 deployment must set `VITE_API_BASE_URL` and add the web origin to
 `CLIENT_ORIGIN`.
 
@@ -322,6 +385,19 @@ Every response carries `X-Request-Id`.
 | GET    | `/api/manager/customers/:id`      | admin, manager             |
 | PATCH  | `/api/manager/customers/:id/briefing` | admin, manager         |
 | GET    | `/api/manager/billing-queue`      | admin, manager             |
+| GET    | `/api/sales/mine`                 | salesperson — own sales and renewals |
+| GET    | `/api/sales/overview`             | admin, manager — company sales, by salesperson |
+| GET    | `/api/operations/customers?search=` | admin, operations — search-first, max 25 |
+| GET    | `/api/operations/customers/:id`   | admin, operations — profile without money records |
+| GET    | `/api/operations/message-templates` | admin, operations        |
+| POST   | `/api/operations/message-templates` | admin, operations        |
+| POST   | `/api/operations/whatsapp/preview` | admin, operations         |
+| POST   | `/api/operations/whatsapp/send`   | admin, operations — adds a timeline event |
+| GET    | `/api/operations/shezz/preview`   | admin, operations — what a fetch would do |
+| POST   | `/api/operations/shezz/sync`      | admin, operations          |
+| GET    | `/api/customers/:id/history`      | session — timeline and legacy history |
+| *      | `/api/vehicles`, `/api/calls`, `/api/certificates`, `/api/imports`, `/api/messages` | see each module's routes |
+| POST   | `/api/webhooks/robocall?token=`   | robocall provider          |
 
 Health response:
 
@@ -461,53 +537,49 @@ TrackMaster red `#d7131b`, paper `#f6f5f1`, hairline `#e0ddd5`, night `#101317`.
   device, SIM, approvals, notifications and the temporary accounts) were deleted
   afterwards. The database holds staff accounts only.
 
-Not verified yet: sales/renewals workflow, complaint email/WhatsApp delivery,
-dialer call import, automated tests, CI.
+Automated tests: `cd backend && npm test` runs the Node test runner. Pure rules
+(invoice maths, template rendering, name matching) run anywhere; database tests
+need `TEST_MONGO_URI` pointing at a throwaway MongoDB. 84 tests currently pass,
+covering imports, installation rules, billing adjustments, certificates, calls,
+messaging, the operations desk, the Shezz fetch and the sales board. A GitHub
+Actions workflow (`.github/workflows/ci.yml`) runs the checks on every push.
+
+Not verified against live services: WhatsApp delivery through a real linked
+phone, the Shezz feed against production data, and the robocall webhook with the
+provider's real payload.
 
 ---
 
 ## Remaining work
 
-Recommended order for the next sessions (detailed in
-[TrackMasterHubPlan.md](TrackMasterHubPlan.md) section 19):
-
-1. Call history imported from the business dialer (provider call id, direction,
-   duration, disposition, agent), matched to customers by phone number. Staff do
-   not hand-log calls, and the report says “not connected” until a dialer is
-   wired up rather than showing a zero.
-2. Customer history report: one printable record per customer spanning the
-   installation, devices and SIMs, follow-ups, complaints and their resolutions,
-   call history and totals.
-3. Complaint customer messaging: email through Nodemailer/SMTP and WhatsApp once
-   a provider is approved, with per-channel delivery records so a failed send
-   never blocks the status change.
-4. Admin customer record brought to parity with the manager/salesperson record
-   (timeline, requests, tickets) — today it is only a field list.
-5. Sales and renewals for the salesperson: quotation history and renewal
-   pipeline on top of the existing packages, pricing and approvals.
-6. Documents: printable/PDF invoices and certificates, plus refunds, credit notes
-   and invoice numbering rules for production.
-7. Customer records: a `Vehicle` collection so one customer can hold several
-   vehicles with their own installation history, instead of reading vehicles off
-   the job records.
-8. Activity logging for operations, complaints and stock movements (today only
-   customer and account events are recorded).
-9. Live tracking API discovery and integration.
-10. Automated tests and CI.
-11. Salesperson Android APK wrapper once the web workspace is signed off.
+- Deploy the Shezz Traders feed (set `INTEGRATION_API_KEY` there and the matching
+  `SHEZZ_API_KEY` here), then run the first fetch.
+- Deploy the backend where the robocall provider can reach it, and capture one
+  real payload to confirm the field mapping.
+- Choose and approve the WhatsApp provider for production; the gateway is fine
+  for a pilot but is a linked personal number.
+- Decide customer email consent before bulk emails are enabled; SMTP is ready.
+- Serve the tracking server over HTTPS.
+- Set `CERTIFICATE_NUMBER_START` and, if wanted, add the director's stamp image
+  for certificates.
+- Quotation documents (a printable quote from a package and price) and a renewal
+  workflow that records the renewal payment against the vehicle from the Sales
+  screen.
+- Activity logging for stock movements and complaint updates.
+- Salesperson Android wrapper once the web workspace is signed off.
 
 ## Known gaps
 
 - Mongo connects to the database named in `MONGO_URI`; keep the database name in
   the connection string so data does not land in the driver default (`test`).
-- `JWT_SECRET` in the local `.env` is a development value; set a 32+ character
-  secret before any deployment.
+- `JWT_SECRET` must be a fresh random value of 32+ characters on every
+  deployment. A value that was ever committed to the repository must be replaced.
 - Activity logging is not yet written by every module. Customer creation, package
   pricing, approvals, invoices, payments and briefings are logged; job status
   changes, stock movements and complaint updates are not.
-- Invoices have no printable/PDF output yet and no refund or credit-note path. A
-  cancelled invoice deliberately keeps its reference, and an invoice with money
-  against it cannot be cancelled.
-- Subscription status and live GPS connectivity are not shown anywhere: the
-  tracking API has not been discovered or connected, and the UI says nothing
-  rather than inventing a state.
+- A cancelled invoice deliberately keeps its reference, and an invoice with money
+  against it cannot be cancelled; corrections go through credit notes and refunds.
+- The Shezz feed returns at most 2,000 handovers per fetch; the screen says so
+  when more remain.
+- Vehicle status comes from the tracking sync. If the tracking server cannot be
+  reached the UI shows the last known state rather than inventing one.

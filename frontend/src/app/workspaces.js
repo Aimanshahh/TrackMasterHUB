@@ -20,7 +20,7 @@ const adminPages = [
   { match: /^\/admin\/customers/, title: 'Customers', description: 'Search and review customer records stored in the business database.' },
   { match: /^\/admin\/follow-ups/, title: 'Follow-ups', description: 'Review customer follow-up work recorded by the team.' },
   { match: /^\/admin\/messages/, title: 'WhatsApp messages', description: '', hideHeader: true },
-  { match: /^\/admin\/sales/, title: 'Sales', description: 'Sales and approval information will appear here when the sales workflow is connected.' },
+  { match: /^\/admin\/sales/, title: 'Sales', description: 'Every sale, price approvals waiting for a decision, and renewals coming due.' },
   { match: /^\/admin\/operations/, title: 'Operations queue', description: 'Installation work items, technician assignment and station-level stock allocation.' },
   { match: /^\/admin\/pending-installations/, title: 'Pending installations', description: 'Sold vehicles that are not installed yet, oldest first.' },
   { match: /^\/admin\/import/, title: 'Customer import', description: 'Bring existing customers and vehicles in from an Excel or CSV file, with a preview before anything is saved.' },
@@ -77,7 +77,7 @@ const salespersonPages = [
   { match: /^\/salesperson\/follow-ups/, title: 'Follow-ups', description: 'Customers due for a call or visit, ordered by date.' },
   { match: /^\/salesperson\/requests/, title: 'Installation requests', description: 'Requests you pushed to operations and where they currently stand.' },
   { match: /^\/salesperson\/complaints/, title: 'Complaints', description: 'Tickets you logged and the resolution progress from operations.' },
-  { match: /^\/salesperson\/sales/, title: 'Sales & renewals', description: 'Quotations, renewals and approvals will appear here once the sales workflow is connected.' },
+  { match: /^\/salesperson\/sales/, title: 'Sales & renewals', description: 'Your sales, price approvals and the renewals you should call about.' },
   { match: /^\/salesperson\/settings/, title: 'Settings', description: 'Your account, workspace access and notification behaviour.' },
 ];
 
