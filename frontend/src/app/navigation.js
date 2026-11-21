@@ -44,7 +44,7 @@ const operationsGroups = [
   {
     label: 'Operations',
     items: [
-      { to: '/operations', label: 'Overview', icon: 'overview', end: true },
+      { to: '/operations', label: 'Today', icon: 'overview', end: true },
       { to: '/operations/queue', label: 'Work queue', icon: 'operations' },
       { to: '/operations/pending-installations', label: 'Pending installations', icon: 'followup' },
       { to: '/operations/customers', label: 'Customers', icon: 'customers' },

@@ -1,135 +1,113 @@
 import { Link } from 'react-router-dom';
 
-import { JOB_STATUS_OPTIONS, formatDayTime } from '../../app/operations.js';
-import Panel from '../../components/app/Panel.jsx';
+import { formatDayTime } from '../../app/operations.js';
 import { StatusPill } from '../../components/operations/OpsStatus.jsx';
-import StationStockPanel from '../../components/operations/StationStockPanel.jsx';
-import TechnicianStockPanel from '../../components/operations/TechnicianStockPanel.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
-import { useJobs, useOperationsSummary } from '../../hooks/useOperations.js';
+import { useComplaints, useJobs, useOperationsSummary, useTechnicianStock } from '../../hooks/useOperations.js';
 
-const OPEN_STATUSES = ['unassigned', 'assigned', 'scheduled', 'in_progress'];
-
+/**
+ * A short morning view for the operations desk: four numbers that each open
+ * the right screen, then one list of what needs doing now.
+ */
 export default function OperationsOverviewPage() {
   useDocumentTitle('Operations overview');
   const summary = useOperationsSummary();
-  const recent = useJobs({ limit: 6 });
+  const waiting = useJobs({ status: 'unassigned', limit: 5 });
+  const complaints = useComplaints({ status: 'open', limit: 5 });
+  const stock = useTechnicianStock();
+
   const jobs = summary.data?.jobs;
-  const inventory = summary.data?.inventory;
-  const technicians = summary.data?.technicians;
+  const inProgress = jobs ? (jobs.assigned ?? 0) + (jobs.scheduled ?? 0) + (jobs.in_progress ?? 0) : null;
+  const lowTechnicians = stock.rows.filter((row) => row.low);
 
-  const openJobs = jobs ? OPEN_STATUSES.reduce((total, status) => total + (jobs[status] ?? 0), 0) : null;
-
-  const metrics = [
-    ['Open jobs', openJobs, 'queued, assigned or in progress'],
-    ['Completed', jobs?.completed ?? null, 'installations closed out'],
-    ['Devices available', inventory?.devices?.in_stock ?? null, 'unallocated IMEI stock'],
-    ['SIMs available', inventory?.sims?.in_stock ?? null, 'unallocated SIM stock'],
+  const tiles = [
+    { label: 'Waiting for a technician', value: jobs?.unassigned ?? null, to: '/operations/queue', tone: (jobs?.unassigned ?? 0) > 0 ? 'attention' : '' },
+    { label: 'Being worked on', value: inProgress, to: '/operations/queue', tone: '' },
+    { label: 'Open complaints', value: complaints.meta?.total ?? null, to: '/operations/complaints', tone: (complaints.meta?.total ?? 0) > 0 ? 'attention' : '' },
+    { label: 'Technicians low on devices', value: stock.status === 'loading' ? null : lowTechnicians.length, to: '/operations/inventory', tone: lowTechnicians.length > 0 ? 'attention' : '' },
   ];
 
+  const nothingToDo = waiting.status !== 'loading' && complaints.status !== 'loading' && stock.status !== 'loading'
+    && waiting.rows.length === 0 && complaints.rows.length === 0 && lowTechnicians.length === 0;
+
   return (
-    <div className="ops-overview">
-      <div className="overview-intro">
-        <div>
-          <p className="app-page-head__eyebrow">OPERATIONS DESK</p>
-          <h2>The field queue, stock and team in one place.</h2>
-          <p>Every figure below is a live count from the operations records. Empty stock stays empty until it is recorded.</p>
-        </div>
-        <button type="button" className="btn btn--outline btn--small" onClick={summary.refresh}>Refresh data</button>
-      </div>
+    <div className="ops-home">
+      {summary.error ? <p className="app-notice app-notice--error" role="alert">The numbers could not be loaded: {summary.error}</p> : null}
 
-      {summary.error ? <p className="app-notice app-notice--error" role="alert">Operations summary is unavailable: {summary.error}</p> : null}
-
-      <section className="overview-metrics" aria-label="Operations summary">
-        {metrics.map(([label, value, note]) => (
-          <article className="overview-metric" key={label}>
-            <span>{label}</span>
-            <strong>{value === null || value === undefined ? '—' : value}</strong>
-            <small>{note}</small>
-          </article>
+      <section className="ops-home__tiles" aria-label="Today at a glance">
+        {tiles.map((tile) => (
+          <Link key={tile.label} to={tile.to} className="ops-home__tile" data-tone={tile.tone}>
+            <span>{tile.label}</span>
+            <strong>{tile.value === null || tile.value === undefined ? '—' : tile.value}</strong>
+          </Link>
         ))}
       </section>
 
-      <div className="ops-split">
-        <Panel heading="Queue by status" action={<Link className="panel__link" to="/operations/queue">Open queue →</Link>}>
-          {jobs ? (
-            <table className="users-table ops-table-plain">
-              <thead><tr><th>Status</th><th>Jobs</th><th>Share</th></tr></thead>
-              <tbody>
-                {JOB_STATUS_OPTIONS.map((option) => {
-                  const count = jobs[option.value] ?? 0;
-                  const share = jobs.total ? Math.round((count / jobs.total) * 100) : 0;
-                  return (
-                    <tr key={option.value}>
-                      <td><StatusPill status={option.value} label={option.label} /></td>
-                      <td className="ops-number">{count}</td>
-                      <td>
-                        <span className="ops-bar" aria-hidden="true"><span style={{ width: `${share}%` }} /></span>
-                        <span className="ops-bar__label">{share}%</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : <p className="data-state">{summary.status === 'loading' ? 'Loading queue…' : 'Queue data unavailable.'}</p>}
-        </Panel>
-
-        <Panel heading="Stock position" action={<Link className="panel__link" to="/operations/inventory">Inventory →</Link>}>
-          <table className="users-table ops-table-plain">
-            <thead><tr><th>Held</th><th>Available</th><th>Assigned</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>Devices</td>
-                <td className="ops-number">{inventory?.devices?.in_stock ?? '—'}</td>
-                <td className="ops-number">{inventory?.devices?.assigned ?? '—'}</td>
-              </tr>
-              <tr>
-                <td>SIM cards</td>
-                <td className="ops-number">{inventory?.sims?.in_stock ?? '—'}</td>
-                <td className="ops-number">{inventory?.sims?.assigned ?? '—'}</td>
-              </tr>
-              <tr>
-                <td>Technicians</td>
-                <td className="ops-number">{technicians?.active ?? '—'}</td>
-                <td className="ops-number">{technicians?.total ?? '—'}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="ops-foot-note">Available: unallocated stock. Assigned: out with a job or technician.</p>
-        </Panel>
+      <div className="ops-home__actions">
+        <Link className="btn btn--outline btn--small" to="/operations/customers">Find a customer</Link>
+        <Link className="btn btn--outline btn--small" to="/operations/whatsapp">Send a WhatsApp</Link>
+        <Link className="btn btn--outline btn--small" to="/operations/inventory">Fetch devices from Shezz</Link>
+        <button type="button" className="btn btn--outline btn--small" onClick={() => { summary.refresh(); waiting.refresh(); complaints.refresh(); stock.refresh(); }}>Refresh</button>
       </div>
 
-      <StationStockPanel />
+      <section className="wa-card">
+        <header className="wa-card__head"><h2>Needs your attention</h2></header>
 
-      <TechnicianStockPanel />
+        {nothingToDo ? <p className="panel__note">Nothing is waiting. Every task has a technician, no complaint is open and everyone has devices.</p> : null}
 
-      <Panel heading="Recently pushed work" action={<Link className="panel__link" to="/operations/queue">View all →</Link>}>
-        {recent.error ? <p className="app-notice app-notice--error" role="alert">{recent.error}</p> : null}
-        {recent.status === 'loading' ? <p className="data-state">Loading recent work…</p> : null}
-        {recent.status !== 'loading' && !recent.error && recent.rows.length === 0 ? (
-          <div className="app-empty">
-            <span className="app-empty__mark" aria-hidden="true">—</span>
-            <h2>Nothing has reached operations yet</h2>
-            <p>Work appears the moment a salesperson or the desk pushes a customer request. No sample jobs are displayed.</p>
+        {waiting.rows.length > 0 ? (
+          <div className="ops-home__group">
+            <h3>Tasks with no technician <Link to="/operations/queue">See all →</Link></h3>
+            <ul className="ops-home__list">
+              {waiting.rows.map((job) => (
+                <li key={job.id}>
+                  <div>
+                    <strong>{job.customerName || 'Customer'}</strong>
+                    <span>{[job.vehicle?.registration, job.vehicle?.station].filter(Boolean).join(' · ') || job.phone || 'No vehicle details'}</span>
+                  </div>
+                  <time>{formatDayTime(job.createdAt)}</time>
+                  <StatusPill status={job.status} label={job.statusLabel} />
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
-        {recent.rows.length > 0 ? (
-          <ul className="ops-feed">
-            {recent.rows.map((job) => (
-              <li key={job.id}>
-                <span className="ops-feed__ref">{job.reference}</span>
-                <div>
-                  <strong>{job.customerName || 'Customer'}</strong>
-                  <p>{[job.vehicle.label, job.vehicle.registration, job.vehicle.station].filter(Boolean).join(' · ') || job.phone || 'No vehicle details'}</p>
-                </div>
-                <StatusPill status={job.status} label={job.statusLabel} />
-                <time>{formatDayTime(job.createdAt)}</time>
-              </li>
-            ))}
-          </ul>
+
+        {complaints.rows.length > 0 ? (
+          <div className="ops-home__group">
+            <h3>Open complaints <Link to="/operations/complaints">See all →</Link></h3>
+            <ul className="ops-home__list">
+              {complaints.rows.map((complaint) => (
+                <li key={complaint.id}>
+                  <div>
+                    <strong>{complaint.title}</strong>
+                    <span>{[complaint.customerName, complaint.reference].filter(Boolean).join(' · ')}</span>
+                  </div>
+                  <time>{formatDayTime(complaint.createdAt)}</time>
+                  <StatusPill status={complaint.status} label={complaint.statusLabel} />
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
-      </Panel>
+
+        {lowTechnicians.length > 0 ? (
+          <div className="ops-home__group">
+            <h3>Technicians who need more devices <Link to="/operations/inventory">Open inventory →</Link></h3>
+            <ul className="ops-home__list">
+              {lowTechnicians.map((row) => (
+                <li key={row.technicianId}>
+                  <div>
+                    <strong>{row.name}</strong>
+                    <span>{row.station || 'No station'}</span>
+                  </div>
+                  <span className="ops-low">{row.devices.held} left</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
