@@ -8,6 +8,8 @@ import CustomerTimeline from './CustomerTimeline.jsx';
 import CertificatePreview from '../certificates/CertificatePreview.jsx';
 import CertificateTable from '../certificates/CertificateTable.jsx';
 import VehicleEditDrawer from './VehicleEditDrawer.jsx';
+import CustomerVehiclesDrawer from './CustomerVehiclesDrawer.jsx';
+import PasswordReveal from './PasswordReveal.jsx';
 import BriefingPanel, { AccountStateTag } from '../manager/BriefingPanel.jsx';
 import { PriorityTag, StatusPill } from '../operations/OpsStatus.jsx';
 import { formatDayTime } from '../../app/operations.js';
@@ -44,18 +46,21 @@ export default function CustomerAccountView({
   busyInvoiceId = null,
   moneyLink,
   onRecordAmcPayment,
+  variant = 'full',
 }) {
+  const desk = variant === 'operations';
   const { customer, jobs, invoices, payments, complaints, totals } = data;
   const adjustments = data.adjustments ?? [];
   const certificates = data.certificates ?? [];
   const [previewing, setPreviewing] = useState(null);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const [vehiclesOpen, setVehiclesOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(false);
   const [category, setCategory] = useState(customer.category ?? '');
   const [categorySaving, setCategorySaving] = useState(false);
   const [categoryError, setCategoryError] = useState(null);
   const [editingContact, setEditingContact] = useState(false);
-  const [contact, setContact] = useState({ phone: customer.phone ?? '', address: customer.address ?? '' });
+  const [contact, setContact] = useState({ phone: customer.phone ?? '', address: customer.address ?? '', appLogin: customer.appLogin ?? '', appPassword: customer.appPassword ?? '' });
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState(null);
   const [editingCommercial, setEditingCommercial] = useState(false);
@@ -123,6 +128,7 @@ export default function CustomerAccountView({
         ) : null}
       </section>
 
+      {desk ? null : (
       <dl className="account-totals">
         <div><dt>Invoiced</dt><dd>{formatMoney(totals.invoiced)}</dd></div>
         <div><dt>Received</dt><dd>{formatMoney(totals.paid)}</dd></div>
@@ -130,6 +136,7 @@ export default function CustomerAccountView({
         <div><dt>Installations</dt><dd>{totals.completedInstallations} <small>of {totals.installations}</small></dd></div>
         <div><dt>Open complaints</dt><dd>{totals.openComplaints}</dd></div>
       </dl>
+      )}
 
       <section className="panel">
         <div className="panel__head">
@@ -165,6 +172,14 @@ export default function CustomerAccountView({
             <label className="field">
               <span className="field__label">Phone number</span>
               <input className="input" type="tel" maxLength={60} value={contact.phone} onChange={(event) => setContact((current) => ({ ...current, phone: event.target.value }))} />
+            </label>
+            <label className="field">
+              <span className="field__label">App login</span>
+              <input className="input" type="text" maxLength={160} autoComplete="off" value={contact.appLogin} onChange={(event) => setContact((current) => ({ ...current, appLogin: event.target.value }))} />
+            </label>
+            <label className="field">
+              <span className="field__label">App password</span>
+              <input className="input" type="text" maxLength={160} autoComplete="off" value={contact.appPassword} onChange={(event) => setContact((current) => ({ ...current, appPassword: event.target.value }))} />
             </label>
             <label className="field field--full">
               <span className="field__label">Address</span>
@@ -265,6 +280,12 @@ export default function CustomerAccountView({
               <dd>{value}</dd>
             </div>
           ))}
+          {customer.appLogin !== undefined ? (
+            <>
+              <div><dt>App login</dt><dd>{customer.appLogin || '—'}</dd></div>
+              <div><dt>App password</dt><dd><PasswordReveal value={customer.appPassword} label="app password" /></dd></div>
+            </>
+          ) : null}
           {customer.notes ? (
             <div className="account-facts__wide">
               <dt>Notes</dt>
@@ -272,7 +293,7 @@ export default function CustomerAccountView({
             </div>
           ) : null}
         </dl>
-        {profileRows.length === 0 && !customer.notes ? (
+        {profileRows.length === 0 && !customer.notes && customer.appLogin === undefined ? (
           <p className="panel__note">Only the customer name has been recorded so far.</p>
         ) : null}
       </section>
@@ -293,45 +314,29 @@ export default function CustomerAccountView({
               <p>This customer was added for follow-up. Vehicle and installation details appear once operations fits a unit.</p>
             </div>
           ) : (
-            <ul className="vehicle-list">
-              {installations.map((job) => (
-                <li key={job.id} className="vehicle">
-                  <header className="vehicle__head">
-                    <div>
-                      <strong>{job.vehicle?.label || 'Vehicle'}</strong>
-                      <span>{job.vehicle?.registration || 'No registration'}</span>
-                    </div>
-                    <StatusPill status={job.status} label={job.statusLabel} />
-                  </header>
-                  <dl className="vehicle__facts">
-                    <div><dt>Station</dt><dd>{job.vehicle?.station || '—'}</dd></div>
-                    <div><dt>Technician</dt><dd>{job.technician?.name || 'Unassigned'}</dd></div>
-                    <div><dt>Device IMEI</dt><dd className="mono">{job.deviceImei || '—'}</dd></div>
-                    <div><dt>SIM</dt><dd className="mono">{job.simNumber || '—'}</dd></div>
-                    <div><dt>SIM mode</dt><dd>{job.simMode || '—'}</dd></div>
-                    <div><dt>Login ID</dt><dd>{job.loginId || '—'}</dd></div>
-                    <div><dt>Old VRN</dt><dd>{job.oldVrn || '—'}</dd></div>
-                    <div><dt>Installation date</dt><dd>{formatDay(job.installationDate)}</dd></div>
-                    <div><dt>Installation month</dt><dd>{job.installationMonth || '—'}</dd></div>
-                    <div><dt>Record year</dt><dd>{job.recordYear || '—'}</dd></div>
-                    <div><dt>Engine no.</dt><dd className="mono">{job.vehicle?.engineNo || '—'}</dd></div>
-                    <div><dt>Chassis no.</dt><dd className="mono">{job.vehicle?.chassisNo || '—'}</dd></div>
-                    <div><dt>Scheduled</dt><dd>{formatDayTime(job.scheduledAt)}</dd></div>
-                    <div><dt>Completed</dt><dd>{formatDayTime(job.completedAt)}</dd></div>
-                  </dl>
-                  <footer className="vehicle__foot">
-                    <span>{job.packageName || 'No package'} · sold {formatMoney(job.quotedPrice ?? job.listPrice)}</span>
-                    <span>Job {job.reference}</span>
-                    <button type="button" className="btn btn--outline btn--small" onClick={() => setEditingVehicle(job)}>Edit details</button>
-                  </footer>
-                </li>
-              ))}
-            </ul>
+            <div className="vehicles-summary">
+              <p>
+                <strong>{installations.length}</strong> {installations.length === 1 ? 'vehicle' : 'vehicles'} on this account
+                {installations.length > 0 ? ` · ${installations.filter((job) => job.status === 'completed').length} installed` : ''}.
+              </p>
+              <button type="button" className="btn btn--primary btn--small" onClick={() => setVehiclesOpen(true)}>
+                View vehicles ({installations.length})
+              </button>
+            </div>
           )}
         </section>
 
-        <BriefingPanel customer={customer} saving={saving} onSave={onSaveBriefing} />
+        {desk ? null : <BriefingPanel customer={customer} saving={saving} onSave={onSaveBriefing} />}
       </div>
+
+      {vehiclesOpen ? (
+        <CustomerVehiclesDrawer
+          customerName={customer.name}
+          vehicles={installations}
+          onClose={() => setVehiclesOpen(false)}
+          onOpen={(job) => { setVehiclesOpen(false); setEditingVehicle(job); }}
+        />
+      ) : null}
 
       {editingVehicle ? (
         <VehicleEditDrawer
@@ -344,6 +349,8 @@ export default function CustomerAccountView({
         />
       ) : null}
 
+      {desk ? null : (
+        <>
       <section className="panel">
         <div className="panel__head">
           <div>
@@ -388,6 +395,9 @@ export default function CustomerAccountView({
           emptyMessage="Record a payment against an issued invoice and it appears here."
         />
       </section>
+
+        </>
+      )}
 
       <section className="panel">
         <div className="panel__head">

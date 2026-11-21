@@ -176,7 +176,7 @@ async function buildPlan(batch) {
       if (existingJob) {
         if (existingJob.legacy?.batch?.toString() === batchId) {
           vehicle = 'done';
-        } else if (values.inspectionStatus || values.packageRaw) {
+        } else if (values.inspectionStatus || values.packageRaw || values.appLogin || values.appPassword) {
           // Already in the system, but the sheet knows its past (Redo, Removal, package): keep that as history only.
           vehicle = 'history';
           result.existingJobId = existingJob._id.toString();
@@ -234,6 +234,13 @@ async function buildPlan(batch) {
   }
 
   return { results, prepared, fileCustomers };
+}
+
+/** Fill the app login and password on a customer that already exists, but never overwrite what is there. */
+async function fillAppLogin(customerId, values) {
+  if (!customerId) return;
+  if (values.appLogin) await Customer.updateOne({ _id: customerId, appLogin: { $in: [null, ''] } }, { $set: { appLogin: values.appLogin } });
+  if (values.appPassword) await Customer.updateOne({ _id: customerId, appPassword: { $in: [null, ''] } }, { $set: { appPassword: values.appPassword } });
 }
 
 const COUNTED = {
@@ -338,6 +345,7 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
             if (!already) fresh.push({ customer: result.customerId, job: result.existingJobId, vrn: values.registration, kind, action, detail, date: null, isHistoricalData: true, batch: batch._id });
           }
           if (fresh.length) await TimelineEvent.insertMany(fresh);
+          await fillAppLogin(result.customerId, values);
           if (values.amcExpiryDate) await Job.updateOne({ _id: result.existingJobId, amcExpiryDate: null }, { $set: { amcExpiryDate: values.amcExpiryDate } });
         } catch (error) {
           Object.assign(result, { status: 'error', outcome: 'error', message: `Could not save this row: ${String(error.message).slice(0, 200)}` });
@@ -363,6 +371,8 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
             company: values.company,
             category: CUSTOMER_CATEGORIES.includes(values.category) ? values.category : '',
             address: values.address,
+            appLogin: values.appLogin,
+            appPassword: values.appPassword,
             notes: values.notes,
             packageKey: values.packageKey || null,
             packagePrice: values.packagePrice === '' ? null : values.packagePrice,
@@ -378,6 +388,7 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
           group.name = customer.name;
         }
         result.customerId = group.customerId;
+        await fillAppLogin(group.customerId, values);
         if (group.customerId && values.packageKey) {
           await Customer.updateOne({ _id: group.customerId }, {
             $set: {

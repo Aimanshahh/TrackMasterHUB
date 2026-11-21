@@ -47,9 +47,11 @@ const operationsGroups = [
       { to: '/operations', label: 'Overview', icon: 'overview', end: true },
       { to: '/operations/queue', label: 'Work queue', icon: 'operations' },
       { to: '/operations/pending-installations', label: 'Pending installations', icon: 'followup' },
+      { to: '/operations/customers', label: 'Customers', icon: 'customers' },
       { to: '/operations/vehicles', label: 'Vehicles', icon: 'operations' },
       { to: '/operations/complaints', label: 'Complaints', icon: 'complaints' },
       { to: '/operations/calls', label: 'Call logs', icon: 'followup' },
+      { to: '/operations/whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
     ],
   },
   {

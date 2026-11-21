@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import Panel from '../../components/app/Panel.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { fetchCustomerMessages, fetchCustomers, sendCustomerWhatsAppMessage, sendWhatsAppBroadcast } from '../../lib/api.js';
 
@@ -18,7 +17,7 @@ export default function AdminMessagesPage() {
   const [messages, setMessages] = useState([]);
   const [body, setBody] = useState('');
   const [broadcast, setBroadcast] = useState(false);
-  const [state, setState] = useState({ loading: false, sending: false, error: null, notice: null });
+  const [state, setState] = useState({ loading: false, sending: false, error: null });
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -42,10 +41,7 @@ export default function AdminMessagesPage() {
   }, [search]);
 
   useEffect(() => {
-    if (!selected) {
-      setMessages([]);
-      return undefined;
-    }
+    if (!selected) { setMessages([]); return undefined; }
     const controller = new AbortController();
     fetchCustomerMessages(selected.id, { signal: controller.signal })
       .then((payload) => setMessages(payload.data?.messages ?? []))
@@ -57,7 +53,7 @@ export default function AdminMessagesPage() {
     event.preventDefault();
     if ((!selected && !broadcast) || !body.trim()) return;
     if (broadcast && !window.confirm('Send this message to every customer with a phone number?')) return;
-    setState((current) => ({ ...current, sending: true, error: null, notice: null }));
+    setState((current) => ({ ...current, sending: true, error: null }));
     try {
       const payload = broadcast
         ? await sendWhatsAppBroadcast(body)
@@ -74,49 +70,79 @@ export default function AdminMessagesPage() {
         setToast({ tone: 'warning', text: `${payload.data.queued} messages saved, but the WhatsApp gateway is not configured so none were sent.` });
       }
       setBody('');
-      setState((current) => ({ ...current, sending: false }));
     } catch (error) {
       setToast({ tone: 'error', text: error.message || 'The message could not be sent.' });
+    } finally {
       setState((current) => ({ ...current, sending: false }));
     }
   }
 
+  const recipient = broadcast ? 'All customers with a phone number' : selected ? `${selected.name} · ${selected.phone || 'no phone number'}` : null;
+
   return (
-    <div className="messages-workspace">
-      <div className="messages-workspace__notice">Messages go out through your WhatsApp gateway. If the gateway is not set up on the server, they are saved in the Hub and not sent.</div>
-      <div className="messages-workspace__toolbar">
-        <div className="messages-workspace__toolbar-copy"><span className="messages-workspace__toolbar-icon" aria-hidden="true">➤</span><div><strong>Choose how to send</strong><span>Send to one customer or prepare one message for your full customer list.</span></div></div>
-        <div className="messages-workspace__mode">
-          <button type="button" className={!broadcast ? 'is-active' : ''} onClick={() => setBroadcast(false)}><span aria-hidden="true">●</span> One customer</button>
-          <button type="button" className={broadcast ? 'is-active' : ''} onClick={() => setBroadcast(true)}><span aria-hidden="true">●●</span> All customers</button>
+    <div className="wa">
+      <div className="wa-bar">
+        <p>Messages go out through the WhatsApp gateway. If it is not set up on the server, they are saved here and not sent.</p>
+        <div className="wa-seg" role="group" aria-label="Recipients">
+          <button type="button" className={!broadcast ? 'is-active' : ''} onClick={() => setBroadcast(false)}>One customer</button>
+          <button type="button" className={broadcast ? 'is-active' : ''} onClick={() => setBroadcast(true)}>All customers</button>
         </div>
       </div>
-      <div className="messages-workspace__layout">
-        {!broadcast ? <Panel heading={<span className="messages-workspace__panel-heading"><span className="messages-workspace__panel-icon" aria-hidden="true">●</span>Choose customer</span>}>
-          <input className="input" placeholder="Search name or phone…" value={search} onChange={(event) => setSearch(event.target.value)} />
-          <div className="messages-workspace__customers">
-            {state.loading ? <p className="data-state">Searching…</p> : null}
-            {customers.map((customer) => (
-              <button type="button" className={`messages-workspace__customer${selected?.id === customer.id ? ' is-selected' : ''}`} key={customer.id} onClick={() => setSelected(customer)}>
-                <span className="messages-workspace__avatar" aria-hidden="true">●</span><span className="messages-workspace__customer-copy"><strong>{customer.name}</strong><span>{customer.phone || 'No phone number'}</span></span>{selected?.id === customer.id ? <span className="messages-workspace__check" aria-hidden="true">✓</span> : null}
-              </button>
-            ))}
-            {!state.loading && customers.length === 0 ? <p className="panel__note">No customers found.</p> : null}
-          </div>
-        </Panel> : <section className="messages-workspace__broadcast-card"><span className="messages-workspace__broadcast-icon">ALL</span><div><h3>All customers</h3><p>The message will be sent to every customer with a phone number. Customers without a phone number will be skipped.</p></div></section>}
-        <Panel heading={<span className="messages-workspace__panel-heading"><span className="messages-workspace__panel-icon messages-workspace__panel-icon--message" aria-hidden="true">•••</span>{broadcast ? 'Broadcast message' : selected ? `Message ${selected.name}` : 'Write a message'}</span>}>
+
+      <div className="wa__grid">
+        {!broadcast ? (
+          <section className="wa-card">
+            <header className="wa-card__head"><h2>Customer</h2></header>
+            <input className="input" type="search" placeholder="Search name or phone" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <ul className="wa-list wa-list--tall">
+              {state.loading ? <li className="wa-list__note">Searching…</li> : null}
+              {customers.map((customer) => (
+                <li key={customer.id}>
+                  <button type="button" className={selected?.id === customer.id ? 'is-selected' : ''} onClick={() => setSelected(customer)}>
+                    <strong>{customer.name}</strong><span>{customer.phone || 'No phone'}</span>
+                  </button>
+                </li>
+              ))}
+              {!state.loading && customers.length === 0 ? <li className="wa-list__note">No customers found.</li> : null}
+            </ul>
+          </section>
+        ) : (
+          <section className="wa-card">
+            <header className="wa-card__head"><h2>Everyone</h2></header>
+            <p className="panel__note">The message goes to every customer with a phone number. Customers without one are skipped.</p>
+          </section>
+        )}
+
+        <section className="wa-card">
+          <header className="wa-card__head"><h2>{broadcast ? 'Broadcast message' : selected ? `Message ${selected.name}` : 'Write a message'}</h2></header>
           {broadcast || selected ? (
             <>
-              <p className="messages-workspace__recipient">To: <strong>{broadcast ? 'All customers with phone numbers' : selected.phone || 'No phone number'}</strong><button type="button" className="messages-workspace__copy" aria-label="Copy recipient">□</button></p>
+              <p className="wa-to">To <strong>{recipient}</strong></p>
               <form onSubmit={send}>
-                <div className="messages-workspace__textarea-wrap"><textarea className="input input--area" rows="7" maxLength="4096" placeholder="Write your WhatsApp message…" value={body} onChange={(event) => setBody(event.target.value)} /><span className="messages-workspace__emoji" aria-hidden="true">☺</span></div>
-                <div className="messages-workspace__compose-footer"><span>{body.length}/4096</span><button className="btn btn--primary messages-workspace__send" type="submit" disabled={state.sending || !body.trim() || (!broadcast && !selected?.phone)}><span aria-hidden="true">➤</span>{state.sending ? <><span className="wa-spinner" aria-hidden="true" />Sending…</> : 'Send message'}</button></div>
+                <textarea className="input input--area" rows="7" maxLength="4096" placeholder="Write your WhatsApp message…" value={body} onChange={(event) => setBody(event.target.value)} />
+                <div className="wa-actions">
+                  <span>{body.length}/4096</span>
+                  <button className="btn btn--primary" type="submit" disabled={state.sending || !body.trim() || (!broadcast && !selected?.phone)}>
+                    {state.sending ? <><span className="wa-spinner" aria-hidden="true" />Sending…</> : 'Send message'}
+                  </button>
+                </div>
               </form>
-              {!broadcast && messages.length ? <div className="messages-workspace__history"><h3>Message history</h3>{messages.map((message) => <article key={message.id}><p>{message.body}</p><small className={`wa-status wa-status--${message.status}`}>{formatDate(message.createdAt)} · {STATUS_TEXT[message.status] ?? message.status}{message.status === 'failed' && message.error ? ` (${message.error})` : ''}</small></article>)}</div> : null}
+              {!broadcast && messages.length ? (
+                <div className="wa-history">
+                  <h3>Message history</h3>
+                  {messages.map((message) => (
+                    <article key={message.id}>
+                      <p>{message.body}</p>
+                      <small className={`wa-status wa-status--${message.status}`}>{formatDate(message.createdAt)} · {STATUS_TEXT[message.status] ?? message.status}{message.status === 'failed' && message.error ? ` (${message.error})` : ''}</small>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
             </>
           ) : <p className="panel__note">Select a customer to write a message.</p>}
-        </Panel>
+        </section>
       </div>
+
       {state.error ? <p className="app-notice app-notice--error" role="alert">{state.error}</p> : null}
       {toast ? (
         <div className={`wa-toast wa-toast--${toast.tone}`} role={toast.tone === 'error' ? 'alert' : 'status'}>

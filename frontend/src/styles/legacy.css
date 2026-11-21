@@ -9,12 +9,6 @@
 .device-line:last-child { margin-bottom: 0; }
 .device-line__role { color: var(--brand-deep); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 
-.messages-workspace { color: var(--ink); }
-.messages-workspace__notice { background: var(--paper); border-color: var(--line-strong); color: var(--ink-soft); }
-.messages-workspace .btn--primary { background: var(--ink); border-color: var(--ink); color: #f6f5f1; }
-.messages-workspace .btn--primary:hover:not(:disabled) { background: #2a2f37; border-color: #2a2f37; }
-.messages-workspace .btn--primary:disabled { opacity: .55; cursor: not-allowed; }
-.messages-workspace__send { display: inline-flex; align-items: center; gap: 8px; }
 
 .wa-spinner { width: 13px; height: 13px; border: 2px solid rgba(246, 245, 241, .35); border-top-color: #f6f5f1; border-radius: 50%; animation: wa-spin .7s linear infinite; }
 @keyframes wa-spin { to { transform: rotate(360deg); } }

@@ -18,6 +18,14 @@ import {
   postSim,
   postTechnician,
 } from './operations.controller.js';
+import {
+  getDeskCustomer,
+  getDeskCustomers,
+  getMessageTemplates,
+  postMessagePreview,
+  postMessageTemplate,
+  postWhatsAppSend,
+} from './desk.controller.js';
 
 export const operationsRouter = Router();
 
@@ -48,3 +56,13 @@ operationsRouter.patch('/devices/:id', deskOnly, patchDevice);
 operationsRouter.get('/sims', deskOnly, getSims);
 operationsRouter.post('/sims', deskOnly, postSim);
 operationsRouter.patch('/sims/:id', deskOnly, patchSim);
+
+// Search-first customer lookup and profile for the desk. No prices or security briefing.
+operationsRouter.get('/customers', deskOnly, getDeskCustomers);
+operationsRouter.get('/customers/:id', deskOnly, getDeskCustomer);
+
+// WhatsApp template sender (goes out through the WhatsApp gateway).
+operationsRouter.get('/message-templates', deskOnly, getMessageTemplates);
+operationsRouter.post('/message-templates', deskOnly, postMessageTemplate);
+operationsRouter.post('/whatsapp/preview', deskOnly, postMessagePreview);
+operationsRouter.post('/whatsapp/send', deskOnly, postWhatsAppSend);

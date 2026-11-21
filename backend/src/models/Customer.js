@@ -74,6 +74,9 @@ const customerSchema = new mongoose.Schema(
       default: 'company',
     },
     address: { type: String, trim: true, maxlength: 400, default: '' },
+    /** The customer's login for the tracking app. Shown on the account screens and used by the "Login Details" WhatsApp template. */
+    appLogin: { type: String, trim: true, maxlength: 160, default: '' },
+    appPassword: { type: String, trim: true, maxlength: 160, default: '' },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -183,6 +186,8 @@ customerSchema.methods.toDetailJson = function (options = {}) {
 
   return {
     ...base,
+    appLogin: this.appLogin ?? '',
+    appPassword: this.appPassword ?? '',
     briefing: {
       cnic: this.briefing?.cnic ?? '',
       dob: this.briefing?.dob?.toISOString() ?? null,
@@ -193,6 +198,18 @@ customerSchema.methods.toDetailJson = function (options = {}) {
       geofenceAddress: this.briefing?.geofenceAddress ?? '',
       completedAt: this.briefing?.completedAt?.toISOString() ?? null,
     },
+  };
+};
+
+/**
+ * The operations desk sees the customer's account details and app login, but
+ * never the security briefing (CNIC, PINs) or any price.
+ */
+customerSchema.methods.toOperationsJson = function () {
+  return {
+    ...this.toApiJson({ includeFinancials: false }),
+    appLogin: this.appLogin ?? '',
+    appPassword: this.appPassword ?? '',
   };
 };
 

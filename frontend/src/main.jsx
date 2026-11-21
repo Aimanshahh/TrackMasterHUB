@@ -16,6 +16,7 @@ import './styles/commercial.css';
 import './styles/manager.css';
 import './styles/installation.css';
 import './styles/legacy.css';
+import './styles/whatsapp.css';
 
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import App from './App.jsx';

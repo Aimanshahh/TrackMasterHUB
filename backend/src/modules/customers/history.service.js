@@ -39,7 +39,7 @@ export async function getCustomerHistory(customerId, user) {
 
   const includeMoney = MONEY_ROLES.includes(user.role);
 
-  const [jobs, complaints, invoices, payments, adjustments, messages, calls, legacyRows] = await Promise.all([
+  const [jobs, complaints, invoices, payments, adjustments, messages, calls, legacyRows, whatsappRows] = await Promise.all([
     Job.find({ customer: customer._id }).sort({ createdAt: 1 }).populate('technician', 'name'),
     Complaint.find({ customer: customer._id }).sort({ createdAt: 1 }),
     includeMoney ? Invoice.find({ customer: customer._id }).sort({ createdAt: 1 }) : [],
@@ -48,6 +48,7 @@ export async function getCustomerHistory(customerId, user) {
     listMessagesForCustomer(customer._id),
     CALL_ROLES.includes(user.role) ? listCallsForCustomer(customer._id) : [],
     TimelineEvent.find({ customer: customer._id, isHistoricalData: true }).sort({ createdAt: 1 }),
+    TimelineEvent.find({ customer: customer._id, kind: 'whatsapp' }).sort({ date: 1 }),
   ]);
 
   // Imported history with no known date. Prices are money, so only the roles that may see money get them.
@@ -177,7 +178,7 @@ export async function getCustomerHistory(customerId, user) {
     money,
     legacyTimeline,
     timeline: buildTimeline(
-      { customer, jobs, complaints, invoices, payments, adjustments, messages },
+      { customer, jobs, complaints, invoices, payments, adjustments, messages, whatsapp: whatsappRows.map((row) => row.toApiJson()) },
       { includeMoney },
     ),
   };

@@ -41,7 +41,7 @@ export function describeDuration(ms) {
  * Merge every source into one list, newest first. `includeMoney` is false for
  * roles that must not see billing, in which case no money event is produced.
  */
-export function buildTimeline({ customer, jobs = [], complaints = [], invoices = [], payments = [], adjustments = [], messages = [] }, { includeMoney = false } = {}) {
+export function buildTimeline({ customer, jobs = [], complaints = [], invoices = [], payments = [], adjustments = [], messages = [], whatsapp = [] }, { includeMoney = false } = {}) {
   const events = [];
   const add = (at, kind, title, detail, source, ref) => {
     if (!at) return;
@@ -73,6 +73,8 @@ export function buildTimeline({ customer, jobs = [], complaints = [], invoices =
   for (const message of messages) {
     add(message.createdAt, 'message', `${message.channelLabel ?? message.channel} ${message.statusLabel ?? message.status}: ${message.subject ?? ''}`.trim(), message.error, 'Messages', message.complaintReference);
   }
+
+  for (const event of whatsapp) add(event.at, 'message', event.title, event.detail, event.source ?? 'WhatsApp');
 
   if (includeMoney) {
     for (const invoice of invoices) {
