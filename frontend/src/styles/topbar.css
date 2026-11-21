@@ -1,0 +1,31 @@
+/* Workspace top bar: quiet, white, one line. */
+.app-topbar { height: 56px; padding-inline: clamp(16px, 2.6vw, 32px); background: #fff; backdrop-filter: none; border-bottom: 1px solid var(--line); box-shadow: none; }
+.app-topbar__left, .app-topbar__right { gap: 10px; }
+.app-crumb { font-size: 12.5px; gap: 8px; color: var(--muted); letter-spacing: 0; }
+.app-crumb strong { font-weight: 600; color: var(--ink); }
+.app-crumb span[aria-hidden] { color: var(--line-strong); }
+
+.app-bell { width: 34px; height: 34px; border-radius: 8px; border-color: transparent; background: transparent; color: var(--ink-soft); }
+.app-bell:hover { background: var(--paper); border-color: transparent; color: var(--ink); }
+.app-bell__dot { top: 7px; right: 8px; background: var(--ink); box-shadow: 0 0 0 2px #fff; }
+
+.app-profile { gap: 10px; padding: 4px 8px 4px 4px; border-radius: 999px; border: 1px solid transparent; }
+.app-profile:hover { background: var(--paper); }
+.app-profile__avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #f6f5f1; font-size: 12px; font-weight: 600; }
+.app-profile__text strong { font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.15; }
+.app-profile__text small { font-size: 11px; color: var(--muted); }
+.app-profile:focus-visible, .app-topbar__menu:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.app-menu { top: calc(100% + 8px); width: 250px; padding: 6px; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 14px 34px rgb(18 21 26 / 12%); }
+.app-menu__head { padding: 10px 10px 12px; }
+.app-menu__head strong { font-size: 13px; }
+.app-menu__item { border-radius: 6px; }
+
+/* Only appears when something is wrong. */
+.app-alertchip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink); font-size: 12px; text-decoration: none; white-space: nowrap; }
+.app-alertchip--offline { border-color: #e2b8ba; background: #fbf1f1; color: #8a1a20; }
+
+@media (max-width: 860px) {
+  .app-topbar { height: 54px; }
+  .app-alertchip { padding: 5px 8px; font-size: 11px; }
+}

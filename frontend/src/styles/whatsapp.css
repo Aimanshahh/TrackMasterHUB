@@ -98,3 +98,13 @@
 .ops-home__list time { color: var(--muted); font-size: 12px; }
 @media (max-width: 860px) { .ops-home__tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .ops-home__list li { grid-template-columns: 1fr auto; } .ops-home__list time { display: none; } }
+
+/* Sales board */
+.sales-board { display: grid; gap: 16px; max-width: 1180px; }
+.ops-home__tile small { font-size: 12px; color: var(--muted); }
+.sales-muted { color: var(--muted); font-size: 12px; }
+.sales-block { display: block; }
+.sales-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--paper); font-size: 11.5px; white-space: nowrap; }
+.sales-pill[data-tone='pending'] { border-color: #e2cf9f; background: #fbf6e8; color: #7a5a00; }
+.sales-pill[data-tone='approved'] { border-color: #bcd6c1; background: #eff7f0; color: #2f6b3d; }
+.sales-pill[data-tone='rejected'] { border-color: #e2b8ba; background: #fbf1f1; color: #8a1a20; }
