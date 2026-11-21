@@ -39,7 +39,7 @@ const adminPages = [
 ];
 
 const operationsPages = [
-  { match: /^\/operations\/?$/, title: 'Operations overview', description: 'Live workload, stock position and technician availability from the business database.' },
+  { match: /^\/operations\/?$/, title: 'Today', description: 'What needs doing now.' },
   { match: /^\/operations\/queue/, title: 'Work queue', description: 'Installation and follow-up work pushed by the sales team, ready for assignment.' },
   { match: /^\/operations\/pending-installations/, title: 'Pending installations', description: 'Sold vehicles waiting for assignment, scheduling or installation, oldest first.' },
   { match: /^\/operations\/customers\/[^/]+/, title: 'Customer profile', description: 'Contact details, app login, vehicles and history for one customer.' },
