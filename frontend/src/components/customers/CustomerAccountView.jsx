@@ -298,7 +298,7 @@ export default function CustomerAccountView({
         ) : null}
       </section>
 
-      <div className="account-grid">
+      <div className={desk ? 'account-grid account-grid--single' : 'account-grid'}>
         <section className="panel">
           <div className="panel__head">
             <div>
@@ -315,10 +315,17 @@ export default function CustomerAccountView({
             </div>
           ) : (
             <div className="vehicles-summary">
-              <p>
-                <strong>{installations.length}</strong> {installations.length === 1 ? 'vehicle' : 'vehicles'} on this account
-                {installations.length > 0 ? ` · ${installations.filter((job) => job.status === 'completed').length} installed` : ''}.
-              </p>
+              <dl className="vehicles-summary__stats">
+                <div><dt>Vehicles</dt><dd>{installations.length}</dd></div>
+                <div><dt>Installed</dt><dd>{installations.filter((job) => job.status === 'completed').length}</dd></div>
+                <div><dt>Pending</dt><dd>{installations.filter((job) => job.status !== 'completed').length}</dd></div>
+              </dl>
+              <ul className="vehicles-summary__plates" aria-label="Registrations">
+                {installations.slice(0, 5).map((job) => (
+                  <li key={job.id} className="mono">{job.vehicle?.registration || 'No VRN'}</li>
+                ))}
+                {installations.length > 5 ? <li className="vehicles-summary__more">+{installations.length - 5} more</li> : null}
+              </ul>
               <button type="button" className="btn btn--primary btn--small" onClick={() => setVehiclesOpen(true)}>
                 View vehicles ({installations.length})
               </button>
