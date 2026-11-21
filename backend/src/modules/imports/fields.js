@@ -10,6 +10,8 @@ export const IMPORT_FIELDS = [
   { key: 'company', label: 'Company', group: 'Customer', required: false, synonyms: ['company', 'company name', 'organization', 'organisation', 'business'] },
   { key: 'category', label: 'Category', group: 'Customer', required: false, synonyms: ['category', 'customer category', 'customer type', 'client type'] },
   { key: 'address', label: 'Address', group: 'Customer', required: false, synonyms: ['address', 'customer address', 'client address', 'location'] },
+  { key: 'appLogin', label: 'App login (email / username)', group: 'Customer', required: false, synonyms: ['app login', 'app email', 'app username', 'app user', 'login email', 'login name', 'app login email', 'tracker login', 'tracking login', 'login'] },
+  { key: 'appPassword', label: 'App password', group: 'Customer', required: false, synonyms: ['app password', 'app pass', 'login password', 'tracker password', 'tracking password', 'password', 'pass'] },
   { key: 'cnic', label: 'CNIC', group: 'Customer', required: false, synonyms: ['cnic', 'cnic no', 'cnic number', 'nic', 'id card', 'national id'] },
   { key: 'notes', label: 'Notes', group: 'Customer', required: false, synonyms: ['notes', 'note', 'remarks', 'remark', 'comments', 'comment', 'final remarks'] },
   { key: 'packageKey', label: 'Package (basic/standard/premium/customize/personal)', group: 'Commercial', required: false, synonyms: ['package', 'package name', 'plan', 'service package'] },

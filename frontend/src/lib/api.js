@@ -122,6 +122,37 @@ export function sendWhatsAppBroadcast(body) {
   });
 }
 
+/* ---------------- Operations desk: customers and WhatsApp templates ---------------- */
+
+export function searchDeskCustomers(search, { signal } = {}) {
+  return apiRequest(withQuery('/api/operations/customers', { search, limit: 20 }), { signal });
+}
+
+export function fetchDeskCustomer(id, { signal } = {}) {
+  return apiRequest(`/api/operations/customers/${encodeURIComponent(id)}`, { signal });
+}
+
+export function fetchMessageTemplates({ signal } = {}) {
+  return apiRequest('/api/operations/message-templates', { signal });
+}
+
+export function createMessageTemplate(input) {
+  return sendJson('/api/operations/message-templates', 'POST', input);
+}
+
+export function previewTemplateMessage(input, { signal } = {}) {
+  return apiRequest('/api/operations/whatsapp/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+    signal,
+  });
+}
+
+export function sendTemplateMessage(input) {
+  return sendJson('/api/operations/whatsapp/send', 'POST', input);
+}
+
 /* ---------------- Authentication ---------------- */
 
 export function fetchAuthStatus({ signal } = {}) {

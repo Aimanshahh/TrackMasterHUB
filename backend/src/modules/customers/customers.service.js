@@ -129,6 +129,8 @@ async function updateCustomer(id, input) {
   if (input.company !== undefined) customer.company = String(input.company).trim();
   if (input.address !== undefined) customer.address = String(input.address).trim();
   if (input.category !== undefined) customer.category = String(input.category).trim();
+  if (input.appLogin !== undefined) customer.appLogin = String(input.appLogin).trim().slice(0, 160);
+  if (input.appPassword !== undefined) customer.appPassword = String(input.appPassword).trim().slice(0, 160);
   if (input.priority !== undefined) customer.priority = input.priority;
   if (input.notes !== undefined) customer.notes = String(input.notes).trim();
   if (input.followUp !== undefined) {

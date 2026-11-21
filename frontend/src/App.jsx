@@ -31,6 +31,9 @@ import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
 import SalespersonPerformancePage from './pages/app/SalespersonPerformancePage.jsx';
 import AdminMessagesPage from './pages/app/AdminMessagesPage.jsx';
+import OperationsCustomersPage from './pages/app/OperationsCustomersPage.jsx';
+import OperationsCustomerDetailPage from './pages/app/OperationsCustomerDetailPage.jsx';
+import OperationsWhatsAppPage from './pages/app/OperationsWhatsAppPage.jsx';
 import AdjustmentPrintPage from './pages/billing/AdjustmentPrintPage.jsx';
 import CertificatesPage from './pages/app/CertificatesPage.jsx';
 import ImportCustomersPage from './pages/app/ImportCustomersPage.jsx';
@@ -155,6 +158,9 @@ export default function App() {
             <Route index element={<OperationsOverviewPage />} />
             <Route path="queue" element={<OperationsQueuePage />} />
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
+            <Route path="customers" element={<OperationsCustomersPage />} />
+            <Route path="customers/:customerId" element={<OperationsCustomerDetailPage />} />
+            <Route path="whatsapp" element={<OperationsWhatsAppPage />} />
             <Route path="vehicles" element={<VehicleRecordsPage />} />
             <Route path="vehicles/:id" element={<VehicleProfilePage />} />
             <Route path="complaints" element={<OperationsComplaintsPage />} />
