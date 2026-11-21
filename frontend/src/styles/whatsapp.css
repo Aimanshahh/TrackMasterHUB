@@ -71,3 +71,10 @@
 .secret { display: inline-flex; align-items: center; gap: 8px; }
 .secret__toggle { display: inline-grid; place-items: center; width: 26px; height: 26px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; }
 .secret__toggle:hover { background: var(--paper); }
+
+/* Shezz device fetch */
+.inventory-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.inventory-toolbar p { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+.shezz-how { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+.shezz-how[data-how='suggested'] { color: #8a5a00; }
+.shezz-result ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.8; }

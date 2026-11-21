@@ -1,3 +1,4 @@
+import { applyShezzSync, previewShezzSync } from './shezz.service.js';
 import { getCustomerProfile, searchCustomers } from './customers.service.js';
 import { createTemplate, listTemplates, previewMessage, sendTemplateMessage } from './whatsapp.service.js';
 
@@ -34,5 +35,17 @@ export async function postMessagePreview(req, res, next) {
 export async function postWhatsAppSend(req, res, next) {
   try {
     return res.json({ data: await sendTemplateMessage(req.body ?? {}, req.user) });
+  } catch (error) { next(error); }
+}
+
+export async function getShezzPreview(req, res, next) {
+  try {
+    return res.json({ data: await previewShezzSync() });
+  } catch (error) { next(error); }
+}
+
+export async function postShezzSync(req, res, next) {
+  try {
+    return res.json({ data: await applyShezzSync(req.body ?? {}, req.user) });
   } catch (error) { next(error); }
 }

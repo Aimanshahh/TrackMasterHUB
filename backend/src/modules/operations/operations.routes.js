@@ -21,6 +21,8 @@ import {
 import {
   getDeskCustomer,
   getDeskCustomers,
+  getShezzPreview,
+  postShezzSync,
   getMessageTemplates,
   postMessagePreview,
   postMessageTemplate,
@@ -58,6 +60,8 @@ operationsRouter.post('/sims', deskOnly, postSim);
 operationsRouter.patch('/sims/:id', deskOnly, patchSim);
 
 // Search-first customer lookup and profile for the desk. No prices or security briefing.
+operationsRouter.get('/shezz/preview', deskOnly, getShezzPreview);
+operationsRouter.post('/shezz/sync', deskOnly, postShezzSync);
 operationsRouter.get('/customers', deskOnly, getDeskCustomers);
 operationsRouter.get('/customers/:id', deskOnly, getDeskCustomer);
 

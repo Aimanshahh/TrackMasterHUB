@@ -153,6 +153,14 @@ export function sendTemplateMessage(input) {
   return sendJson('/api/operations/whatsapp/send', 'POST', input);
 }
 
+export function fetchShezzPreview() {
+  return apiRequest('/api/operations/shezz/preview');
+}
+
+export function runShezzSync(mappings) {
+  return sendJson('/api/operations/shezz/sync', 'POST', { mappings });
+}
+
 /* ---------------- Authentication ---------------- */
 
 export function fetchAuthStatus({ signal } = {}) {
