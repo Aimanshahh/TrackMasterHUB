@@ -70,11 +70,12 @@ export default function AppTopbar({ workspace, onOpenNav }) {
         <strong>{section?.label ?? 'Workspace'}</strong>
       </div>
       <div className="app-topbar__right">
-        <span className="app-topbar__date">{new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date())}</span>
-        <Link to={workspace.settingsPath} className="app-health" title={status === 'online' ? `API online · database ${databaseStatus ?? 'unknown'}` : 'API status unavailable'}>
-          <span className={`status-dot status-dot--${healthTone}`} aria-hidden="true" />
-          <span>{healthLabel}</span>
-        </Link>
+        {healthTone !== 'online' ? (
+          <Link to="/status" className={`app-alertchip app-alertchip--${healthTone}`} title="Open system status">
+            <span className={`status-dot status-dot--${healthTone}`} aria-hidden="true" />
+            {healthLabel}
+          </Link>
+        ) : null}
         <NotificationBell />
         <div className="app-profile-wrap" ref={profileRef}>
           <button type="button" className="app-profile" aria-label={`${name}, ${roleLabels[user?.role] ?? 'Account'} — account menu`} aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen((open) => !open)}>

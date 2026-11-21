@@ -1,21 +1,14 @@
+import SalesBoard from '../../components/sales/SalesBoard.jsx';
+import { useSalesBoard } from '../../components/sales/useSalesBoard.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
+import { fetchSalesOverview } from '../../lib/api.js';
 
+/** Company-wide sales for the admin: every salesperson, price approvals and renewals due. */
 export default function SalesPage() {
   useDocumentTitle('Sales');
+  const { status, board, error } = useSalesBoard(fetchSalesOverview);
 
-  return (
-    <section className="sales-workspace">
-      <div className="sales-workspace__heading">
-        <p className="app-page-head__eyebrow">COMMERCIAL WORKSPACE</p>
-        <h2>Sales</h2>
-        <p>Keep quotes, approvals and completed sales together in one clear view.</p>
-      </div>
-      <div className="sales-workspace__cards">
-        <article><strong>Sales pipeline</strong><span>Track each customer from quote to completed sale.</span></article>
-        <article><strong>Customer quotes</strong><span>View package, price and salesperson details together.</span></article>
-        <article><strong>Approval history</strong><span>Review decisions and keep every commercial record visible to Admin.</span></article>
-      </div>
-      <p className="sales-workspace__note">Sales records will appear here as soon as the sales workflow is connected. No sample figures are shown.</p>
-    </section>
-  );
+  if (status === 'loading') return <p className="data-state" role="status">Loading sales…</p>;
+  if (status === 'error') return <p className="app-notice app-notice--error" role="alert">Sales could not be loaded: {error}</p>;
+  return <SalesBoard board={board} mode="company" customerLink={(id) => `/admin/customers/${id}`} approvalsLink="/admin/approvals" />;
 }
