@@ -59,15 +59,13 @@
 .vehicles-table__row:hover, .vehicles-table__row:focus-visible { background: var(--paper); outline: none; }
 .vehicles-drawer__filter { margin-bottom: 10px; }
 .account-grid--single { grid-template-columns: minmax(0, 1fr); }
-.vehicles-summary { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 20px; padding: 16px 20px; border-top: 1px solid var(--line); }
-.vehicles-summary__stats { display: flex; gap: 26px; margin: 0; }
-.vehicles-summary__stats div { display: grid; gap: 2px; }
+.vehicles-summary { display: grid; gap: 12px; padding: 18px 20px; border-top: 1px solid var(--line); }
+.vehicles-summary__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.vehicles-summary__stats { display: flex; gap: 32px; margin: 0; }
+.vehicles-summary__stats div { display: grid; gap: 3px; }
 .vehicles-summary__stats dt { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .vehicles-summary__stats dd { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.1; }
-.vehicles-summary__plates { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.vehicles-summary__plates li { padding: 3px 9px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--paper); font-size: 12px; }
-.vehicles-summary__plates .vehicles-summary__more { border-style: dashed; color: var(--muted); font-family: inherit; }
-@media (max-width: 760px) { .vehicles-summary { grid-template-columns: 1fr; gap: 12px; } }
+.vehicles-summary__plates { margin: 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); line-height: 1.7; }
 
 /* Hidden-until-asked secret, used for the customer app password */
 .secret { display: inline-flex; align-items: center; gap: 8px; }
