@@ -1,0 +1,56 @@
+/* Phones: tables become cards, touch targets grow, nothing scrolls sideways. */
+.sales-contact { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.ledger--stack td a.btn { text-decoration: none; }
+
+@media (max-width: 720px) {
+  .ledger-wrap:has(.ledger--stack) { border: 0; background: transparent; overflow: visible; }
+  .ledger--stack, .ledger--stack tbody, .ledger--stack tr, .ledger--stack td { display: block; width: 100%; }
+  .ledger--stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ledger--stack tr { margin-bottom: 10px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .ledger--stack tbody tr:hover { background: var(--surface); }
+  .ledger--stack td { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 7px 0; border: 0; text-align: right; font-size: 13px; }
+  .ledger--stack td + td { border-top: 1px solid var(--line); }
+  .ledger--stack td::before { content: attr(data-label); flex: none; color: var(--muted); font-size: 11.5px; text-align: left; }
+  .ledger--stack td:first-child { font-size: 14.5px; }
+  .ledger--stack td select, .ledger--stack td .input { max-width: 60%; }
+  .ledger--stack td small.sales-block { text-align: right; }
+
+  .ops-home__tiles { gap: 10px; }
+  .ops-home__tile { padding: 14px; }
+  .ops-home__tile strong { font-size: 26px; }
+  .ops-home__tile span { font-size: 12px; }
+
+  .sales-board, .ops-home, .wa, .desk-search { gap: 14px; }
+  .wa-card { padding: 14px; }
+  .desk-search__box { padding: 16px; }
+  .desk-search__input { font-size: 16px; }   /* 16px stops iOS from zooming the page on focus */
+  .wa .input, .wa-card .input, .drawer .input { font-size: 16px; }
+
+  .btn { min-height: 40px; }
+  .drawer--wide, .drawer { width: 100%; }
+  .vehicles-summary__row { align-items: flex-start; }
+  .vehicles-summary__stats { gap: 20px; }
+  .inventory-toolbar { flex-direction: column; align-items: stretch; }
+  .ops-home__actions .btn { flex: 1 1 calc(50% - 8px); justify-content: center; }
+  .wa-toast { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 380px) {
+  .ops-home__tiles { grid-template-columns: 1fr 1fr; }
+  .ops-home__tile strong { font-size: 22px; }
+}
+
+/* Grid and flex children may shrink below their content, otherwise one long
+   value pushes the whole page wider than the phone. */
+.sales-board > *, .ops-home > *, .wa > *, .wa__grid > *, .desk-search > *, .wa-card, .ledger-wrap { min-width: 0; max-width: 100%; }
+.ledger--stack td { overflow-wrap: anywhere; }
+.ops-home__tile[data-tone='attention'] { border-left-color: var(--brand); }
+
+@media (max-width: 720px) {
+  .wa-card:has(.ledger--stack) { padding: 0; border: 0; background: transparent; }
+  .wa-card:has(.ledger--stack) > .wa-card__head { padding: 2px 2px 0; }
+}
+
+/* Wide tables scroll inside their own frame instead of widening the page. */
+.ledger-wrap { overflow-x: auto; }
+.ledger--stack { min-width: 0; }

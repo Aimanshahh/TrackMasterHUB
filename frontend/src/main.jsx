@@ -18,6 +18,8 @@ import './styles/installation.css';
 import './styles/legacy.css';
 import './styles/whatsapp.css';
 import './styles/topbar.css';
+import './styles/responsive.css';
+import './styles/sales-mobile.css';
 
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import App from './App.jsx';

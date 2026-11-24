@@ -52,7 +52,7 @@ export default function CustomerVehiclesDrawer({ customerName, vehicles, onClose
             />
           ) : null}
           <div className="ledger-wrap">
-            <table className="ledger vehicles-table">
+            <table className="ledger ledger--stack vehicles-table">
               <thead>
                 <tr>
                   <th>VRN</th>
@@ -65,11 +65,11 @@ export default function CustomerVehiclesDrawer({ customerName, vehicles, onClose
               <tbody>
                 {rows.map((job) => (
                   <tr key={job.id} className="vehicles-table__row" tabIndex={0} onClick={() => onOpen(job)} onKeyDown={(event) => { if (event.key === 'Enter') onOpen(job); }}>
-                    <td><strong>{job.vehicle?.registration || '—'}</strong></td>
-                    <td>{job.vehicle?.label || '—'}</td>
-                    <td className="mono">{job.deviceImei || '—'}</td>
-                    <td>{formatDay(job.installationDate)}</td>
-                    <td><StatusPill status={job.status} label={job.statusLabel} /></td>
+                    <td data-label="VRN"><strong>{job.vehicle?.registration || '—'}</strong></td>
+                    <td data-label="Vehicle">{job.vehicle?.label || '—'}</td>
+                    <td data-label="Device IMEI" className="mono">{job.deviceImei || '—'}</td>
+                    <td data-label="Installed">{formatDay(job.installationDate)}</td>
+                    <td data-label="Status"><StatusPill status={job.status} label={job.statusLabel} /></td>
                   </tr>
                 ))}
                 {rows.length === 0 ? <tr><td colSpan={5}>No vehicle matches that filter.</td></tr> : null}

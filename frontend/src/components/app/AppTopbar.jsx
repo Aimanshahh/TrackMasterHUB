@@ -71,9 +71,9 @@ export default function AppTopbar({ workspace, onOpenNav }) {
       </div>
       <div className="app-topbar__right">
         {healthTone !== 'online' ? (
-          <Link to="/status" className={`app-alertchip app-alertchip--${healthTone}`} title="Open system status">
+          <Link to="/status" className={`app-alertchip app-alertchip--${healthTone}`} title={healthLabel} aria-label={`${healthLabel}. Open system status`}>
             <span className={`status-dot status-dot--${healthTone}`} aria-hidden="true" />
-            {healthLabel}
+            <span className="app-alertchip__text">{healthLabel}</span>
           </Link>
         ) : null}
         <NotificationBell />

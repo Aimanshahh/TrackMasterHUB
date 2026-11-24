@@ -93,16 +93,16 @@ export default function ShezzSyncDrawer({ onClose, onDone }) {
                 {state.data.truncated ? <p className="panel__note">Only the first 2,000 devices were read. Run the import again afterwards for the rest.</p> : null}
                 {state.data.technicians.length === 0 ? <p className="form-alert" role="alert">No technicians exist here yet. Create them first so the names can be matched.</p> : null}
                 <div className="ledger-wrap">
-                  <table className="ledger">
+                  <table className="ledger ledger--stack">
                     <thead>
                       <tr><th>Name on Shezz</th><th>Devices</th><th>Technician in the Hub</th><th>Will happen</th></tr>
                     </thead>
                     <tbody>
                       {groups.map((group) => (
                         <tr key={group.key}>
-                          <td><strong>{group.shezzName}</strong></td>
-                          <td>{group.deviceCount}</td>
-                          <td>
+                          <td data-label="Name on Shezz"><strong>{group.shezzName}</strong></td>
+                          <td data-label="Devices">{group.deviceCount}</td>
+                          <td data-label="Technician">
                             <select
                               className="input"
                               value={choices[group.key] ?? ''}
@@ -114,7 +114,7 @@ export default function ShezzSyncDrawer({ onClose, onDone }) {
                             </select>
                             {group.match ? <small className="shezz-how" data-how={group.match.how}>{HOW_TEXT[group.match.how]}</small> : <small className="shezz-how">No match, choose one</small>}
                           </td>
-                          <td>
+                          <td data-label="Will happen">
                             {group.newDevices} new{group.toReassign ? `, ${group.toReassign} to move` : ''}
                             {group.fitted ? <small className="shezz-how">{group.fitted} fitted, untouched</small> : null}
                           </td>
