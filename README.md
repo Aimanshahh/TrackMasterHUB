@@ -138,6 +138,9 @@ Mobile-first: a bottom tab bar on phones, the full sidebar on desktop.
   their customers' vehicles whose yearly plan has expired or ends within 30 days,
   and the package price list. Only their own figures are returned; the server
   takes the salesperson from the session.
+  On a phone the screen switches to a thumb-friendly layout: one headline number
+  for the month, two quick chips, and big tabs (Renewals, My sales, Prices) over
+  card lists, with one-tap Call and WhatsApp buttons on every renewal.
 - Notifications: when operations changes the status of a request or ticket the
   salesperson logged, the backend creates a notification for that owner. The bell
   in the top bar and the “Latest updates” panel read the same records.

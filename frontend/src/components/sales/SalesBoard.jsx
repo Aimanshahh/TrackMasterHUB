@@ -3,46 +3,25 @@ import { Link } from 'react-router-dom';
 
 import { fetchPackages } from '../../lib/api.js';
 import { formatMoney } from '../../lib/format.js';
-
-const APPROVAL_TEXT = {
-  not_required: 'Standard price',
-  pending: 'Awaiting approval',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
-function formatDay(value) {
-  return value ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : '—';
-}
-
-function renewalText(row) {
-  if (row.state === 'expired') return `Expired ${Math.abs(row.daysLeft)} ${Math.abs(row.daysLeft) === 1 ? 'day' : 'days'} ago`;
-  return row.daysLeft === 0 ? 'Expires today' : `Expires in ${row.daysLeft} ${row.daysLeft === 1 ? 'day' : 'days'}`;
-}
+import SalesMobile from './SalesMobile.jsx';
+import { APPROVAL_TEXT, callLink, formatDay, renewalText, whatsappLink } from './salesHelpers.js';
+import { useMediaQuery } from './useMediaQuery.js';
 
 /** Package rates, so a salesperson can quote without leaving the page. */
-function PriceList() {
-  const [state, setState] = useState({ rows: [], currency: 'PKR' });
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPackages({ signal: controller.signal })
-      .then((payload) => setState({ rows: payload.data ?? [], currency: payload.meta?.currency ?? 'PKR' }))
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
+function PriceList({ state }) {
   if (state.rows.length === 0) return null;
   return (
     <section className="wa-card">
       <header className="wa-card__head"><h2>Price list</h2></header>
       <div className="ledger-wrap">
-        <table className="ledger">
+        <table className="ledger ledger--stack">
           <thead><tr><th>Package</th><th>What it covers</th><th>Price</th></tr></thead>
           <tbody>
             {state.rows.map((item) => (
               <tr key={item.key}>
-                <td><strong>{item.name}</strong></td>
-                <td className="sales-muted">{item.summary}</td>
-                <td>{item.price === null || item.price === undefined ? <span className="sales-muted">Not set yet</span> : formatMoney(item.price, state.currency)}</td>
+                <td data-label="Package"><strong>{item.name}</strong></td>
+                <td data-label="Covers" className="sales-muted">{item.summary}</td>
+                <td data-label="Price">{item.price === null || item.price === undefined ? <span className="sales-muted">Not set yet</span> : formatMoney(item.price, state.currency)}</td>
               </tr>
             ))}
           </tbody>
@@ -58,6 +37,20 @@ function PriceList() {
  */
 export default function SalesBoard({ board, mode, customerLink, approvalsLink }) {
   const company = mode === 'company';
+  const phone = useMediaQuery('(max-width: 720px)');
+  const [packages, setPackages] = useState({ rows: [], currency: 'PKR' });
+
+  useEffect(() => {
+    if (company) return undefined;
+    const controller = new AbortController();
+    fetchPackages({ signal: controller.signal })
+      .then((payload) => setPackages({ rows: payload.data ?? [], currency: payload.meta?.currency ?? 'PKR' }))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [company]);
+
+  if (phone) return <SalesMobile board={board} mode={mode} customerLink={customerLink} approvalsLink={approvalsLink} packages={packages} />;
+
   const { totals } = board;
 
   const tiles = [
@@ -82,16 +75,16 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink })
         <section className="wa-card">
           <header className="wa-card__head"><h2>By salesperson</h2></header>
           <div className="ledger-wrap">
-            <table className="ledger">
+            <table className="ledger ledger--stack">
               <thead><tr><th>Salesperson</th><th>This month</th><th>Value this month</th><th>All sales</th><th>All-time value</th></tr></thead>
               <tbody>
                 {board.bySalesperson.map((row) => (
                   <tr key={row.id}>
-                    <td><strong>{row.name}</strong></td>
-                    <td>{row.monthSales}</td>
-                    <td>{formatMoney(row.monthValue)}</td>
-                    <td>{row.sales}</td>
-                    <td>{formatMoney(row.value)}</td>
+                    <td data-label="Salesperson"><strong>{row.name}</strong></td>
+                    <td data-label="This month">{row.monthSales}</td>
+                    <td data-label="Value this month">{formatMoney(row.monthValue)}</td>
+                    <td data-label="All sales">{row.sales}</td>
+                    <td data-label="All-time value">{formatMoney(row.value)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -106,24 +99,24 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink })
           <p className="panel__note">{company ? 'No sale has been recorded yet.' : 'You have not recorded a sale yet. Start one from a customer using Request installation.'}</p>
         ) : (
           <div className="ledger-wrap">
-            <table className="ledger">
+            <table className="ledger ledger--stack">
               <thead>
-                <tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Package</th><th>Price</th><th>Approval</th><th>Progress</th>{company ? <th>Salesperson</th> : null}</tr>
+                <tr><th>Customer</th><th>Date</th><th>Vehicle</th><th>Package</th><th>Price</th><th>Approval</th><th>Progress</th>{company ? <th>Salesperson</th> : null}</tr>
               </thead>
               <tbody>
                 {board.recent.map((row) => (
                   <tr key={row.id}>
-                    <td>{formatDay(row.createdAt)}</td>
-                    <td>{row.customerId && customerLink ? <Link to={customerLink(row.customerId)}><strong>{row.customerName || 'Customer'}</strong></Link> : <strong>{row.customerName || 'Customer'}</strong>}</td>
-                    <td className="mono">{row.registration || '—'}</td>
-                    <td>{row.packageName || '—'}</td>
-                    <td>
+                    <td data-label="Customer">{row.customerId && customerLink ? <Link to={customerLink(row.customerId)}><strong>{row.customerName || 'Customer'}</strong></Link> : <strong>{row.customerName || 'Customer'}</strong>}</td>
+                    <td data-label="Date">{formatDay(row.createdAt)}</td>
+                    <td data-label="Vehicle" className="mono">{row.registration || '—'}</td>
+                    <td data-label="Package">{row.packageName || '—'}</td>
+                    <td data-label="Price">
                       {formatMoney(row.quotedPrice)}
                       {row.discount > 0 ? <small className="sales-muted sales-block">{formatMoney(row.discount)} below list</small> : null}
                     </td>
-                    <td><span className="sales-pill" data-tone={row.approvalStatus}>{APPROVAL_TEXT[row.approvalStatus] ?? row.approvalStatus}</span></td>
-                    <td>{row.statusLabel}</td>
-                    {company ? <td>{row.salesperson || '—'}</td> : null}
+                    <td data-label="Approval"><span className="sales-pill" data-tone={row.approvalStatus}>{APPROVAL_TEXT[row.approvalStatus] ?? row.approvalStatus}</span></td>
+                    <td data-label="Progress">{row.statusLabel}</td>
+                    {company ? <td data-label="Salesperson">{row.salesperson || '—'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -138,16 +131,22 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink })
           <p className="panel__note">No vehicle has a yearly plan that expired or expires in the next 30 days.</p>
         ) : (
           <div className="ledger-wrap">
-            <table className="ledger">
-              <thead><tr><th>Customer</th><th>Phone</th><th>Vehicle</th><th>Plan ends</th><th>Status</th></tr></thead>
+            <table className="ledger ledger--stack">
+              <thead><tr><th>Customer</th><th>Phone</th><th>Vehicle</th><th>Plan ends</th><th>Status</th><th>Contact</th></tr></thead>
               <tbody>
                 {board.renewals.map((row) => (
                   <tr key={row.id}>
-                    <td>{row.customerId && customerLink ? <Link to={customerLink(row.customerId)}><strong>{row.customerName || 'Customer'}</strong></Link> : <strong>{row.customerName || 'Customer'}</strong>}</td>
-                    <td className="mono">{row.phone || '—'}</td>
-                    <td className="mono">{row.registration || '—'}</td>
-                    <td>{formatDay(row.expiresAt)}</td>
-                    <td><span className="sales-pill" data-tone={row.state === 'expired' ? 'rejected' : 'pending'}>{renewalText(row)}</span></td>
+                    <td data-label="Customer">{row.customerId && customerLink ? <Link to={customerLink(row.customerId)}><strong>{row.customerName || 'Customer'}</strong></Link> : <strong>{row.customerName || 'Customer'}</strong>}</td>
+                    <td data-label="Phone" className="mono">{row.phone || '—'}</td>
+                    <td data-label="Vehicle" className="mono">{row.registration || '—'}</td>
+                    <td data-label="Plan ends">{formatDay(row.expiresAt)}</td>
+                    <td data-label="Status"><span className="sales-pill" data-tone={row.state === 'expired' ? 'rejected' : 'pending'}>{renewalText(row)}</span></td>
+                    <td data-label="Contact">
+                      <span className="sales-contact">
+                        {callLink(row.phone) ? <a className="btn btn--outline btn--small" href={callLink(row.phone)}>Call</a> : null}
+                        {whatsappLink(row.phone) ? <a className="btn btn--outline btn--small" href={whatsappLink(row.phone)} target="_blank" rel="noreferrer">WhatsApp</a> : null}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -156,7 +155,7 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink })
         )}
       </section>
 
-      {!company ? <PriceList /> : null}
+      {!company ? <PriceList state={packages} /> : null}
     </div>
   );
 }

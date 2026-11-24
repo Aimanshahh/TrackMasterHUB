@@ -86,7 +86,7 @@
 .ops-home__tile:hover { border-color: var(--ink); }
 .ops-home__tile span { font-size: 12.5px; color: var(--ink-soft); }
 .ops-home__tile strong { font-size: 32px; font-weight: 600; line-height: 1; }
-.ops-home__tile[data-tone='attention'] { border-left: 3px solid var(--ink); }
+.ops-home__tile[data-tone='attention'] { border-left: 3px solid var(--brand); }
 .ops-home__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ops-home__group h3 { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0 6px; font-size: 13px; }
 .ops-home__group h3 a { font-size: 12px; font-weight: 400; color: var(--ink-soft); }

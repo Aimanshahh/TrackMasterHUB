@@ -69,18 +69,18 @@ export default function OperationsCustomersPage() {
           <div className="desk-search__empty"><h2>No customer found</h2><p>Check the spelling, or try the phone number or registration instead.</p></div>
         ) : (
           <div className="ledger-wrap">
-            <table className="ledger desk-results">
+            <table className="ledger ledger--stack desk-results">
               <thead>
                 <tr><th>Customer</th><th>Phone</th><th>Category</th><th>Vehicles</th><th>Matched VRN</th></tr>
               </thead>
               <tbody>
                 {state.rows.map((customer) => (
                   <tr key={customer.id} tabIndex={0} className="vehicles-table__row" onClick={() => open(customer)} onKeyDown={(event) => { if (event.key === 'Enter') open(customer); }}>
-                    <td><strong>{customer.name}</strong>{customer.company ? <small className="desk-results__sub">{customer.company}</small> : null}</td>
-                    <td className="mono">{customer.phone || '—'}</td>
-                    <td>{customer.category || '—'}</td>
-                    <td>{customer.vehicleCount}</td>
-                    <td className="mono">{customer.matchedVrn || '—'}</td>
+                    <td data-label="Customer"><strong>{customer.name}</strong>{customer.company ? <small className="desk-results__sub">{customer.company}</small> : null}</td>
+                    <td data-label="Phone" className="mono">{customer.phone || '—'}</td>
+                    <td data-label="Category">{customer.category || '—'}</td>
+                    <td data-label="Vehicles">{customer.vehicleCount}</td>
+                    <td data-label="Matched VRN" className="mono">{customer.matchedVrn || '—'}</td>
                   </tr>
                 ))}
               </tbody>
