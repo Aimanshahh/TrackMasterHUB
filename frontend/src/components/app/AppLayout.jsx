@@ -14,9 +14,9 @@ export default function AppLayout({ workspace }) {
 
   return (
     <div className={`app-frame${hasTabs ? ' app-frame--field' : ''}`}>
-      <AppSidebar workspace={workspace} open={navOpen} onClose={() => setNavOpen(false)} />
+      {hasTabs ? null : <AppSidebar workspace={workspace} open={navOpen} onClose={() => setNavOpen(false)} />}
       <div className="app-main">
-        <AppTopbar workspace={workspace} onOpenNav={() => setNavOpen(true)} />
+        <AppTopbar workspace={workspace} onOpenNav={() => setNavOpen(true)} showMenu={!hasTabs} />
         <main className="app-content" id="main-content">
           <PageHeader workspace={workspace} />
           <div className="app-page">

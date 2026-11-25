@@ -37,3 +37,11 @@ export function renewalText(row) {
   return row.daysLeft === 0 ? 'Expires today' : `Expires in ${row.daysLeft} ${row.daysLeft === 1 ? 'day' : 'days'}`;
 }
 
+
+export const CANCEL_REASONS = [
+  ['customer_changed_mind', 'Customer changed their mind'],
+  ['technician_delayed', 'Technician was delayed'],
+  ['price_too_high', 'Price too high'],
+  ['bought_elsewhere', 'Bought elsewhere'],
+  ['other', 'Other reason'],
+];

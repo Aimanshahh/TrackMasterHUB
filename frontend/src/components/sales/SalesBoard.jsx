@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { fetchPackages } from '../../lib/api.js';
 import { formatMoney } from '../../lib/format.js';
+import SaleCancel from './SaleCancel.jsx';
 import SalesMobile from './SalesMobile.jsx';
 import { APPROVAL_TEXT, callLink, formatDay, renewalText, whatsappLink } from './salesHelpers.js';
 import { useMediaQuery } from './useMediaQuery.js';
@@ -35,7 +36,7 @@ function PriceList({ state }) {
  * Sales and renewals in one place. mode "mine" is a salesperson's own figures;
  * mode "company" is the admin and manager view across everyone.
  */
-export default function SalesBoard({ board, mode, customerLink, approvalsLink }) {
+export default function SalesBoard({ board, mode, customerLink, approvalsLink, onChanged }) {
   const company = mode === 'company';
   const phone = useMediaQuery('(max-width: 720px)');
   const [packages, setPackages] = useState({ rows: [], currency: 'PKR' });
@@ -49,13 +50,14 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink })
     return () => controller.abort();
   }, [company]);
 
-  if (phone) return <SalesMobile board={board} mode={mode} customerLink={customerLink} approvalsLink={approvalsLink} packages={packages} />;
+  if (phone || !company) return <SalesMobile board={board} mode={mode} customerLink={customerLink} approvalsLink={approvalsLink} packages={packages} onChanged={onChanged} />;
 
   const { totals } = board;
 
   const tiles = [
-    { label: 'Sales this month', value: totals.monthSales, note: formatMoney(totals.monthValue) },
-    { label: 'All sales', value: totals.sales, note: formatMoney(totals.salesValue) },
+    { label: company ? 'Sales this month' : 'Installations this month', value: totals.monthSales, note: company ? formatMoney(totals.monthValue) : 'Since the 1st' },
+    { label: company ? 'All sales' : 'All installations', value: totals.sales, note: company ? formatMoney(totals.salesValue) : 'Not cancelled' },
+    { label: 'Cancelled', value: totals.cancelled ?? 0, note: 'Waiting on the customer', attention: false },
     { label: 'Awaiting price approval', value: totals.awaitingApproval, note: approvalsLink ? 'Open approvals' : 'Admin decides', to: approvalsLink, attention: totals.awaitingApproval > 0 },
     { label: 'Renewals due', value: totals.renewalsDue, note: totals.renewalsExpired ? `${totals.renewalsExpired} already expired` : 'Within 30 days', attention: totals.renewalsExpired > 0 },
   ];
@@ -94,14 +96,39 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink })
       ) : null}
 
       <section className="wa-card">
-        <header className="wa-card__head"><h2>{company ? 'Latest sales' : 'My latest sales'}</h2></header>
+        <header className="wa-card__head"><h2>Cancelled sales</h2></header>
+        {(board.cancelled ?? []).length === 0 ? (
+          <p className="panel__note">No sale has been cancelled. A cancelled sale is kept here with the reason.</p>
+        ) : (
+          <div className="ledger-wrap">
+            <table className="ledger ledger--stack">
+              <thead><tr><th>Customer</th><th>Vehicle</th><th>Reason</th><th>Cancelled on</th>{company ? <th>Salesperson</th> : null}<th>Action</th></tr></thead>
+              <tbody>
+                {board.cancelled.map((row) => (
+                  <tr key={row.id}>
+                    <td data-label="Customer">{row.customerId && customerLink ? <Link to={customerLink(row.customerId)}><strong>{row.customerName || 'Customer'}</strong></Link> : <strong>{row.customerName || 'Customer'}</strong>}</td>
+                    <td data-label="Vehicle" className="mono">{row.registration || '—'}</td>
+                    <td data-label="Reason">{row.cancellation.reasonLabel}{row.cancellation.note ? <small className="sales-muted sales-block">{row.cancellation.note}</small> : null}</td>
+                    <td data-label="Cancelled on">{formatDay(row.cancellation.cancelledAt)}</td>
+                    {company ? <td data-label="Salesperson">{row.salesperson || '—'}</td> : null}
+                    <td data-label="Action"><SaleCancel row={row} onChanged={onChanged} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="wa-card">
+        <header className="wa-card__head"><h2>{company ? 'Latest sales' : 'My latest installations'}</h2></header>
         {board.recent.length === 0 ? (
           <p className="panel__note">{company ? 'No sale has been recorded yet.' : 'You have not recorded a sale yet. Start one from a customer using Request installation.'}</p>
         ) : (
           <div className="ledger-wrap">
             <table className="ledger ledger--stack">
               <thead>
-                <tr><th>Customer</th><th>Date</th><th>Vehicle</th><th>Package</th><th>Price</th><th>Approval</th><th>Progress</th>{company ? <th>Salesperson</th> : null}</tr>
+                <tr><th>Customer</th><th>Date</th><th>Vehicle</th><th>Package</th>{company ? <th>Price</th> : null}<th>Approval</th><th>Progress</th>{company ? <th>Salesperson</th> : null}</tr>
               </thead>
               <tbody>
                 {board.recent.map((row) => (
@@ -110,13 +137,16 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink })
                     <td data-label="Date">{formatDay(row.createdAt)}</td>
                     <td data-label="Vehicle" className="mono">{row.registration || '—'}</td>
                     <td data-label="Package">{row.packageName || '—'}</td>
-                    <td data-label="Price">
-                      {formatMoney(row.quotedPrice)}
-                      {row.discount > 0 ? <small className="sales-muted sales-block">{formatMoney(row.discount)} below list</small> : null}
-                    </td>
+                    {company ? (
+                      <td data-label="Price">
+                        {formatMoney(row.quotedPrice)}
+                        {row.discount > 0 ? <small className="sales-muted sales-block">{formatMoney(row.discount)} below list</small> : null}
+                      </td>
+                    ) : null}
                     <td data-label="Approval"><span className="sales-pill" data-tone={row.approvalStatus}>{APPROVAL_TEXT[row.approvalStatus] ?? row.approvalStatus}</span></td>
                     <td data-label="Progress">{row.statusLabel}</td>
                     {company ? <td data-label="Salesperson">{row.salesperson || '—'}</td> : null}
+                    <td data-label="Action"><SaleCancel row={row} onChanged={onChanged} /></td>
                   </tr>
                 ))}
               </tbody>

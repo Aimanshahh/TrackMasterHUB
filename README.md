@@ -115,7 +115,7 @@ demo data.
 
 ### Salesperson workspace (`/salesperson`)
 
-Mobile-first: a bottom tab bar on phones, the full sidebar on desktop.
+App-style: no sidebar, a bottom tab bar at every width, and an avatar menu for Follow-ups and settings.
 
 - “My day”: own customer count, overdue follow-ups, open requests, open tickets,
   the next follow-ups to make and the latest status updates.
@@ -388,8 +388,10 @@ Every response carries `X-Request-Id`.
 | GET    | `/api/manager/customers/:id`      | admin, manager             |
 | PATCH  | `/api/manager/customers/:id/briefing` | admin, manager         |
 | GET    | `/api/manager/billing-queue`      | admin, manager             |
-| GET    | `/api/sales/mine`                 | salesperson — own sales and renewals |
-| GET    | `/api/sales/overview`             | admin, manager — company sales, by salesperson |
+| GET    | `/api/sales/mine`                 | salesperson — own installation counts, cancelled sales and renewals (no money) |
+| GET    | `/api/sales/overview`             | admin, manager — company sales and value, by salesperson |
+| POST   | `/api/sales/:id/cancel`           | salesperson (own), admin, manager — cancel a sale with a reason |
+| POST   | `/api/sales/:id/restore`          | salesperson (own), admin, manager — restore a cancelled sale |
 | GET    | `/api/operations/customers?search=` | admin, operations — search-first, max 25 |
 | GET    | `/api/operations/customers/:id`   | admin, operations — profile without money records |
 | GET    | `/api/operations/message-templates` | admin, operations        |
@@ -508,7 +510,7 @@ TrackMaster red `#d7131b`, paper `#f6f5f1`, hairline `#e0ddd5`, night `#101317`.
   left with accounts only — no customers, jobs, complaints, devices or
   technicians.
 - Salesperson workspace checked at 390 px and 1440 px: no horizontal overflow,
-  bottom tab bar on phones, sidebar on desktop, drawers usable on both.
+  bottom tab bar with no sidebar for the salesperson, drawers usable on both.
 - Empty states verified for customers, follow-ups, queue, complaints and stock.
 - Stock alerts recalculated from live records: a station or technician dropping
   below three available devices raises one notification per 12 hours, and the

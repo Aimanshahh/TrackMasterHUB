@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import SaleCancel from './SaleCancel.jsx';
 import { APPROVAL_TEXT, callLink, formatDay, formatMoney, renewalText, whatsappLink } from './salesHelpers.js';
 
 function CustomerName({ row, customerLink }) {
@@ -44,7 +45,7 @@ function RenewalCard({ row, customerLink }) {
   );
 }
 
-function SaleCard({ row, customerLink, company }) {
+function SaleCard({ row, customerLink, company, onChanged }) {
   return (
     <article className="sm-card">
       <header className="sm-card__head">
@@ -55,17 +56,23 @@ function SaleCard({ row, customerLink, company }) {
             {row.packageName ? ` ${row.packageName}` : ''}
           </span>
         </div>
-        <div className="sm-price">
-          <strong>{formatMoney(row.quotedPrice)}</strong>
-          {row.discount > 0 ? <small>{formatMoney(row.discount)} below list</small> : null}
-        </div>
+        {row.quotedPrice !== undefined ? (
+          <div className="sm-price">
+            <strong>{formatMoney(row.quotedPrice)}</strong>
+            {row.discount > 0 ? <small>{formatMoney(row.discount)} below list</small> : null}
+          </div>
+        ) : null}
       </header>
+      {row.cancellation ? (
+        <p className="sm-hold__why"><strong>{row.cancellation.reasonLabel}</strong>{row.cancellation.note ? ` · ${row.cancellation.note}` : ''}<br /><span className="sm-meta">Cancelled on {formatDay(row.cancellation.cancelledAt)}{row.cancellation.cancelledBy ? ` · ${row.cancellation.cancelledBy}` : ''}</span></p>
+      ) : null}
       <footer className="sm-card__foot">
         <span className="sm-pill" data-tone={row.approvalStatus === 'pending' ? 'warn' : row.approvalStatus === 'rejected' ? 'bad' : row.approvalStatus === 'approved' ? 'good' : 'plain'}>
           {APPROVAL_TEXT[row.approvalStatus] ?? row.approvalStatus}
         </span>
         <span className="sm-meta">{row.statusLabel} · {formatDay(row.createdAt)}{company && row.salesperson ? ` · ${row.salesperson}` : ''}</span>
       </footer>
+      <SaleCancel row={row} onChanged={onChanged} />
     </article>
   );
 }
@@ -74,20 +81,23 @@ function SaleCard({ row, customerLink, company }) {
  * The phone layout of Sales: one headline number, two quick chips, then one
  * list at a time behind big tabs. Built for thumbs, and for the Android app.
  */
-export default function SalesMobile({ board, mode, customerLink, approvalsLink, packages }) {
+export default function SalesMobile({ board, mode, customerLink, approvalsLink, packages, onChanged }) {
   const company = mode === 'company';
   const { totals } = board;
   const tabs = company
-    ? [['sales', 'Sales', board.recent.length], ['team', 'Team', board.bySalesperson?.length ?? 0], ['renewals', 'Renewals', board.renewals.length]]
-    : [['renewals', 'Renewals', board.renewals.length], ['sales', 'My sales', board.recent.length], ['prices', 'Prices', packages.rows.length]];
+    ? [['sales', 'Sales', board.recent.length], ['cancelled', 'Cancelled', board.cancelled?.length ?? 0], ['team', 'Team', board.bySalesperson?.length ?? 0], ['renewals', 'Renewals', board.renewals.length]]
+    : [['renewals', 'Renewals', board.renewals.length], ['sales', 'Installations', board.recent.length], ['cancelled', 'Cancelled', board.cancelled?.length ?? 0], ['prices', 'Prices', packages.rows.length]];
   const [tab, setTab] = useState(!company && totals.renewalsDue === 0 ? 'sales' : tabs[0][0]);
 
   return (
     <div className="sm">
       <section className="sm-hero" aria-label="This month">
-        <p className="sm-hero__label">{company ? 'Company sales this month' : 'Your sales this month'}</p>
-        <p className="sm-hero__value">{formatMoney(totals.monthValue)}</p>
-        <p className="sm-hero__sub"><strong>{totals.monthSales}</strong> {totals.monthSales === 1 ? 'sale' : 'sales'} this month · <strong>{totals.sales}</strong> in total</p>
+        <p className="sm-hero__label">{company ? 'Company sales this month' : 'Your installations this month'}</p>
+        <p className="sm-hero__value">{company ? formatMoney(totals.monthValue) : totals.monthSales}</p>
+        <p className="sm-hero__sub">
+          {company ? <><strong>{totals.monthSales}</strong> {totals.monthSales === 1 ? 'sale' : 'sales'} this month · </> : null}
+          <strong>{totals.sales}</strong> {company ? 'in total' : 'installations in total'}
+        </p>
         <div className="sm-hero__chips">
           {approvalsLink
             ? <Link className="sm-chip" data-tone={totals.awaitingApproval ? 'warn' : 'plain'} to={approvalsLink}><strong>{totals.awaitingApproval}</strong> awaiting approval</Link>
@@ -116,7 +126,13 @@ export default function SalesMobile({ board, mode, customerLink, approvalsLink, 
         {tab === 'sales' ? (
           board.recent.length === 0
             ? <Empty title="No sales yet">{company ? 'Sales appear here as soon as one is recorded.' : 'Open a customer and choose Request installation to record your first sale.'}</Empty>
-            : board.recent.map((row) => <SaleCard key={row.id} row={row} customerLink={customerLink} company={company} />)
+            : board.recent.map((row) => <SaleCard key={row.id} row={row} customerLink={customerLink} company={company} onChanged={onChanged} />)
+        ) : null}
+
+        {tab === 'cancelled' ? (
+          (board.cancelled ?? []).length === 0
+            ? <Empty title="No cancelled sales">A cancelled sale is kept here with the reason, so you can see why it fell through.</Empty>
+            : board.cancelled.map((row) => <SaleCard key={row.id} row={row} customerLink={customerLink} company={company} onChanged={onChanged} />)
         ) : null}
 
         {tab === 'team' ? (

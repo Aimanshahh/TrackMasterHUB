@@ -242,6 +242,14 @@ const jobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Approval',
     },
+    // Why a sale was cancelled (customer changed their mind, technician delayed, ...).
+    cancellation: {
+      reason: { type: String, enum: ['customer_changed_mind', 'technician_delayed', 'price_too_high', 'bought_elsewhere', 'other'] },
+      note: { type: String, trim: true, maxlength: 500 },
+      cancelledAt: Date,
+      cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      previousStatus: String,
+    },
     scheduledAt: {
       type: Date,
     },

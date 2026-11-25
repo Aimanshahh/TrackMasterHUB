@@ -1,3 +1,4 @@
+import { makeError } from '../../middleware/errors.js';
 import Customer from '../../models/Customer.js';
 import Job, { jobStatusLabels } from '../../models/Job.js';
 import { packageCatalog } from '../../models/Package.js';
@@ -10,27 +11,47 @@ const startOfMonth = () => {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 };
 
+export const CANCEL_REASONS = {
+  customer_changed_mind: 'Customer changed their mind',
+  technician_delayed: 'Technician was delayed',
+  price_too_high: 'Price too high',
+  bought_elsewhere: 'Bought elsewhere',
+  other: 'Other reason',
+};
+
 const soldPrice = (job) => (Number.isFinite(job.quotedPrice) ? job.quotedPrice : Number.isFinite(job.listPrice) ? job.listPrice : 0);
 
-function saleRow(job) {
+function saleRow(job, { withMoney = true } = {}) {
   const list = Number.isFinite(job.listPrice) ? job.listPrice : null;
   const quoted = Number.isFinite(job.quotedPrice) ? job.quotedPrice : list;
-  return {
+  const row = {
     id: job._id.toString(),
     reference: job.reference,
     customerId: job.customer?.toString() ?? null,
     customerName: job.customerName ?? '',
     registration: job.vehicle?.registration ?? '',
     packageName: job.packageKey ? packageCatalog[job.packageKey]?.name ?? job.packageKey : '',
-    listPrice: list,
-    quotedPrice: quoted,
-    discount: list !== null && quoted !== null && quoted < list ? list - quoted : 0,
     approvalStatus: job.approvalStatus ?? 'not_required',
     status: job.status,
     statusLabel: jobStatusLabels[job.status] ?? job.status,
     salesperson: job.createdBy?.name ?? '',
     createdAt: job.createdAt.toISOString(),
   };
+  if (withMoney) {
+    row.listPrice = list;
+    row.quotedPrice = quoted;
+    row.discount = list !== null && quoted !== null && quoted < list ? list - quoted : 0;
+  }
+  if (job.status === 'cancelled') {
+    row.cancellation = {
+      reason: job.cancellation?.reason ?? null,
+      reasonLabel: CANCEL_REASONS[job.cancellation?.reason] ?? 'No reason recorded',
+      note: job.cancellation?.note ?? '',
+      cancelledAt: (job.cancellation?.cancelledAt ?? job.updatedAt)?.toISOString() ?? null,
+      cancelledBy: job.cancellation?.cancelledBy?.name ?? '',
+    };
+  }
+  return row;
 }
 
 function renewalRow(job, customerById, now) {
@@ -55,10 +76,13 @@ function renewalRow(job, customerById, now) {
 export async function getSalesBoard({ ownerId = null } = {}) {
   const now = new Date();
   const monthStart = startOfMonth();
-  const saleFilter = { requestType: 'new_installation', status: { $ne: 'cancelled' } };
+  const saleFilter = { requestType: 'new_installation' };
   if (ownerId) saleFilter.createdBy = ownerId;
 
-  const sales = await Job.find(saleFilter).sort({ createdAt: -1 }).populate('createdBy', 'name');
+  const everything = await Job.find(saleFilter).sort({ createdAt: -1 }).populate('createdBy', 'name').populate('cancellation.cancelledBy', 'name');
+  const cancelled = everything.filter((job) => job.status === 'cancelled');
+  const sales = everything.filter((job) => job.status !== 'cancelled');
+  const withMoney = !ownerId;
 
   const month = sales.filter((job) => job.createdAt >= monthStart);
   const sum = (rows) => rows.reduce((total, job) => total + soldPrice(job), 0);
@@ -81,16 +105,21 @@ export async function getSalesBoard({ ownerId = null } = {}) {
   const board = {
     totals: {
       sales: sales.length,
-      salesValue: sum(sales),
       monthSales: month.length,
-      monthValue: sum(month),
+      cancelled: cancelled.length,
       awaitingApproval: sales.filter((job) => job.approvalStatus === 'pending').length,
       renewalsDue: renewals.length,
       renewalsExpired: renewals.filter((row) => row.state === 'expired').length,
     },
-    recent: sales.slice(0, 15).map(saleRow),
+    recent: sales.slice(0, 15).map((job) => saleRow(job, { withMoney })),
+    cancelled: cancelled.map((job) => saleRow(job, { withMoney })),
     renewals,
   };
+  /* Money is the admin's concern: only the company board carries it. */
+  if (withMoney) {
+    board.totals.salesValue = sum(sales);
+    board.totals.monthValue = sum(month);
+  }
 
   if (!ownerId) {
     const byPerson = new Map();
@@ -106,4 +135,31 @@ export async function getSalesBoard({ ownerId = null } = {}) {
   }
 
   return board;
+}
+
+async function loadSale(id, actor) {
+  const job = await Job.findById(id);
+  if (!job || job.requestType !== 'new_installation') throw makeError('SALE_NOT_FOUND', 'That sale could not be found.', 404);
+  if (actor.role === 'salesperson' && job.createdBy?.toString() !== actor.id) throw makeError('SALE_NOT_FOUND', 'That sale could not be found.', 404);
+  return job;
+}
+
+export async function cancelSale(id, actor, { reason, note } = {}) {
+  if (!CANCEL_REASONS[reason]) throw makeError('INVALID_REASON', 'Choose why the sale was cancelled.', 400);
+  const job = await loadSale(id, actor);
+  if (job.status === 'cancelled') throw makeError('ALREADY_CANCELLED', 'This sale is already cancelled.', 409);
+  if (job.status === 'completed') throw makeError('SALE_CLOSED', 'An installed vehicle cannot be cancelled as a sale.', 409);
+  job.cancellation = { reason, note: String(note ?? '').trim().slice(0, 500), cancelledAt: new Date(), cancelledBy: actor.id, previousStatus: job.status };
+  job.status = 'cancelled';
+  await job.save();
+  return { id: job._id.toString(), cancelled: true };
+}
+
+export async function restoreSale(id, actor) {
+  const job = await loadSale(id, actor);
+  if (job.status !== 'cancelled') throw makeError('NOT_CANCELLED', 'This sale is not cancelled.', 409);
+  job.status = job.cancellation?.previousStatus || 'unassigned';
+  job.cancellation = undefined;
+  await job.save();
+  return { id: job._id.toString(), cancelled: false };
 }
