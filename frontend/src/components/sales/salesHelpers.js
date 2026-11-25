@@ -37,3 +37,12 @@ export function renewalText(row) {
   return row.daysLeft === 0 ? 'Expires today' : `Expires in ${row.daysLeft} ${row.daysLeft === 1 ? 'day' : 'days'}`;
 }
 
+
+export const HOLD_REASONS = [
+  ['customer_unreachable', 'Customer not reachable'],
+  ['payment_pending', 'Waiting for payment'],
+  ['customer_postponed', 'Customer asked to wait'],
+  ['documents_missing', 'Documents missing'],
+  ['price_dispute', 'Price not agreed'],
+  ['other', 'Other reason'],
+];

@@ -75,10 +75,12 @@
   padding-bottom: 96px;
 }
 
-@media (min-width: 781px) {
-  .field-tabs { display: none; }
-  .app-frame--field .app-content { padding-bottom: 48px; }
-}
+/* The field workspace has no sidebar at any width: it behaves like an app,
+   with a centred column and the tab bar always at the bottom. */
+.app-frame--field .app-main { width: 100%; margin-left: 0; }
+.app-frame--field .app-content { max-width: 760px; }
+.app-frame--field .app-topbar__menu { display: none; }
+.app-frame--field .field-tabs { max-width: 760px; margin-inline: auto; border-inline: 1px solid #e2dfd8; }
 
 /* ---------------------------------- Shell -------------------------------- */
 

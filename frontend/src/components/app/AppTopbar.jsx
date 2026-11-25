@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { roleLabels } from '../../app/roles.js';
 import { useAuth } from '../../context/auth.js';
-import { useSystemHealth } from '../../context/systemHealth.js';
 import NotificationBell from './NotificationBell.jsx';
 import { NavIcon } from './NavIcon.jsx';
 
@@ -13,24 +12,14 @@ function currentSection(items, pathname) {
     .sort((a, b) => b.to.length - a.to.length)[0];
 }
 
-export default function AppTopbar({ workspace, onOpenNav }) {
+export default function AppTopbar({ workspace, onOpenNav, showMenu = true }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { status, data } = useSystemHealth();
   const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
   const section = currentSection(workspace.navItems, pathname);
-  const databaseStatus = data?.checks?.database;
   const name = user?.name ?? 'Account';
-  const healthTone = status === 'online' ? (databaseStatus === 'operational' ? 'online' : 'offline') : 'loading';
-  const healthLabel = databaseStatus === 'operational'
-    ? 'Live data'
-    : databaseStatus === 'disconnected'
-      ? 'Database offline'
-      : status === 'online'
-        ? 'Database status unknown'
-        : 'Checking';
 
   useEffect(() => setProfileOpen(false), [pathname]);
 
@@ -58,9 +47,11 @@ export default function AppTopbar({ workspace, onOpenNav }) {
   return (
     <header className="app-topbar">
       <div className="app-topbar__left">
-        <button className="app-topbar__menu" type="button" onClick={onOpenNav} aria-label="Open navigation">
-          <NavIcon name="menu" size={19} />
-        </button>
+        {showMenu ? (
+          <button className="app-topbar__menu" type="button" onClick={onOpenNav} aria-label="Open navigation">
+            <NavIcon name="menu" size={19} />
+          </button>
+        ) : null}
         <p className="app-crumb"><span>{workspace.label}</span><span aria-hidden="true">/</span><strong>{section?.label ?? 'Workspace'}</strong></p>
       </div>
 
@@ -70,12 +61,6 @@ export default function AppTopbar({ workspace, onOpenNav }) {
         <strong>{section?.label ?? 'Workspace'}</strong>
       </div>
       <div className="app-topbar__right">
-        {healthTone !== 'online' ? (
-          <Link to="/status" className={`app-alertchip app-alertchip--${healthTone}`} title={healthLabel} aria-label={`${healthLabel}. Open system status`}>
-            <span className={`status-dot status-dot--${healthTone}`} aria-hidden="true" />
-            <span className="app-alertchip__text">{healthLabel}</span>
-          </Link>
-        ) : null}
         <NotificationBell />
         <div className="app-profile-wrap" ref={profileRef}>
           <button type="button" className="app-profile" aria-label={`${name}, ${roleLabels[user?.role] ?? 'Account'} — account menu`} aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen((open) => !open)}>
@@ -87,15 +72,12 @@ export default function AppTopbar({ workspace, onOpenNav }) {
             <div className="app-menu__head">
               <strong>{name}</strong>
               <span>{user?.email}</span>
-              {/* On a phone this is the only place connection state is shown. */}
-              <span className="app-menu__health">
-                <span className={`status-dot status-dot--${healthTone}`} aria-hidden="true" />
-                {healthLabel}
-              </span>
               <small>Sessions expire after 7 days</small>
             </div>
+            {(workspace.menuLinks ?? []).map((link) => (
+              <Link key={link.to} className="app-menu__item" role="menuitem" to={link.to}>{link.label}</Link>
+            ))}
             <Link className="app-menu__item" role="menuitem" to={workspace.settingsPath}>Workspace settings</Link>
-            <Link className="app-menu__item" role="menuitem" to="/status">System status</Link>
             <button type="button" className="app-menu__item app-menu__action" role="menuitem" onClick={signOut}>Sign out</button>
           </div> : null}
         </div>

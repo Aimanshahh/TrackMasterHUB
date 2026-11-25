@@ -103,6 +103,7 @@ export const salespersonWorkspace = {
   navGroups: salespersonGroups,
   navItems: salespersonNavigationItems,
   tabs: salespersonTabs,
+  menuLinks: [{ to: '/salesperson/follow-ups', label: 'Follow-ups' }],
   pages: salespersonPages,
 };
 

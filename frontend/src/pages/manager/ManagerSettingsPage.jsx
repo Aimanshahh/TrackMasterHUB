@@ -47,16 +47,6 @@ export default function ManagerSettingsPage() {
         </div>
       </Panel>
 
-      <Panel heading="Service health">
-        <div className="settings-link-card">
-          <div>
-            <p className="settings-link-card__eyebrow">API &amp; database</p>
-            <h2>Connection status</h2>
-            <p>Check that the API and MongoDB are reachable before chasing a missing record.</p>
-          </div>
-          <Link className="btn btn--outline btn--small" to="/status">Open system status <span aria-hidden="true">→</span></Link>
-        </div>
-      </Panel>
     </div>
   );
 }

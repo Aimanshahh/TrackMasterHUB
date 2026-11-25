@@ -42,16 +42,48 @@ test('the sales board counts sales, approvals and renewals for one salesperson o
 
   const mine = await getSalesBoard({ ownerId: ali._id });
   assert.equal(mine.totals.sales, 2, 'cancelled requests are not sales');
-  assert.equal(mine.totals.salesValue, 18000, 'the quoted price counts, not the list price');
+  assert.equal(mine.totals.salesValue, undefined, 'money is not shown to the salesperson');
+  assert.equal(mine.totals.monthValue, undefined);
+  assert.ok(mine.recent.every((row) => row.quotedPrice === undefined && row.listPrice === undefined && row.discount === undefined));
   assert.equal(mine.totals.awaitingApproval, 1);
   assert.equal(mine.totals.renewalsDue, 1);
   assert.equal(mine.renewals[0].state, 'expired');
-  assert.equal(mine.recent.find((row) => row.approvalStatus === 'pending').discount, 2000);
   assert.equal(mine.bySalesperson, undefined, 'a salesperson never sees the other salespeople');
   assert.ok(mine.recent.every((row) => row.customerName === 'Ali Customer'));
 
   const company = await getSalesBoard();
   assert.equal(company.totals.sales, 3);
+  assert.equal(company.totals.salesValue, 28000, 'the company board still carries the quoted price');
   assert.equal(company.totals.renewalsDue, 2);
   assert.deepEqual(company.bySalesperson.map((row) => row.name).sort(), ['Ali Sales', 'Sara Sales']);
+});
+
+test('a sale can be put on hold and resumed, and held sales leave the active counts', { skip }, async () => {
+  const { default: User } = await import('../src/models/User.js');
+  const { default: Customer } = await import('../src/models/Customer.js');
+  const { default: Job } = await import('../src/models/Job.js');
+  const { getSalesBoard, suspendSale, resumeSale } = await import('../src/modules/sales/sales.service.js');
+
+  const rep = await User.create({ name: 'Hold Rep', email: 'hold-rep@example.com', passwordHash: 'a-long-test-password', role: 'salesperson' });
+  const other = await User.create({ name: 'Other Rep', email: 'other-rep@example.com', passwordHash: 'a-long-test-password', role: 'salesperson' });
+  const customer = await Customer.create({ name: 'Hold Customer', phone: '03003330000', owner: rep._id });
+  const job = await Job.create({ createdBy: rep._id, customer: customer._id, customerName: customer.name, requestType: 'new_installation', vehicle: { registration: 'HOLD-1' }, packageKey: 'basic', listPrice: 10000, quotedPrice: 10000, status: 'unassigned' });
+  const actor = { id: rep._id.toString(), role: 'salesperson' };
+
+  await assert.rejects(suspendSale(job._id, actor, { reason: 'nope' }), (e) => e.message.includes('why'));
+  await assert.rejects(suspendSale(job._id, { id: other._id.toString(), role: 'salesperson' }, { reason: 'other' }), (e) => e.message.includes('could not be found'));
+
+  await suspendSale(job._id, actor, { reason: 'payment_pending', note: 'Pays Friday' });
+  let board = await getSalesBoard({ ownerId: rep._id });
+  assert.equal(board.totals.suspended, 1);
+  assert.equal(board.totals.sales, 0, 'a held sale is not an active sale');
+  assert.equal(board.suspended[0].suspension.reasonLabel, 'Waiting for payment');
+  assert.equal(board.suspended[0].quotedPrice, undefined);
+  await assert.rejects(suspendSale(job._id, actor, { reason: 'other' }), (e) => e.message.includes('already'));
+
+  await resumeSale(job._id, actor);
+  board = await getSalesBoard({ ownerId: rep._id });
+  assert.equal(board.totals.suspended, 0);
+  assert.equal(board.totals.sales, 1);
+  assert.equal((await Job.findById(job._id)).status, 'unassigned', 'resuming keeps the job where it was');
 });
