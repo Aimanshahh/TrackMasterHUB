@@ -96,6 +96,15 @@ function ApprovalCard({ approval, busyId, onDecide }) {
           <dt>Discount</dt>
           <dd>{formatMoney(approval.discount)}{discountPercent > 0 ? ` · ${discountPercent}%` : ''}</dd>
         </div>
+        {approval.minimumPrice !== null && approval.minimumPrice !== undefined ? (
+          <div>
+            <dt>Minimum price (floor)</dt>
+            <dd>
+              {formatMoney(approval.minimumPrice)}
+              {approval.belowMinimum ? <span className="approval__flag">Under the floor</span> : null}
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       {approval.reason ? <p className="approval__reason"><span>Salesperson’s note</span>{approval.reason}</p> : null}

@@ -6,6 +6,7 @@ import {
   managerWorkspace,
   operationsWorkspace,
   salespersonWorkspace,
+  technicianWorkspace,
 } from './app/workspaces.js';
 import AppLayout from './components/app/AppLayout.jsx';
 import PublicLayout from './components/layout/PublicLayout.jsx';
@@ -25,11 +26,13 @@ import PendingInstallationsPage from './pages/app/PendingInstallationsPage.jsx';
 import VehicleProfilePage from './pages/app/VehicleProfilePage.jsx';
 import VehicleRecordsPage from './pages/app/VehicleRecordsPage.jsx';
 import PricingPage from './pages/app/PricingPage.jsx';
+import QuotationsPage from './pages/app/QuotationsPage.jsx';
 import ReportsPage from './pages/app/ReportsPage.jsx';
 import SalesPage from './pages/app/SalesPage.jsx';
 import SettingsPage from './pages/app/SettingsPage.jsx';
 import UsersPage from './pages/app/UsersPage.jsx';
 import SalespersonPerformancePage from './pages/app/SalespersonPerformancePage.jsx';
+import SalesPerformancePage from './pages/app/SalesPerformancePage.jsx';
 import AdminMessagesPage from './pages/app/AdminMessagesPage.jsx';
 import OperationsCustomersPage from './pages/app/OperationsCustomersPage.jsx';
 import OperationsCustomerDetailPage from './pages/app/OperationsCustomerDetailPage.jsx';
@@ -40,6 +43,7 @@ import ImportCustomersPage from './pages/app/ImportCustomersPage.jsx';
 import CallLogsPage from './pages/app/CallLogsPage.jsx';
 import CustomerHistoryReportPage from './pages/billing/CustomerHistoryReportPage.jsx';
 import InvoicePrintPage from './pages/billing/InvoicePrintPage.jsx';
+import QuotationPrintPage from './pages/billing/QuotationPrintPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import SignInPage from './pages/auth/SignInPage.jsx';
 import SystemStatusPage from './pages/SystemStatusPage.jsx';
@@ -67,6 +71,16 @@ import SalespersonOverviewPage from './pages/salesperson/SalespersonOverviewPage
 import SalespersonRequestsPage from './pages/salesperson/SalespersonRequestsPage.jsx';
 import SalespersonSalesPage from './pages/salesperson/SalespersonSalesPage.jsx';
 import SalespersonSettingsPage from './pages/salesperson/SalespersonSettingsPage.jsx';
+import SalespersonHotLeadsPage from './pages/salesperson/SalespersonHotLeadsPage.jsx';
+import TechnicianPaymentsPage from './pages/app/TechnicianPaymentsPage.jsx';
+import OperationsReviewsPage from './pages/operations/OperationsReviewsPage.jsx';
+import OperationsMicrophonesPage from './pages/operations/OperationsMicrophonesPage.jsx';
+import TechnicianOverviewPage from './pages/technician/TechnicianOverviewPage.jsx';
+import TechnicianJobsPage from './pages/technician/TechnicianJobsPage.jsx';
+import TechnicianJobPage from './pages/technician/TechnicianJobPage.jsx';
+import TechnicianStockPage from './pages/technician/TechnicianStockPage.jsx';
+import TechnicianEarningsPage from './pages/technician/TechnicianEarningsPage.jsx';
+import TechnicianSettingsPage from './pages/technician/TechnicianSettingsPage.jsx';
 
 function RequireSession() {
   const auth = useAuth();
@@ -96,6 +110,7 @@ export default function App() {
         <Route path="/invoices/:invoiceId/print" element={<InvoicePrintPage />} />
         <Route path="/customers/:customerId/report" element={<CustomerHistoryReportPage />} />
         <Route path="/adjustments/:adjustmentId/print" element={<AdjustmentPrintPage />} />
+        <Route path="/quotations/:quotationId/print" element={<QuotationPrintPage />} />
         <Route element={<RequireWorkspaceRole role="admin" />}>
           <Route path="/admin" element={<AppLayout workspace={adminWorkspace} />}>
             <Route index element={<OverviewPage />} />
@@ -104,6 +119,7 @@ export default function App() {
             <Route path="follow-ups" element={<FollowUpsPage />} />
             <Route path="messages" element={<AdminMessagesPage />} />
             <Route path="sales" element={<SalesPage />} />
+            <Route path="quotations" element={<QuotationsPage customerLink={(id) => `/admin/customers/${id}`} />} />
             <Route path="operations" element={<OperationsPage />} />
             <Route path="pending-installations" element={<PendingInstallationsPage />} />
             <Route path="vehicles" element={<VehicleRecordsPage />} />
@@ -112,10 +128,12 @@ export default function App() {
             <Route path="import" element={<ImportCustomersPage />} />
             <Route path="complaints" element={<ComplaintsPage />} />
             <Route path="calls" element={<CallLogsPage />} />
+            <Route path="sales-performance" element={<SalesPerformancePage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="pricing" element={<PricingPage />} />
             <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="money" element={<MoneyPage />} />
+            <Route path="technician-payments" element={<TechnicianPaymentsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="users/:id/performance" element={<SalespersonPerformancePage />} />
             <Route path="activity" element={<ActivityPage />} />
@@ -131,7 +149,9 @@ export default function App() {
             <Route path="follow-ups" element={<SalespersonFollowUpsPage />} />
             <Route path="requests" element={<SalespersonRequestsPage />} />
             <Route path="complaints" element={<SalespersonComplaintsPage />} />
+            <Route path="quotations" element={<QuotationsPage customerLink={(id) => `/salesperson/customers/${id}`} />} />
             <Route path="sales" element={<SalespersonSalesPage />} />
+            <Route path="hot-leads" element={<SalespersonHotLeadsPage />} />
             <Route path="settings" element={<SalespersonSettingsPage />} />
             <Route path="*" element={<Navigate to="/salesperson" replace />} />
           </Route>
@@ -167,9 +187,22 @@ export default function App() {
             <Route path="calls" element={<CallLogsPage />} />
             <Route path="inventory" element={<OperationsInventoryPage />} />
             <Route path="technicians" element={<OperationsTechniciansPage />} />
+            <Route path="reviews" element={<OperationsReviewsPage />} />
+            <Route path="microphones" element={<OperationsMicrophonesPage />} />
             <Route path="reports" element={<OperationsReportsPage />} />
             <Route path="settings" element={<OperationsSettingsPage />} />
             <Route path="*" element={<Navigate to="/operations" replace />} />
+          </Route>
+        </Route>
+        <Route element={<RequireWorkspaceRole role="technician" />}>
+          <Route path="/technician" element={<AppLayout workspace={technicianWorkspace} />}>
+            <Route index element={<TechnicianOverviewPage />} />
+            <Route path="installations" element={<TechnicianJobsPage />} />
+            <Route path="installations/:id" element={<TechnicianJobPage />} />
+            <Route path="stock" element={<TechnicianStockPage />} />
+            <Route path="earnings" element={<TechnicianEarningsPage />} />
+            <Route path="settings" element={<TechnicianSettingsPage />} />
+            <Route path="*" element={<Navigate to="/technician" replace />} />
           </Route>
         </Route>
       </Route>

@@ -53,6 +53,18 @@ const packageSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    /**
+     * The lowest price a salesperson may quote without an admin decision. A
+     * quote below this goes to Admin Approval; quoting between the minimum and
+     * the rate is still a discount that needs the admin's approval as well, so
+     * the minimum is the floor below which the sale can never be approved
+     * silently.
+     */
+    minPrice: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
     summary: {
       type: String,
       trim: true,
@@ -76,6 +88,7 @@ packageSchema.methods.toApiJson = function () {
     key: this.key,
     name: this.name || packageCatalog[this.key]?.name || this.key,
     price: this.price,
+    minPrice: this.minPrice ?? null,
     summary: this.summary ?? '',
     features: (this.features ?? []).filter(Boolean),
     configured: true,

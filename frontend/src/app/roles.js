@@ -5,6 +5,7 @@ export const roleHome = {
   salesperson: '/salesperson',
   manager: '/manager',
   operations: '/operations',
+  technician: '/technician',
 };
 
 export const roleLabels = {
@@ -12,6 +13,7 @@ export const roleLabels = {
   salesperson: 'Salesperson',
   manager: 'Manager',
   operations: 'Operations',
+  technician: 'Technician',
 };
 
 /** Workspaces each role may open. Admin may open any of them. */
@@ -20,6 +22,7 @@ export const workspaceAccess = {
   salesperson: ['salesperson', 'admin'],
   manager: ['manager', 'admin'],
   operations: ['operations', 'admin'],
+  technician: ['technician'],
 };
 
 export function homeFor(role) {

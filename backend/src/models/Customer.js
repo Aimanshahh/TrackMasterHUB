@@ -82,6 +82,25 @@ const customerSchema = new mongoose.Schema(
       ref: 'User',
     },
     /**
+     * A customer who has agreed to buy but has not been installed yet. This is
+     * a flag on the existing customer record, never a second customer record.
+     */
+    hotLead: {
+      active: { type: Boolean, default: false },
+      status: {
+        type: String,
+        enum: ['ready_for_installation', 'vehicle_unavailable', 'rescheduled', 'follow_up_required', 'converted', 'lost'],
+      },
+      reason: { type: String, trim: true, maxlength: 400, default: '' },
+      remarks: { type: String, trim: true, maxlength: 1000, default: '' },
+      expectedDate: { type: Date },
+      nextFollowUp: { type: Date },
+      packageKey: { type: String, enum: PACKAGE_KEYS },
+      updatedAt: { type: Date },
+      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      updatedByName: { type: String, trim: true, maxlength: 120, default: '' },
+    },
+    /**
      * Existing customers brought in by the bulk import. They are already active
      * customers, so they skip new-customer onboarding and the security briefing.
      * Columns the import did not recognise are kept in `extra`.
@@ -172,6 +191,19 @@ customerSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) 
     legacy: this.legacy?.imported ? { imported: true, legacyId: this.legacy.legacyId ?? '' } : null,
     accountStatus: this.accountStatus ?? 'inactive',
     briefingCompleted: Boolean(this.briefingCompleted),
+    hotLead: this.hotLead?.active
+      ? {
+        active: true,
+        status: this.hotLead.status ?? 'follow_up_required',
+        reason: this.hotLead.reason ?? '',
+        remarks: this.hotLead.remarks ?? '',
+        expectedDate: this.hotLead.expectedDate?.toISOString?.() ?? null,
+        nextFollowUp: this.hotLead.nextFollowUp?.toISOString?.() ?? null,
+        packageKey: this.hotLead.packageKey ?? null,
+        updatedAt: this.hotLead.updatedAt?.toISOString?.() ?? null,
+        updatedByName: this.hotLead.updatedByName ?? '',
+      }
+      : null,
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),
   };

@@ -19,6 +19,17 @@ import {
   postTechnician,
 } from './operations.controller.js';
 import {
+  getMicrophoneTasks,
+  getMicrophones,
+  getReviews,
+  patchSchedule,
+  patchTechnicianRates,
+  postAssignMicrophone,
+  postMicrophone,
+  postReleaseMicrophone,
+  postReview,
+} from './review.controller.js';
+import {
   getDeskCustomer,
   getDeskCustomers,
   getShezzPreview,
@@ -37,6 +48,7 @@ const deskOnly = requireRole('admin', 'operations');
 
 operationsRouter.get('/summary', deskOnly, getSummary);
 operationsRouter.get('/stock-by-station', deskOnly, getStationStock);
+
 operationsRouter.get('/stock-by-technician', deskOnly, getTechnicianStock);
 
 operationsRouter.get('/jobs', deskOnly, getJobs);
@@ -50,6 +62,20 @@ operationsRouter.patch('/jobs/:id/engine-kill', deskOnly, patchEngineKill);
 operationsRouter.get('/technicians', deskOnly, getTechnicians);
 operationsRouter.post('/technicians', deskOnly, postTechnician);
 operationsRouter.patch('/technicians/:id', deskOnly, patchTechnician);
+// Installation rates are money, so only the admin may change them.
+operationsRouter.patch('/technicians/:id/rates', requireRole('admin'), patchTechnicianRates);
+
+// Installation testing review: operations inspects what the technician submitted.
+operationsRouter.get('/reviews', deskOnly, getReviews);
+operationsRouter.post('/jobs/:id/review', deskOnly, postReview);
+operationsRouter.patch('/jobs/:id/schedule', deskOnly, patchSchedule);
+
+// One-way microphone numbers (Standard and Premium packages).
+operationsRouter.get('/microphones', deskOnly, getMicrophones);
+operationsRouter.post('/microphones', deskOnly, postMicrophone);
+operationsRouter.post('/microphones/:id/assign', deskOnly, postAssignMicrophone);
+operationsRouter.post('/microphones/:id/release', deskOnly, postReleaseMicrophone);
+operationsRouter.get('/microphone-tasks', deskOnly, getMicrophoneTasks);
 
 operationsRouter.get('/devices', deskOnly, getDevices);
 operationsRouter.post('/devices', deskOnly, postDevice);

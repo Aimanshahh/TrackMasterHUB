@@ -113,6 +113,22 @@ export function toDevice(item) {
       ?? item.device_data?.expiration_date
       ?? item.device_data?.sim_expiration_date,
   );
+  const readNumber = (...values) => {
+    for (const value of values) {
+      const number = Number(value);
+      if (value !== null && value !== '' && Number.isFinite(number)) return number;
+    }
+    return null;
+  };
+  const readBoolean = (...values) => {
+    for (const value of values) {
+      if (value === true || value === 1 || value === '1' || value === 'true') return true;
+      if (value === false || value === 0 || value === '0' || value === 'false') return false;
+    }
+    return null;
+  };
+  const deviceData = item.device_data ?? {};
+
   return {
     trackerId: item.id ?? null,
     name: String(item.name ?? '').trim(),
@@ -123,6 +139,25 @@ export function toDevice(item) {
     amcExpiryDate,
     gpsState: String(item.online ?? '').trim().toLowerCase(),
     lastSeenAt: lastSeen ? lastSeen.toISOString() : null,
+    /* Telemetry used by the installation tests. Every value is kept as the
+       portal reported it, or null when the portal does not expose it. */
+    objectStatus: String(item.object_status ?? item.status ?? deviceData.object_status ?? '').trim(),
+    ignitionOn: readBoolean(item.ignition, deviceData.ignition, item.acc, deviceData.acc),
+    batteryTemperatureC: readNumber(
+      item.battery_temperature,
+      item.battery_temp,
+      deviceData.battery_temperature,
+      deviceData.battery_temp,
+    ),
+    batteryConnected: readBoolean(
+      item.battery_connected,
+      deviceData.battery_connected,
+      item.power_connected,
+      deviceData.power_connected,
+    ),
+    latitude: readNumber(item.lat, deviceData.lat, item.latitude),
+    longitude: readNumber(item.lng, deviceData.lng, item.longitude),
+    address: String(item.address ?? deviceData.address ?? '').trim(),
   };
 }
 
@@ -356,6 +391,42 @@ export function statusFor(plate, imeiOrNow, now = Date.now(), options = {}) {
 
   const amcExpiryDate = options.amcExpiryDate ?? device.amcExpiryDate;
   return { ...tracking, status: isVehicleInactive({ lastSeenAt: device.lastSeenAt, amcExpiryDate }, currentTime) ? 'inactive' : 'active' };
+}
+
+/**
+ * The portal's current reading for one device, used by the installation tests.
+ * Nothing is invented: a field the portal does not send stays null.
+ */
+export function getDeviceTelemetry(imei) {
+  const key = normalizeDeviceId(imei);
+  const device = key
+    ? state.devices.get(`imei:${key}`) ?? state.devices.get(`unique:${key}`)
+    : null;
+
+  if (!device) {
+    return {
+      found: false,
+      configured: isTrackingConfigured(),
+      syncedAt: state.syncedAt?.toISOString() ?? null,
+      error: state.syncedAt ? 'The tracking portal does not list this IMEI.' : 'The tracking portal has not been read yet.',
+    };
+  }
+
+  return {
+    found: true,
+    configured: isTrackingConfigured(),
+    syncedAt: state.syncedAt?.toISOString() ?? null,
+    gpsState: device.gpsState ?? '',
+    lastSeenAt: device.lastSeenAt ?? null,
+    objectStatus: device.objectStatus ?? '',
+    ignitionOn: device.ignitionOn ?? null,
+    batteryTemperatureC: device.batteryTemperatureC ?? null,
+    batteryConnected: device.batteryConnected ?? null,
+    latitude: device.latitude ?? null,
+    longitude: device.longitude ?? null,
+    address: device.address ?? '',
+    portalSource: device.portalSource ?? '',
+  };
 }
 
 /** Test hook: replace the cache without touching the network. */

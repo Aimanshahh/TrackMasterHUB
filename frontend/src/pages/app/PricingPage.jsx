@@ -6,13 +6,15 @@ import { formatDayTime } from '../../app/operations.js';
 import { formatMoney } from '../../lib/format.js';
 
 /**
- * The rate sheet the whole sales flow depends on. The admin owns the numbers;
- * every quote a salesperson makes starts from these figures, and anything
- * quoted below them reaches this same workspace as an approval.
+ * The rate sheet the whole sales flow depends on. Each package carries two
+ * numbers: the standard rate, and the minimum price below which a sale is
+ * refused. A discount off the rate comes back here as an approval; a quote
+ * under the floor never reaches the customer.
  */
 function PackageRateRow({ pkg, index, onSave }) {
   const [form, setForm] = useState({
     price: pkg.price ?? '',
+    minPrice: pkg.minPrice ?? '',
     summary: pkg.summary ?? '',
     features: (pkg.features ?? []).join('\n'),
   });
@@ -23,6 +25,7 @@ function PackageRateRow({ pkg, index, onSave }) {
   useEffect(() => {
     setForm({
       price: pkg.price ?? '',
+      minPrice: pkg.minPrice ?? '',
       summary: pkg.summary ?? '',
       features: (pkg.features ?? []).join('\n'),
     });
@@ -41,6 +44,8 @@ function PackageRateRow({ pkg, index, onSave }) {
     try {
       await onSave(pkg.key, {
         price: Number(form.price),
+        // An empty minimum means "no separate floor": the rate itself is the floor.
+        minPrice: form.minPrice === '' ? null : Number(form.minPrice),
         summary: form.summary,
         features: form.features.split('\n'),
       });
@@ -70,14 +75,19 @@ function PackageRateRow({ pkg, index, onSave }) {
             </p>
           </div>
           <p className="rate-row__current">
-            <span>Minimum price</span>
+            <span>Standard rate</span>
             <strong>{unset ? 'Not set' : formatMoney(pkg.price)}</strong>
+            <em className="rate-row__floor">
+              {pkg.minPrice !== null && pkg.minPrice !== undefined
+                ? `Minimum ${formatMoney(pkg.minPrice)}`
+                : 'Floor = rate'}
+            </em>
           </p>
         </header>
 
         <div className="rate-row__controls">
           <label className="field field--price">
-            <span className="field__label">Minimum selling price</span>
+            <span className="field__label">Standard rate</span>
             <div className="money-input">
               <em aria-hidden="true">PKR</em>
               <input
@@ -92,9 +102,30 @@ function PackageRateRow({ pkg, index, onSave }) {
                 onChange={update('price')}
               />
             </div>
+            <span className="field__hint">What the package is sold for.</span>
           </label>
 
           <div className="rate-row__save">
+            <label className="field field--price">
+              <span className="field__label">Minimum price <i>Floor</i></span>
+              <div className="money-input">
+                <em aria-hidden="true">PKR</em>
+                <input
+                  className="input"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="1"
+                  placeholder="Same as the rate"
+                  value={form.minPrice}
+                  onChange={update('minPrice')}
+                />
+              </div>
+              <span className="field__hint">
+                The lowest this package may be sold at. Leave empty and the rate itself is the floor.
+              </span>
+            </label>
+
             <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
               {saving ? 'Saving…' : unset ? 'Set rate' : 'Update rate'}
             </button>
@@ -151,11 +182,12 @@ export default function PricingPage() {
       <section className="pricing-lede">
         <div>
           <p className="app-page-head__eyebrow">COMMERCIAL CONTROLS</p>
-          <h2>One minimum price per package. Nothing is quoted without one.</h2>
+          <h2>Two numbers per package: the standard rate and the minimum price.</h2>
           <p>
-            Each rate is the lowest price a salesperson may sell the package for. They can quote at
-            the rate or above it without approval; quoting below it creates an approval request here,
-            and the installation cannot be completed until you decide.
+            The <strong>standard rate</strong> is what the package sells for. A salesperson may quote
+            below it — that discount arrives here as an approval request, and operations cannot complete
+            the installation until you decide. The <strong>minimum price</strong> is a hard floor: a quote
+            under it is refused on the spot, so a package can never be given away by mistake.
           </p>
         </div>
       </section>

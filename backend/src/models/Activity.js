@@ -30,6 +30,9 @@ const activitySchema = new mongoose.Schema(
         'certificate.cancelled',
         'import.completed',
         'customer.briefing_completed',
+        'quotation.created',
+        'quotation.sent',
+        'quotation.decided',
       ],
     },
     label: {

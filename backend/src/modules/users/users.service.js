@@ -4,12 +4,46 @@ import Approval from '../../models/Approval.js';
 import Complaint from '../../models/Complaint.js';
 import Customer from '../../models/Customer.js';
 import Job from '../../models/Job.js';
+import Technician from '../../models/Technician.js';
+import { ASSIGNABLE_ROLES } from '../../config/constants.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { createUser as createAccount, listUsers } from '../auth/auth.service.js';
 
-async function createUser(input) {
-  return createAccount(input);
+/**
+ * Creating staff accounts. A technician login is always attached to a
+ * technician record, because that record owns the stock and installations the
+ * login may see; the two are created together so neither can exist without the
+ * other.
+ */
+async function createUser(input, actor) {
+  const role = ASSIGNABLE_ROLES.includes(input.role) ? input.role : 'salesperson';
+
+  if (role !== 'technician') {
+    return createAccount({ ...input, role });
+  }
+
+  let technician = null;
+  if (input.technicianId) {
+    technician = await Technician.findById(input.technicianId);
+    if (!technician) throw makeError(errorCodes.VALIDATION_ERROR, 'That technician record does not exist.');
+    if (technician.user) throw makeError(errorCodes.CONFLICT, 'That technician already has a login account.', 409);
+  } else {
+    technician = await Technician.create({
+      name: input.name,
+      phone: String(input.phone ?? '').trim().slice(0, 40),
+      station: String(input.station ?? '').trim().slice(0, 120),
+      createdBy: actor?.id,
+    });
+  }
+
+  const created = await createAccount({ ...input, role: 'technician' });
+  await User.updateOne({ _id: created.id }, { $set: { technician: technician._id } });
+  technician.user = created.id;
+  await technician.save();
+
+  const user = await User.findById(created.id);
+  return user.toApiJson();
 }
 
 async function getUsers({ role, search }) {

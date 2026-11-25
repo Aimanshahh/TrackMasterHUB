@@ -234,3 +234,22 @@
 .rep-empty { font-size: 12px; color: #666; margin: 0; }
 .rep-sub { display: block; font-size: 11px; color: #666; }
 .rep-notice { border: 1px dashed #aaa; padding: 8px 10px; font-size: 12px; color: #555; }
+
+/* Quotation terms: a numbered list, because each line is a condition the
+   customer is agreeing to rather than a paragraph of marketing. */
+.inv-terms { margin-top: 1.1rem; }
+.inv-terms h2 {
+  margin: 0 0 0.35rem;
+  font-size: 8.5pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6b6f75;
+}
+.inv-terms ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 9.5pt;
+  color: #3b4046;
+}

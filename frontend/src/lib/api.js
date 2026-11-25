@@ -596,3 +596,153 @@ export function markNotificationRead(id) {
 export function markAllNotificationsRead() {
   return apiRequest('/api/notifications/read-all', { method: 'POST' });
 }
+
+/* ---------------- Technician portal ---------------- */
+
+export function fetchTechnicianSummary({ signal } = {}) {
+  return apiRequest('/api/technician/summary', { signal });
+}
+
+export function fetchTechnicianJobs(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/technician/jobs', params), { signal });
+}
+
+export function fetchTechnicianJob(id, { signal } = {}) {
+  return apiRequest(`/api/technician/jobs/${encodeURIComponent(id)}`, { signal });
+}
+
+export function selectTechnicianStock(id, input) {
+  return sendJson(`/api/technician/jobs/${encodeURIComponent(id)}/stock`, 'POST', input);
+}
+
+export function saveTechnicianTest(id, input) {
+  return sendJson(`/api/technician/jobs/${encodeURIComponent(id)}/tests`, 'PATCH', input);
+}
+
+export function requestEngineKillTest(id, input = {}) {
+  return sendJson(`/api/technician/jobs/${encodeURIComponent(id)}/engine-kill-request`, 'POST', input);
+}
+
+export function submitInstallationForReview(id) {
+  return sendJson(`/api/technician/jobs/${encodeURIComponent(id)}/submit`, 'POST', {});
+}
+
+export function fetchTechnicianStock({ signal } = {}) {
+  return apiRequest('/api/technician/stock', { signal });
+}
+
+export function fetchTechnicianEarnings({ signal } = {}) {
+  return apiRequest('/api/technician/earnings', { signal });
+}
+
+/* ---------------- Operations: testing review, schedule, microphones ---------------- */
+
+export function fetchTestingReviews({ signal } = {}) {
+  return apiRequest('/api/operations/reviews', { signal });
+}
+
+export function reviewInstallation(id, input) {
+  return sendJson(`/api/operations/jobs/${encodeURIComponent(id)}/review`, 'POST', input);
+}
+
+export function updateInstallationSchedule(id, input) {
+  return sendJson(`/api/operations/jobs/${encodeURIComponent(id)}/schedule`, 'PATCH', input);
+}
+
+export function fetchMicrophones({ signal } = {}) {
+  return apiRequest('/api/operations/microphones', { signal });
+}
+
+export function createMicrophone(input) {
+  return sendJson('/api/operations/microphones', 'POST', input);
+}
+
+export function assignMicrophone(id, input) {
+  return sendJson(`/api/operations/microphones/${encodeURIComponent(id)}/assign`, 'POST', input);
+}
+
+export function releaseMicrophone(id, input = {}) {
+  return sendJson(`/api/operations/microphones/${encodeURIComponent(id)}/release`, 'POST', input);
+}
+
+export function fetchMicrophoneTasks({ signal } = {}) {
+  return apiRequest('/api/operations/microphone-tasks', { signal });
+}
+
+export function updateTechnicianRates(id, input) {
+  return sendJson(`/api/operations/technicians/${encodeURIComponent(id)}/rates`, 'PATCH', input);
+}
+
+/* ---------------- Technician payments (admin) ---------------- */
+
+export function fetchTechnicianPayments({ signal } = {}) {
+  return apiRequest('/api/technician-payments', { signal });
+}
+
+export function fetchTechnicianPaymentAccount(id, { signal } = {}) {
+  return apiRequest(`/api/technician-payments/${encodeURIComponent(id)}`, { signal });
+}
+
+export function recordTechnicianPayment(id, input) {
+  return sendJson(`/api/technician-payments/${encodeURIComponent(id)}/payments`, 'POST', input);
+}
+
+export function reverseTechnicianEarning(id, input) {
+  return sendJson(`/api/technician-payments/earnings/${encodeURIComponent(id)}/reverse`, 'POST', input);
+}
+
+/* ---------------- Hot leads and agent commissions ---------------- */
+
+export function fetchHotLeads(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/customers/hot-leads', params), { signal });
+}
+
+export function setCustomerHotLead(id, input) {
+  return sendJson(`/api/customers/${encodeURIComponent(id)}/hot-lead`, 'POST', input);
+}
+
+export function clearCustomerHotLead(id, input = {}) {
+  return sendJson(`/api/customers/${encodeURIComponent(id)}/hot-lead`, 'DELETE', input);
+}
+
+export function fetchAgentCommissions(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/sales/agents', params), { signal });
+}
+
+export function fetchSalesPerformance(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/sales/performance', params), { signal });
+}
+
+export function setAgentCommissionPaid(id, paid) {
+  return sendJson(`/api/sales/agents/${encodeURIComponent(id)}/commission`, 'POST', { paid });
+}
+
+/* ---------------- Quotations ---------------- */
+
+export function fetchQuotations(params = {}, { signal } = {}) {
+  return apiRequest(withQuery('/api/quotations', params), { signal });
+}
+
+export function fetchQuotation(id, { signal } = {}) {
+  return apiRequest(`/api/quotations/${encodeURIComponent(id)}`, { signal });
+}
+
+export function createQuotation(input) {
+  return sendJson('/api/quotations', 'POST', input);
+}
+
+export function updateQuotation(id, input) {
+  return sendJson(`/api/quotations/${encodeURIComponent(id)}`, 'PATCH', input);
+}
+
+export function sendQuotation(id) {
+  return sendJson(`/api/quotations/${encodeURIComponent(id)}/send`, 'POST', {});
+}
+
+export function decideQuotation(id, input) {
+  return sendJson(`/api/quotations/${encodeURIComponent(id)}/decision`, 'POST', input);
+}
+
+export function reviseQuotation(id, input = {}) {
+  return sendJson(`/api/quotations/${encodeURIComponent(id)}/revise`, 'POST', input);
+}

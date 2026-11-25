@@ -74,7 +74,26 @@ async function updatePackage(key, input, actor) {
   const doc = (await Package.findOne({ key })) ?? new Package({ key });
   const catalog = packageCatalog[key];
 
+  /* The minimum price is the floor a salesperson may quote before the sale has
+     to go to the admin. It can never sit above the package rate. */
+  let minPrice = doc.minPrice ?? null;
+  if (input.minPrice !== undefined) {
+    if (input.minPrice === null || input.minPrice === '') {
+      minPrice = null;
+    } else {
+      const parsed = Number(input.minPrice);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the minimum price as a number of 0 or more, or leave it empty.');
+      }
+      if (parsed > price) {
+        throw makeError(errorCodes.VALIDATION_ERROR, 'The minimum price cannot be higher than the package rate.');
+      }
+      minPrice = Math.round(parsed * 100) / 100;
+    }
+  }
+
   doc.price = Math.round(price * 100) / 100;
+  doc.minPrice = minPrice;
   doc.name = typeof input.name === 'string' && input.name.trim() ? input.name.trim().slice(0, 80) : catalog.name;
   doc.summary = typeof input.summary === 'string' ? input.summary.trim().slice(0, 300) : doc.summary ?? catalog.summary;
   if (input.features !== undefined) doc.features = normaliseFeatures(input.features);

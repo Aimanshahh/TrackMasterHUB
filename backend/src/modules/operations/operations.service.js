@@ -152,6 +152,7 @@ async function createJob(input, actor) {
      that rate, or below it when a discount needs approval. */
   let packageKey = null;
   let listPrice = null;
+  let minimumPrice = null;
   let quotedPrice = null;
   let approvalStatus = 'not_required';
 
@@ -163,6 +164,7 @@ async function createJob(input, actor) {
     const pricing = await getPackagePricing(input.packageKey);
     packageKey = pricing.key;
     listPrice = pricing.price;
+    minimumPrice = Number.isFinite(pricing.minPrice) ? pricing.minPrice : null;
 
     const quote = Number(input.quotedPrice);
     if (!Number.isFinite(quote) || quote <= 0) {
@@ -171,9 +173,28 @@ async function createJob(input, actor) {
 
     quotedPrice = Math.round(quote * 100) / 100;
 
-    // The package rate is the minimum selling price. Quoting at or above it
-    // needs no approval; quoting below it goes to the admin.
+    /* The admin sets two numbers: the standard rate and the minimum price. A
+       discount off the rate is the salesperson's call, but it needs the admin's
+       approval; the minimum price is a hard floor, so a quote under it is
+       refused here rather than stored and quietly approved later. */
+    if (minimumPrice !== null && quotedPrice < minimumPrice) {
+      throw makeError(
+        errorCodes.VALIDATION_ERROR,
+        `The ${pricing.name || 'chosen'} package cannot be sold below its minimum price of ${minimumPrice.toLocaleString()}. Quote that or more, or ask the admin to change the floor.`,
+      );
+    }
+
     approvalStatus = quotedPrice < listPrice ? 'pending' : 'not_required';
+  }
+
+  const agentSource = input.agent?.source === 'agent' ? 'agent' : 'direct';
+  const agentName = String(input.agent?.name ?? '').trim().slice(0, 120);
+  if (agentSource === 'agent' && !agentName) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the agent name, or record this sale as direct.');
+  }
+  const agentCommission = Number(input.agent?.commission ?? 0);
+  if (!Number.isFinite(agentCommission) || agentCommission < 0) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the agent commission as a number of 0 or more.');
   }
 
   const job = new Job({
@@ -197,6 +218,15 @@ async function createJob(input, actor) {
     packageFeatures: Array.isArray(input.packageFeatures) ? input.packageFeatures.map(String).filter(Boolean).slice(0, 20) : [],
     deviceOwnership: input.deviceOwnership === 'customer' ? 'customer' : 'company',
     approvalStatus,
+    minimumPrice,
+    microphone: { required: ['standard', 'premium'].includes(packageKey) },
+    agent: {
+      source: agentSource,
+      name: agentSource === 'agent' ? agentName : '',
+      phone: String(input.agent?.phone ?? '').trim().slice(0, 40),
+      commission: agentSource === 'agent' ? Math.round(agentCommission * 100) / 100 : 0,
+      commissionRemarks: String(input.agent?.commissionRemarks ?? '').trim().slice(0, 500),
+    },
     createdBy: actor.id,
     history: [
       {
@@ -228,6 +258,7 @@ async function createJob(input, actor) {
         customerName: customer.name,
         packageKey,
         listPrice,
+        minimumPrice,
         quotedPrice,
         reason: input.approvalReason,
       },

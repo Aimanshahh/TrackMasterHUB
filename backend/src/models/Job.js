@@ -113,6 +113,100 @@ const jobSchema = new mongoose.Schema(
       inspectedBy: { type: String, trim: true, maxlength: 120, default: '' },
     },
     installation: { type: installationSchema, default: () => ({}) },
+    /**
+     * The four installation tests the technician performs on site, plus the
+     * operations review that decides whether the installation is accepted.
+     * Every result carries its own timestamp and where the reading came from,
+     * so a manual verification is never presented as portal telemetry.
+     */
+    testing: {
+      battery: {
+        status: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
+        connected: { type: Boolean, default: null },
+        disconnectWorking: { type: Boolean, default: null },
+        temperatureC: { type: Number, default: null },
+        source: { type: String, enum: ['', 'portal', 'manual'], default: '' },
+        note: { type: String, trim: true, maxlength: 500, default: '' },
+        verifiedAt: { type: Date },
+        verifiedByName: { type: String, trim: true, maxlength: 120, default: '' },
+      },
+      ignition: {
+        status: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
+        ignitionOn: { type: Boolean, default: null },
+        objectStatus: { type: String, trim: true, maxlength: 200, default: '' },
+        source: { type: String, enum: ['', 'portal', 'manual'], default: '' },
+        note: { type: String, trim: true, maxlength: 500, default: '' },
+        verifiedAt: { type: Date },
+        verifiedByName: { type: String, trim: true, maxlength: 120, default: '' },
+      },
+      location: {
+        status: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
+        physicalLocation: { type: String, trim: true, maxlength: 400, default: '' },
+        latitude: { type: Number, default: null },
+        longitude: { type: Number, default: null },
+        gpsReceived: { type: Boolean, default: null },
+        source: { type: String, enum: ['', 'portal', 'manual'], default: '' },
+        note: { type: String, trim: true, maxlength: 500, default: '' },
+        verifiedAt: { type: Date },
+        verifiedByName: { type: String, trim: true, maxlength: 120, default: '' },
+      },
+      /** Engine kill needs operations, so the technician can only request it. */
+      engineKillTest: {
+        status: { type: String, enum: ['not_requested', 'requested', 'verified', 'failed'], default: 'not_requested' },
+        requestedAt: { type: Date },
+        requestedByName: { type: String, trim: true, maxlength: 120, default: '' },
+        requestNote: { type: String, trim: true, maxlength: 500, default: '' },
+        activated: { type: Boolean, default: null },
+        restored: { type: Boolean, default: null },
+        verifiedAt: { type: Date },
+        verifiedByName: { type: String, trim: true, maxlength: 120, default: '' },
+        note: { type: String, trim: true, maxlength: 500, default: '' },
+      },
+      submittedAt: { type: Date },
+      submittedByName: { type: String, trim: true, maxlength: 120, default: '' },
+      review: {
+        status: { type: String, enum: ['pending', 'approved', 'rejected', 'retest'], default: 'pending' },
+        by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        byName: { type: String, trim: true, maxlength: 120, default: '' },
+        at: { type: Date },
+        note: { type: String, trim: true, maxlength: 1000, default: '' },
+      },
+    },
+    /** Append-only history of technician assignment and schedule changes. */
+    scheduleHistory: {
+      type: [new mongoose.Schema({
+        kind: { type: String, enum: ['schedule', 'technician', 'address'], required: true },
+        from: { type: String, trim: true, maxlength: 300, default: '' },
+        to: { type: String, trim: true, maxlength: 300, default: '' },
+        reason: { type: String, trim: true, maxlength: 500, default: '' },
+        at: { type: Date, default: Date.now },
+        by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        byName: { type: String, trim: true, maxlength: 120, default: '' },
+      }, { _id: false })],
+      default: [],
+    },
+    /** Who brought this sale in. Independent agents are paid a commission. */
+    agent: {
+      source: { type: String, enum: ['direct', 'agent'], default: 'direct' },
+      name: { type: String, trim: true, maxlength: 120, default: '' },
+      phone: { type: String, trim: true, maxlength: 40, default: '' },
+      commission: { type: Number, min: 0, default: 0 },
+      commissionPaid: { type: Boolean, default: false },
+      commissionPaidAt: { type: Date },
+      commissionRemarks: { type: String, trim: true, maxlength: 500, default: '' },
+    },
+    /**
+     * Standard and Premium packages include the one-way microphone. Once the
+     * installation is approved, operations must assign a number to the vehicle.
+     */
+    microphone: {
+      required: { type: Boolean, default: false },
+      number: { type: String, trim: true, maxlength: 40, default: '' },
+      assignedAt: { type: Date },
+      assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      assignedByName: { type: String, trim: true, maxlength: 120, default: '' },
+      note: { type: String, trim: true, maxlength: 500, default: '' },
+    },
     /** Append-only record of every engine-kill status change, newest last. */
     engineKillHistory: {
       type: [new mongoose.Schema({
@@ -224,6 +318,11 @@ const jobSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    /** The minimum price in force when this sale was quoted; kept as a snapshot. */
+    minimumPrice: {
+      type: Number,
+      default: null,
+    },
     packageFeatures: {
       type: [String],
       default: [],
@@ -296,6 +395,56 @@ function installationJson(job) {
   };
 }
 
+function testingJson(job) {
+  const t = job.testing ?? {};
+  const read = (value) => ({
+    status: value?.status ?? 'pending',
+    source: value?.source ?? '',
+    note: value?.note ?? '',
+    verifiedAt: value?.verifiedAt?.toISOString?.() ?? null,
+    verifiedByName: value?.verifiedByName ?? '',
+  });
+  return {
+    battery: {
+      ...read(t.battery),
+      connected: t.battery?.connected ?? null,
+      disconnectWorking: t.battery?.disconnectWorking ?? null,
+      temperatureC: t.battery?.temperatureC ?? null,
+    },
+    ignition: {
+      ...read(t.ignition),
+      ignitionOn: t.ignition?.ignitionOn ?? null,
+      objectStatus: t.ignition?.objectStatus ?? '',
+    },
+    location: {
+      ...read(t.location),
+      physicalLocation: t.location?.physicalLocation ?? '',
+      latitude: t.location?.latitude ?? null,
+      longitude: t.location?.longitude ?? null,
+      gpsReceived: t.location?.gpsReceived ?? null,
+    },
+    engineKillTest: {
+      status: t.engineKillTest?.status ?? 'not_requested',
+      requestedAt: t.engineKillTest?.requestedAt?.toISOString?.() ?? null,
+      requestedByName: t.engineKillTest?.requestedByName ?? '',
+      requestNote: t.engineKillTest?.requestNote ?? '',
+      activated: t.engineKillTest?.activated ?? null,
+      restored: t.engineKillTest?.restored ?? null,
+      verifiedAt: t.engineKillTest?.verifiedAt?.toISOString?.() ?? null,
+      verifiedByName: t.engineKillTest?.verifiedByName ?? '',
+      note: t.engineKillTest?.note ?? '',
+    },
+    submittedAt: t.submittedAt?.toISOString?.() ?? null,
+    submittedByName: t.submittedByName ?? '',
+    review: {
+      status: t.review?.status ?? 'pending',
+      byName: t.review?.byName ?? '',
+      at: t.review?.at?.toISOString?.() ?? null,
+      note: t.review?.note ?? '',
+    },
+  };
+}
+
 function engineKillJson(job) {
   const e = job.installation?.engineKill ?? {};
   const status = e.status ?? 'not_set';
@@ -347,6 +496,7 @@ jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
     packageName: this.packageKey ? packageCatalog[this.packageKey]?.name ?? this.packageKey : '',
     ...(includeFinancials ? {
       listPrice: this.listPrice ?? null,
+      minimumPrice: this.minimumPrice ?? null,
       quotedPrice: this.quotedPrice ?? null,
     } : {}),
     approvalStatus: this.approvalStatus ?? 'not_required',
@@ -366,6 +516,31 @@ jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
       data: entry.data ?? null,
     })),
     installation: installationJson(this),
+    testing: testingJson(this),
+    scheduleHistory: (this.scheduleHistory ?? []).map((entry) => ({
+      kind: entry.kind,
+      from: entry.from ?? '',
+      to: entry.to ?? '',
+      reason: entry.reason ?? '',
+      at: entry.at?.toISOString?.() ?? null,
+      by: entry.byName ?? '',
+    })),
+    agent: {
+      source: this.agent?.source ?? 'direct',
+      name: this.agent?.name ?? '',
+      phone: this.agent?.phone ?? '',
+      commission: this.agent?.commission ?? 0,
+      commissionPaid: Boolean(this.agent?.commissionPaid),
+      commissionPaidAt: this.agent?.commissionPaidAt?.toISOString?.() ?? null,
+      commissionRemarks: this.agent?.commissionRemarks ?? '',
+    },
+    microphone: {
+      required: Boolean(this.microphone?.required),
+      number: this.microphone?.number ?? '',
+      assignedAt: this.microphone?.assignedAt?.toISOString?.() ?? null,
+      assignedByName: this.microphone?.assignedByName ?? '',
+      note: this.microphone?.note ?? '',
+    },
     engineKill: engineKillJson(this),
     engineKillHistory: (this.engineKillHistory ?? []).map((entry) => ({
       from: entry.from ?? 'not_set',

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
-import { getSalesBoard, cancelSale, restoreSale } from './sales.service.js';
+import { getSalesBoard, cancelSale, restoreSale, getAgentCommissions, setCommissionPaid, getSalesPerformance } from './sales.service.js';
 
 export const salesRouter = Router();
 
@@ -16,6 +16,26 @@ salesRouter.get('/mine', requireRole('salesperson'), async (req, res, next) => {
 salesRouter.get('/overview', requireRole('admin', 'manager'), async (req, res, next) => {
   try {
     return res.json({ data: await getSalesBoard() });
+  } catch (error) { next(error); }
+});
+
+/* Sales performance: the admin's ranking and revenue view. */
+salesRouter.get('/performance', requireRole('admin', 'manager'), async (req, res, next) => {
+  try {
+    return res.json({ data: await getSalesPerformance({ from: req.query.from, to: req.query.to, salesperson: req.query.salesperson }) });
+  } catch (error) { next(error); }
+});
+
+/* Agent-assisted sales and commission. This is money, so the admin owns it. */
+salesRouter.get('/agents', requireRole('admin'), async (req, res, next) => {
+  try {
+    return res.json(await getAgentCommissions({ agent: req.query.agent }));
+  } catch (error) { next(error); }
+});
+
+salesRouter.post('/agents/:id/commission', requireRole('admin'), async (req, res, next) => {
+  try {
+    return res.json({ data: await setCommissionPaid(req.params.id, req.body ?? {}, req.user) });
   } catch (error) { next(error); }
 });
 

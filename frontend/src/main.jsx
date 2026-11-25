@@ -13,6 +13,8 @@ import './styles/workspace-polish.css';
 import './styles/operations.css';
 import './styles/salesperson.css';
 import './styles/commercial.css';
+import './styles/technician.css';
+import './styles/fieldwork.css';
 import './styles/manager.css';
 import './styles/installation.css';
 import './styles/legacy.css';

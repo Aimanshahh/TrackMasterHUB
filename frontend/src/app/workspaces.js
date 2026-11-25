@@ -8,6 +8,9 @@ import {
   salespersonGroups,
   salespersonNavigationItems,
   salespersonTabs,
+  technicianGroups,
+  technicianNavigationItems,
+  technicianTabs,
 } from './navigation.js';
 
 /**
@@ -20,6 +23,7 @@ const adminPages = [
   { match: /^\/admin\/customers/, title: 'Customers', description: 'Search and review customer records stored in the business database.' },
   { match: /^\/admin\/follow-ups/, title: 'Follow-ups', description: 'Review customer follow-up work recorded by the team.' },
   { match: /^\/admin\/messages/, title: 'WhatsApp messages', description: '', hideHeader: true },
+  { match: /^\/admin\/quotations/, title: 'Quotations', description: 'Priced offers given to customers, how long each one holds, and what the customer answered.' },
   { match: /^\/admin\/sales/, title: 'Sales', description: 'Every sale, price approvals waiting for a decision, and renewals coming due.' },
   { match: /^\/admin\/operations/, title: 'Operations queue', description: 'Installation work items, technician assignment and station-level stock allocation.' },
   { match: /^\/admin\/pending-installations/, title: 'Pending installations', description: 'Sold vehicles that are not installed yet, oldest first.' },
@@ -29,10 +33,12 @@ const adminPages = [
   { match: /^\/admin\/vehicles/, title: 'Vehicles', description: 'Every installed vehicle with its live Active or Inactive status from the tracking server.' },
   { match: /^\/admin\/calls/, title: 'Call logs', description: 'Robocall results received from the call provider.' },
   { match: /^\/admin\/complaints/, title: 'Complaints', description: 'Recorded service tickets and their resolution progress.' },
+  { match: /^\/admin\/sales-performance/, title: 'Sales performance', description: 'Revenue by salesperson for the period you choose, with completed and pending sales, agent commissions and open hot leads.' },
   { match: /^\/admin\/reports/, title: 'Reports', description: 'Business summaries will be available as verified records are collected.' },
   { match: /^\/admin\/pricing/, title: 'Pricing', description: 'The package rates every installation quote starts from.' },
   { match: /^\/admin\/approvals/, title: 'Price approvals', description: 'Installations quoted below the package rate, waiting on your decision.' },
   { match: /^\/admin\/money/, title: 'Money records', description: 'Invoices, part payments and outstanding balances recorded by the business.' },
+  { match: /^\/admin\/technician-payments/, title: 'Technician payments', description: 'Installation rates, approved earnings and every payment made to a technician.' },
   { match: /^\/admin\/users/, title: 'User access', description: 'Create and review accounts for Admin, Salesperson, Manager and Operations roles.' },
   { match: /^\/admin\/activity/, title: 'Activity log', description: 'A trace of changes recorded by the backend.' },
   { match: /^\/admin\/settings/, title: 'Settings', description: 'Workspace access and service health.' },
@@ -51,6 +57,8 @@ const operationsPages = [
   { match: /^\/operations\/complaints/, title: 'Complaints', description: 'Service tickets logged by the team and their resolution progress.' },
   { match: /^\/operations\/inventory/, title: 'Inventory', description: 'Device stock by IMEI and SIM stock held at each station.' },
   { match: /^\/operations\/technicians/, title: 'Technicians', description: 'Field technicians registered by operations, with their home station.' },
+  { match: /^\/operations\/reviews/, title: 'Testing review', description: 'Installations submitted by technicians, with their tests and the portal readings behind them.' },
+  { match: /^\/operations\/microphones/, title: 'Microphones', description: 'One-way microphone numbers, and the vehicles still waiting for one.' },
   { match: /^\/operations\/reports/, title: 'Operations reports', description: 'Workload, completion and stock totals currently recorded.' },
   { match: /^\/operations\/settings/, title: 'Settings', description: 'Your workspace access and how operational data is protected.' },
 ];
@@ -77,8 +85,21 @@ const salespersonPages = [
   { match: /^\/salesperson\/follow-ups/, title: 'Follow-ups', description: 'Customers due for a call or visit, ordered by date.' },
   { match: /^\/salesperson\/requests/, title: 'Installation requests', description: 'Requests you pushed to operations and where they currently stand.' },
   { match: /^\/salesperson\/complaints/, title: 'Complaints', description: 'Tickets you logged and the resolution progress from operations.' },
+  { match: /^\/salesperson\/quotations/, title: 'Quotations', description: 'Offers you have written, the price each one holds and whether the customer answered.' },
   { match: /^\/salesperson\/sales/, title: 'Sales & renewals', description: 'Your sales, price approvals and the renewals you should call about.' },
+  { match: /^\/salesperson\/hot-leads/, title: 'Hot leads', description: 'Customers who have agreed to buy but are not installed yet.' },
   { match: /^\/salesperson\/settings/, title: 'Settings', description: 'Your account, workspace access and notification behaviour.' },
+];
+
+/* The technician portal writes its own headings (greeting, reference, balance),
+   so the shared page header is suppressed to avoid a duplicated title. */
+const technicianPages = [
+  { match: /^\/technician\/?$/, title: 'Today', description: 'Your installations for today, your stock and anything waiting on operations.', hideHeader: true },
+  { match: /^\/technician\/installations\/[^/]+$/, title: 'Installation', description: 'Confirm the device and SIM, run the four tests and submit for approval.', hideHeader: true },
+  { match: /^\/technician\/installations$/, title: 'Installations', description: 'Every installation assigned to you, with its testing status.', hideHeader: true },
+  { match: /^\/technician\/stock$/, title: 'My stock', description: 'The devices and SIMs issued to you, and where each one stands.', hideHeader: true },
+  { match: /^\/technician\/earnings$/, title: 'Earnings', description: 'Approved installations, your rate and payments received.', hideHeader: true },
+  { match: /^\/technician\/settings$/, title: 'Settings', description: 'Your account and how your records are protected.', hideHeader: true },
 ];
 
 export const adminWorkspace = {
@@ -117,6 +138,19 @@ export const managerWorkspace = {
   navGroups: managerGroups,
   navItems: managerNavigationItems,
   pages: managerPages,
+};
+
+export const technicianWorkspace = {
+  id: 'technician',
+  label: 'Technician',
+  eyebrow: 'TRACKMASTER HUB · TECHNICIAN',
+  homePath: '/technician',
+  settingsPath: '/technician/settings',
+  navHeading: 'FIELD DESK',
+  navGroups: technicianGroups,
+  navItems: technicianNavigationItems,
+  tabs: technicianTabs,
+  pages: technicianPages,
 };
 
 export const operationsWorkspace = {

@@ -33,6 +33,11 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** Only set for the technician role: the technician record this login owns. */
+    technician: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Technician',
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -75,6 +80,7 @@ userSchema.methods.toApiJson = function () {
     role: this.role,
     roleLabel: roleLabels[this.role],
     active: this.active,
+    technician: this.technician?.toString?.() ?? null,
     // Projections may omit timestamps (for example a populated customer
     // owner), so never assume the fields are present.
     createdAt: this.createdAt?.toISOString() ?? null,

@@ -1,6 +1,15 @@
 import mongoose from 'mongoose';
 
-export const SIM_STATUSES = ['in_stock', 'assigned', 'out_of_service'];
+export const SIM_STATUSES = ['in_stock', 'assigned', 'installed', 'returned', 'faulty', 'out_of_service'];
+
+export const SIM_STATUS_LABELS = {
+  in_stock: 'Available',
+  assigned: 'Reserved',
+  installed: 'Installed',
+  returned: 'Returned',
+  faulty: 'Faulty',
+  out_of_service: 'Out of service',
+};
 
 const simSchema = new mongoose.Schema(
   {
@@ -39,6 +48,19 @@ const simSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Job',
     },
+    /** IMEI of the device this SIM is fitted with. */
+    deviceImei: {
+      type: String,
+      trim: true,
+      maxlength: 20,
+      default: '',
+    },
+    assignedAt: {
+      type: Date,
+    },
+    installedAt: {
+      type: Date,
+    },
     notes: {
       type: String,
       trim: true,
@@ -59,9 +81,13 @@ simSchema.methods.toApiJson = function () {
     iccid: this.iccid ?? '',
     operator: this.operator ?? '',
     status: this.status,
+    statusLabel: SIM_STATUS_LABELS[this.status] ?? this.status,
     station: this.station ?? '',
     technician: this.technician,
     job: this.job?.toString(),
+    deviceImei: this.deviceImei ?? '',
+    assignedAt: this.assignedAt?.toISOString?.() ?? null,
+    installedAt: this.installedAt?.toISOString?.() ?? null,
     notes: this.notes ?? '',
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),

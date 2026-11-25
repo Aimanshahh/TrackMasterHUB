@@ -46,12 +46,13 @@ async function listApprovals({ status, page = 1, limit = 20 } = {}) {
  * rate. The price difference is fixed at request time, so a later admin price
  * change cannot silently alter an approval the admin already reviewed.
  */
-async function createApprovalForJob({ job, customerName, packageKey, listPrice, quotedPrice, reason }, actor) {
+async function createApprovalForJob({ job, customerName, packageKey, listPrice, minimumPrice = null, quotedPrice, reason }, actor) {
   const approval = await Approval.create({
     job: job._id,
     customer: job.customer,
     packageKey,
     listPrice,
+    minimumPrice,
     quotedPrice,
     reason: reason?.trim() || '',
     requestedBy: actor.id,

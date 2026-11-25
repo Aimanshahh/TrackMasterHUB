@@ -12,6 +12,7 @@ import { notificationsRouter } from '../modules/notifications/notifications.rout
 import { salespersonRouter } from '../modules/salesperson/salesperson.routes.js';
 import { pricingRouter } from '../modules/pricing/pricing.routes.js';
 import { salesRouter } from '../modules/sales/sales.routes.js';
+import { quotationsRouter } from '../modules/quotations/quotations.routes.js';
 import { approvalsRouter } from '../modules/approvals/approvals.routes.js';
 import { billingRouter } from '../modules/billing/billing.routes.js';
 import { managerRouter } from '../modules/manager/manager.routes.js';
@@ -20,6 +21,8 @@ import { importsRouter } from '../modules/imports/imports.routes.js';
 import { certificatesRouter } from '../modules/certificates/certificates.routes.js';
 import { vehiclesRouter } from '../modules/vehicles/vehicles.routes.js';
 import { messagesRouter } from '../modules/messages/messages.routes.js';
+import { technicianRouter } from '../modules/technician/technician.routes.js';
+import { technicianPayRouter } from '../modules/technicianPay/technicianPay.routes.js';
 
 /** Every feature module mounts here. Future modules (sales, operations, etc.) follow the same pattern. */
 export const apiRouter = Router();
@@ -41,6 +44,7 @@ apiRouter.get('/', (req, res) => {
       notifications: '/api/notifications',
       salesperson: '/api/salesperson',
       sales: '/api/sales',
+      quotations: '/api/quotations',
       packages: '/api/packages',
       approvals: '/api/approvals',
       billing: '/api/billing',
@@ -49,6 +53,8 @@ apiRouter.get('/', (req, res) => {
       calls: '/api/calls',
       certificates: '/api/certificates',
       imports: '/api/imports',
+      technician: '/api/technician',
+      technicianPayments: '/api/technician-payments',
     },
   });
 });
@@ -65,6 +71,7 @@ apiRouter.use('/notifications', notificationsRouter);
 apiRouter.use('/salesperson', salespersonRouter);
 apiRouter.use('/packages', pricingRouter);
 apiRouter.use('/sales', salesRouter);
+apiRouter.use('/quotations', quotationsRouter);
 apiRouter.use('/approvals', approvalsRouter);
 apiRouter.use('/billing', billingRouter);
 apiRouter.use('/manager', managerRouter);
@@ -74,3 +81,5 @@ apiRouter.use('/webhooks/robocall', callsWebhookRouter);
 apiRouter.use('/certificates', certificatesRouter);
 apiRouter.use('/imports', importsRouter);
 apiRouter.use('/messages', messagesRouter);
+apiRouter.use('/technician', technicianRouter);
+apiRouter.use('/technician-payments', technicianPayRouter);

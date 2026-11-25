@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { makeReference } from '../utils/reference.js';
-import { packageCatalog } from './Package.js';
+import { PACKAGE_KEYS, packageCatalog } from './Package.js';
 
 export const APPROVAL_STATUSES = ['pending', 'approved', 'rejected'];
 
@@ -30,12 +30,18 @@ const approvalSchema = new mongoose.Schema(
     packageKey: {
       type: String,
       required: true,
-      enum: ['basic', 'standard', 'premium'],
+      enum: PACKAGE_KEYS,
     },
     listPrice: {
       type: Number,
       required: true,
       min: 0,
+    },
+    /** The minimum price in force when the sale was quoted. Kept for the record. */
+    minimumPrice: {
+      type: Number,
+      min: 0,
+      default: null,
     },
     quotedPrice: {
       type: Number,
@@ -91,8 +97,12 @@ approvalSchema.methods.toApiJson = function () {
     packageKey: this.packageKey,
     packageName: packageCatalog[this.packageKey]?.name ?? this.packageKey,
     listPrice: this.listPrice,
+    minimumPrice: this.minimumPrice ?? null,
     quotedPrice: this.quotedPrice,
     discount: Math.max(0, Math.round((this.listPrice - this.quotedPrice) * 100) / 100),
+    belowMinimum: this.minimumPrice !== null && this.minimumPrice !== undefined
+      ? this.quotedPrice < this.minimumPrice
+      : false,
     reason: this.reason ?? '',
     decisionNote: this.decisionNote ?? '',
     requestedBy: populated(this.requestedBy)

@@ -24,6 +24,25 @@ const technicianSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    /** The login account this technician signs in with. Created and linked by the admin. */
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    /**
+     * What the business pays this technician per approved installation. The rate
+     * is copied onto each earning record, so a later change here never rewrites
+     * work that has already been paid or billed.
+     */
+    rates: {
+      normal: { type: Number, min: 0, default: null },
+      redo: { type: Number, min: 0, default: null },
+      additional: { type: Number, min: 0, default: 0 },
+      effectiveFrom: { type: Date },
+      remarks: { type: String, trim: true, maxlength: 400, default: '' },
+      updatedAt: { type: Date },
+      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    },
     active: {
       type: Boolean,
       default: true,
@@ -49,6 +68,15 @@ technicianSchema.methods.toApiJson = function () {
     station: this.station ?? '',
     active: this.active,
     notes: this.notes ?? '',
+    user: this.user?.toString?.() ?? null,
+    rates: {
+      normal: this.rates?.normal ?? null,
+      redo: this.rates?.redo ?? null,
+      additional: this.rates?.additional ?? 0,
+      effectiveFrom: this.rates?.effectiveFrom?.toISOString?.() ?? null,
+      remarks: this.rates?.remarks ?? '',
+      updatedAt: this.rates?.updatedAt?.toISOString?.() ?? null,
+    },
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),
   };

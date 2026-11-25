@@ -537,6 +537,21 @@ Choose a WhatsApp Business Platform provider and an email delivery service after
 
 - Version history and approval requirements.
 
+- **Implemented (25 November 2026).** `Quotation` records a reference
+  (`QTN-<year>-XXXX`), the customer and optional installation request, the
+  vehicle registration, the package, the package rate at the time of writing,
+  the quoted amount, the validity date, printed terms and an internal note.
+  Statuses are draft → sent → accepted / rejected, with **Expired** worked out
+  from the validity date (`Quotation.isExpired`) rather than trusted to a person.
+  A draft is the only editable state: sending fixes the figures, and a refused or
+  expired quote is **revised**, which copies the old figures into `history` and
+  raises the version. A salesperson may only quote their own customers and only
+  sees quotations on their portfolio; the portfolio is resolved from the session.
+  Every send and decision is written to the activity log. The printed A4 sheet
+  (`/quotations/:id/print`) shows the rate, the agreed reduction, the validity
+  date and the terms, and states that it is not a tax invoice. No approval step is
+  attached to a quotation — the approval floor applies to a sale, not to an offer.
+
 ### Invoices and payments
 
 - Manager finalizes/issues invoices.
@@ -1237,13 +1252,129 @@ CRM OneDoor could not be viewed during this review, so the following are candida
 - **Shezz Traders device fetch.** Shezz exposes `GET /api/integrations/handovers` (read-only, protected by `INTEGRATION_API_KEY`, no prices) listing the devices TrackMaster handed to technicians. The Hub's *Fetch from Shezz* (Inventory) previews the result, matches technician names (the word “Technician”, case and spacing are ignored; close names need confirmation; confirmed spellings are remembered as aliases), then creates the devices in the Hub assigned to that technician. Devices already fitted to a vehicle are never moved, and running it again changes nothing. Settings: `SHEZZ_API_URL`, `SHEZZ_API_KEY` in the Hub.
 - **Sales and renewals.** A sale is an installation request with a package and a quoted price. `GET /api/sales/mine` (salesperson, own records only) and `GET /api/sales/overview` (admin, manager) return sales this month and overall, sales awaiting price approval, a by-salesperson table (company view only) and the vehicles whose yearly plan has ended or ends within 30 days. The salesperson page also shows the package price list. This replaces the earlier “not connected yet” pages.
 - **Today screen and top bar.** The Operations overview is now four numbers and one attention list. The top bar on every workspace is a single quiet line with the breadcrumb, notifications and the account menu; the connection indicator appears only when something is wrong.
-- **Still to do from this area:** printable quotations, recording a renewal payment from the Sales screen, and a date filter for today's installations.
+- **Still to do from this area:** ~~printable quotations~~ (built 25 November 2026, section 21.7), recording a renewal payment from the Sales screen, and a date filter for today's installations.
 
 ## Installation workflow and engine kill
 
-- A sale reaches Operations unassigned. Operations assigns a technician, enters what the technician reports (technicians have no login), ticks the checklist and completes the record.
+- A sale reaches Operations unassigned. Operations assigns a technician. A technician with a login records the device, SIM and tests in the technician portal (section 21); a technician without a login is still handled by the desk, which enters what they report, ticks the checklist and completes the record.
 - Recorded per installation: technician, registration, engine/chassis no., battery temperature, device placement, device model, IMEI, SIM, installation address, completion date/time, testing results, technician and operations remarks.
 - Checklist (saved on the job and shown in installation history): device installed, powered on, GPS signal, live location, SIM/network, tracking tested, immobilization tested (where supported).
 - Completion is enforced by the backend: technician, registration, IMEI, SIM, device placement, address, the six core checklist ticks and an engine kill decision are required. Engine kill "Not implemented" never blocks GPS completion but needs a reason; "Implemented" needs the immobilization test ticked.
 - Engine kill is its own status (Not recorded / Implemented / Not implemented) updated via `PATCH /api/operations/jobs/:id/engine-kill` (admin, operations). Every change is kept in `engineKillHistory` and the installation history.
 - Vehicle profile: `GET /api/vehicles/:id/profile` (admin, manager, operations). A vehicle is identified by its plate across installation jobs.
+
+## 21. Technician portal and field workflow (25 November 2026)
+
+Build on the existing app, not a second one. Technician data lives on the same
+customer, job, device and SIM records the other desks use.
+
+### 21.1 New role and its own workspace
+
+- Fifth role `technician`. `POST /api/users` with `role: "technician"` creates the
+  technician record and the login together and links them both ways
+  (`User.technician` ↔ `Technician.user`), so a login can never float free of the
+  stock and installations it is allowed to see.
+- `/technician` is a phone-first workspace (one column, bottom tabs, no sidebar on
+  small screens). Every API route resolves the technician from the session; no
+  endpoint accepts a technician id from the browser. An admin gets `403` from the
+  technician API.
+- Screens: Today, Installations, Installation detail, My stock, Earnings, Settings.
+
+### 21.2 Stock and device selection
+
+- Devices and SIMs carry `in_stock`, `assigned` (issued or reserved), `installed`,
+  `returned`, `faulty`, `out_of_service`, plus assignment and installation
+  timestamps and the paired SIM / IMEI.
+- The technician types the IMEI and SIM. Both are matched against their own stock
+  exactly. One wrong digit is refused and the closest stock number is named. A
+  device reserved for another installation, already fitted, or belonging to
+  another technician is refused. Re-selecting before installation returns the
+  previous pair to stock.
+
+### 21.3 The four tests and the operations review
+
+- Battery and disconnect (with temperature), ignition ON/OFF with the object
+  status seen, and installation location (physical address plus the reported
+  position). Each result stores who recorded it, when, and `source` (`portal` or
+  `manual`). The tracking-portal panel shows the last reading and its sync time; a
+  device the portal does not list says so instead of inventing a status.
+- Engine kill is only *requested* by the technician. Operations performs the kill
+  and restore and records the outcome; approval is refused until the restore is
+  confirmed.
+- Submission is refused until the device, SIM, three verified tests and an engine
+  kill request exist. Operations sees the submission in `/operations/reviews` with
+  the portal reading beside each test, then approves, rejects or asks for a retest.
+- Approval closes the installation, marks the device and SIM installed, copies the
+  technician's current rate into a new earning, and raises a microphone task for
+  Standard and Premium.
+
+### 21.4 Schedule and assignment history
+
+- `Job.scheduleHistory` keeps every date, address and technician change with the
+  previous value, the reason, who made it and when. The technician is notified.
+  Nothing is overwritten silently.
+
+### 21.5 One-way microphone numbers
+
+- `MicrophoneNumber` inventory with an append-only assignment history. A number
+  can only be active on one vehicle, releasing it returns it to the pool, Basic
+  installations never ask for one, and the operation is blocked while the number
+  is still missing.
+
+### 21.6 Minimum price, hot leads, agents and technician money
+
+- `Package.minPrice` is the floor the admin sets. Quoting at the rate needs no
+  approval; any discount below the rate goes to the admin, and the approval
+  records the minimum price that applied. The minimum can never exceed the rate.
+- **Two numbers, both the admin's (25 November 2026).** The Pricing screen asks
+  for a **standard rate** and a **minimum price** per package, and shows both
+  against the package (for example Basic at a 15,500 rate with a 13,000 floor).
+  Saving a floor above the rate is refused. The floor is now enforced where the
+  sale is created: a quote under it is rejected by the API with the floor named,
+  so it can never sit in the approval queue and be approved by accident. A quote
+  between the floor and the rate still goes to the admin as an approval. Leaving
+  the minimum empty keeps the earlier behaviour — the rate is the floor. The
+  salesperson's intake form shows the floor on each package tile, refuses to send
+  under it, and states whether a price needs approval; the approval card shows
+  the floor that applied.
+- Hot leads are a flag on the existing customer record with status, delay reason,
+  expected date and next follow-up; closing a lead never touches the customer.
+- `Job.agent` records Direct or Agent plus name, phone, commission and remarks.
+  `GET /api/sales/agents` shows committed, paid and pending commission; it is
+  never marked paid automatically.
+- `Technician.rates` (normal, redo, additional) are set by the admin. Approval
+  creates a `TechnicianEarning` with the rate copied on, and
+  `TechnicianPayment` records each payment. Balance is always earned minus paid;
+  reversals keep the earning and add a reason; overpayment is refused.
+
+### 21.7 Quotations (25 November 2026)
+
+- `/admin/quotations` and `/salesperson/quotations` share one screen: search,
+  status filters (All, Draft, Sent, Accepted, Rejected, Expired), a table of
+  reference, customer, package, quoted amount, validity and status, and per-row
+  actions (Edit, Send, Record answer, Revise, Print). Empty, loading and error
+  states are explicit; a quote below the package rate says so on the row and in
+  the form.
+- The drawer writes a quote from a customer search, a package (with the rate as
+  the starting price), a validity date, an optional registration, printed terms and
+  an internal note. The default terms are a fixed three-line set, so a saved quote
+  always carries conditions.
+- Printable sheet at `/quotations/:id/print`, using the same A4 frame, brand and
+  print toolbar as invoices, with a Draft / Awaiting answer / Accepted / Not
+  accepted / Expired stamp.
+- Deliberately not built: turning an accepted quote into a sale (the sale still
+  comes from intake), and a server-generated PDF.
+
+### 21.8 Still open from this round
+
+- A dedicated tracking-portal integration account and its API hash: `.env.example`
+  holds placeholders only; the hash must be supplied on the server.
+- Excel import does not yet map the salesperson name from the sheet (module 4.3).
+- The salesperson portal still has its own visual language (module 4.4).
+- The admin sales section is still the sales board and by-salesperson table rather
+  than the dedicated performance dashboard in module 5. ~~Resolved~~ — the sales
+  performance screen exists at `/admin/sales-performance`.
+- Microphone numbers are inventoried and assigned; the actual call routing and
+  consent handling sit with the telephony provider.
+- No automated tests were added for the new modules; the workflow was verified
+  end to end against the live database instead (see README).

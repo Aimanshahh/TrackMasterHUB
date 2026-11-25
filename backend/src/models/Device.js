@@ -1,6 +1,23 @@
 import mongoose from 'mongoose';
 
-export const DEVICE_STATUSES = ['in_stock', 'assigned', 'out_of_service'];
+/**
+ * Stock states. `in_stock` is the station store, `assigned` means issued to a
+ * technician or reserved for one installation, `installed` is fitted to a
+ * vehicle, and the rest are the end states an admin or operations records.
+ */
+export const DEVICE_STATUSES = ['in_stock', 'assigned', 'installed', 'returned', 'faulty', 'out_of_service'];
+
+export const DEVICE_STATUS_LABELS = {
+  in_stock: 'Available',
+  assigned: 'Reserved',
+  installed: 'Installed',
+  returned: 'Returned',
+  faulty: 'Faulty',
+  out_of_service: 'Out of service',
+};
+
+/** States that still belong to the technician's working stock. */
+export const USABLE_DEVICE_STATUSES = ['in_stock', 'assigned'];
 
 const deviceSchema = new mongoose.Schema(
   {
@@ -34,6 +51,19 @@ const deviceSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Job',
     },
+    /** The SIM fitted with this device, recorded when the technician installs it. */
+    simNumber: {
+      type: String,
+      trim: true,
+      maxlength: 40,
+      default: '',
+    },
+    assignedAt: {
+      type: Date,
+    },
+    installedAt: {
+      type: Date,
+    },
     notes: {
       type: String,
       trim: true,
@@ -53,9 +83,13 @@ deviceSchema.methods.toApiJson = function () {
     imei: this.imei,
     model: this.model ?? '',
     status: this.status,
+    statusLabel: DEVICE_STATUS_LABELS[this.status] ?? this.status,
     station: this.station ?? '',
     technician: this.technician,
     job: this.job?.toString(),
+    simNumber: this.simNumber ?? '',
+    assignedAt: this.assignedAt?.toISOString?.() ?? null,
+    installedAt: this.installedAt?.toISOString?.() ?? null,
     notes: this.notes ?? '',
     createdAt: this.createdAt.toISOString(),
     updatedAt: this.updatedAt.toISOString(),

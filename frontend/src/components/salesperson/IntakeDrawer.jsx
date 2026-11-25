@@ -17,6 +17,11 @@ const emptyForm = {
   notes: '',
   installDate: '',
   installTime: '',
+  agentSource: 'direct',
+  agentName: '',
+  agentPhone: '',
+  agentCommission: '',
+  agentRemarks: '',
 };
 
 let vehicleCounter = 0;
@@ -37,11 +42,15 @@ function newVehicle() {
   };
 }
 
-/** Where a quote sits against the package's minimum selling price. */
+/**
+ * Where a quote sits against the two numbers the admin sets: the standard rate
+ * (a discount off it needs approval) and the minimum price (a hard floor).
+ */
 function quoteStateFor(vehicle, packageRows) {
   const pkg = packageRows.find((row) => row.key === vehicle.packageKey) ?? null;
   const quote = Number(vehicle.quotedPrice);
   const hasQuote = vehicle.quotedPrice !== '' && Number.isFinite(quote) && quote > 0;
+  const floor = pkg && Number.isFinite(pkg.minPrice) ? pkg.minPrice : null;
   const state = !pkg || pkg.price === null || !hasQuote
     ? null
     : quote < pkg.price
@@ -49,7 +58,8 @@ function quoteStateFor(vehicle, packageRows) {
       : quote > pkg.price
         ? 'above'
         : 'exact';
-  return { pkg, quote, hasQuote, state };
+  const belowFloor = Boolean(floor !== null && hasQuote && quote < floor);
+  return { pkg, quote, hasQuote, state, floor, belowFloor };
 }
 
 /**
@@ -119,7 +129,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
     if (isInstallation) {
       for (let index = 0; index < vehicles.length; index += 1) {
         const vehicle = vehicles[index];
-        const { pkg, hasQuote } = quoteStateFor(vehicle, packages.rows);
+        const { pkg, hasQuote, floor, belowFloor } = quoteStateFor(vehicle, packages.rows);
         const label = vehicles.length > 1 ? `Vehicle ${index + 1}: ` : '';
 
         if (!pkg) {
@@ -132,6 +142,11 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
         }
         if (!hasQuote) {
           setError(`${label}Enter the price you quoted the customer.`);
+          return;
+        }
+        // The minimum price is a floor, not a suggestion: the backend refuses it.
+        if (belowFloor) {
+          setError(`${label}The ${pkg.name} package cannot be sold below ${formatMoney(floor)}. Quote that or more, or ask the admin to lower the minimum price.`);
           return;
         }
       }
@@ -203,6 +218,15 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
           packageFeatures: vehicle.packageFeatures.split('\n').map((feature) => feature.trim()).filter(Boolean),
           deviceOwnership: vehicle.deviceOwnership,
           approvalReason: state === 'below' ? vehicle.approvalReason : undefined,
+          agent: form.agentSource === 'agent'
+            ? {
+              source: 'agent',
+              name: form.agentName,
+              phone: form.agentPhone,
+              commission: form.agentCommission === '' ? 0 : Number(form.agentCommission),
+              commissionRemarks: form.agentRemarks,
+            }
+            : { source: 'direct' },
         });
         sent += 1;
         if (jobPayload.data.job.approvalStatus === 'pending') awaitingApproval += 1;
@@ -354,6 +378,9 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                         >
                           <span className="pkg-pick__name">{row.name}</span>
                           <span className="pkg-pick__price">{row.configured ? formatMoney(row.price) : 'Not priced'}</span>
+                          {row.configured && Number.isFinite(row.minPrice) ? (
+                            <span className="pkg-pick__floor">floor {formatMoney(row.minPrice)}</span>
+                          ) : null}
                         </button>
                       ))}
                     </div>
@@ -369,7 +396,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                             min="1"
                             step="1"
                             inputMode="decimal"
-                            placeholder={pkg?.price ? String(pkg.price) : 'Minimum price'}
+                            placeholder={pkg?.price ? String(pkg.price) : 'Standard rate'}
                             value={vehicle.quotedPrice}
                             onChange={updateVehicle(vehicle.id, 'quotedPrice')}
                           />
@@ -390,9 +417,10 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                       </select>
                     </label>
                   ) : null}
-                      {state === 'below' ? (
+                      {state === 'below' && !belowFloor ? (
                         <label className="field">
                           <span className="field__label">Why the discount?</span>
+
                           <input
                             className="input"
                             maxLength={500}
@@ -404,13 +432,16 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                       ) : null}
                     </div>
 
-                    {state ? (
-                      <p className="quote-note" data-state={state}>
-                        {state === 'below'
-                          ? `Below the ${pkg.name} minimum of ${formatMoney(pkg.price)}. This installation waits for the admin to approve the price before operations can complete it.`
+                    {state || belowFloor ? (
+                      <p className="quote-note" data-state={belowFloor ? 'under-floor' : state}>
+                        {belowFloor
+                          ? `Below the ${pkg.name} minimum price of ${formatMoney(floor)}. This cannot be sent — the floor is what the admin allows the package to sell for.`
                           : null}
-                        {state === 'exact' ? `At the ${pkg.name} minimum price. No approval needed.` : null}
-                        {state === 'above' ? `Above the ${pkg.name} minimum of ${formatMoney(pkg.price)}. No approval needed.` : null}
+                        {!belowFloor && state === 'below'
+                          ? `Below the ${pkg.name} standard rate of ${formatMoney(pkg.price)}${floor !== null ? ` (floor ${formatMoney(floor)})` : ''}. This installation waits for the admin to approve the price before operations can complete it.`
+                          : null}
+                        {state === 'exact' ? `At the ${pkg.name} standard rate. No approval needed.` : null}
+                        {state === 'above' ? `Above the ${pkg.name} standard rate of ${formatMoney(pkg.price)}. No approval needed.` : null}
                       </p>
                     ) : null}
                   </fieldset>
@@ -452,6 +483,49 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
               <textarea className="input input--area" rows={3} maxLength={2000} placeholder="What was discussed, what the customer asked for…" value={form.notes} onChange={update('notes')} />
             </label>
           </div>
+
+          {isInstallation ? (
+            <>
+              <div className="drawer__section-label">Sale source</div>
+              <div className="field-grid">
+                <label className="field">
+                  <span className="field__label">Sale generated by</span>
+                  <select className="input" value={form.agentSource} onChange={update('agentSource')}>
+                    <option value="direct">Direct — the customer came to us</option>
+                    <option value="agent">Agent — introduced by an agent</option>
+                  </select>
+                </label>
+                {form.agentSource === 'agent' ? (
+                  <label className="field">
+                    <span className="field__label">Agent name</span>
+                    <input className="input" maxLength={120} value={form.agentName} onChange={update('agentName')} placeholder="Who brought the customer" />
+                  </label>
+                ) : null}
+                {form.agentSource === 'agent' ? (
+                  <label className="field">
+                    <span className="field__label">Agent phone</span>
+                    <input className="input" maxLength={40} value={form.agentPhone} onChange={update('agentPhone')} />
+                  </label>
+                ) : null}
+                {form.agentSource === 'agent' ? (
+                  <label className="field">
+                    <span className="field__label">Commission</span>
+                    <div className="money-input">
+                      <em aria-hidden="true">PKR</em>
+                      <input className="input" type="number" min="0" step="1" value={form.agentCommission} onChange={update('agentCommission')} placeholder="0" />
+                    </div>
+                  </label>
+                ) : null}
+                {form.agentSource === 'agent' ? (
+                  <label className="field field--full">
+                    <span className="field__label">Commission remarks</span>
+                    <input className="input" maxLength={500} value={form.agentRemarks} onChange={update('agentRemarks')} placeholder="How and when the commission is paid" />
+                  </label>
+                ) : null}
+              </div>
+              <p className="field__hint">Commission is tracked separately from your sales figures and is never marked paid automatically; the admin settles it.</p>
+            </>
+          ) : null}
 
           {error ? <p className="form-alert" role="alert">{error}</p> : null}
           {notice ? <p className="form-notice" role="status">{notice}</p> : null}

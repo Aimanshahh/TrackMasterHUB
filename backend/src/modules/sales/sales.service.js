@@ -163,3 +163,269 @@ export async function restoreSale(id, actor) {
   await job.save();
   return { id: job._id.toString(), cancelled: false };
 }
+
+/**
+ * Agent-assisted sales. Commission is tracked separately from salesperson
+ * performance and technician payments, and is never marked paid automatically.
+ */
+export async function getAgentCommissions({ agent } = {}) {
+  const filter = { requestType: 'new_installation', 'agent.source': 'agent' };
+  if (agent) filter['agent.name'] = new RegExp(String(agent).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+  const jobs = await Job.find(filter).sort({ createdAt: -1 }).limit(200).populate('createdBy', 'name');
+  const rows = jobs.map((job) => ({
+    id: job._id.toString(),
+    reference: job.reference,
+    customerName: job.customerName ?? '',
+    registration: job.vehicle?.registration ?? '',
+    agent: job.agent?.name ?? '',
+    agentPhone: job.agent?.phone ?? '',
+    commission: job.agent?.commission ?? 0,
+    commissionPaid: Boolean(job.agent?.commissionPaid),
+    commissionPaidAt: job.agent?.commissionPaidAt?.toISOString() ?? null,
+    remarks: job.agent?.commissionRemarks ?? '',
+    salesperson: job.createdBy?.name ?? '',
+    status: job.status,
+    createdAt: job.createdAt.toISOString(),
+  }));
+
+  const byAgent = new Map();
+  for (const row of rows) {
+    const entry = byAgent.get(row.agent) ?? { name: row.agent, phone: row.agentPhone, sales: 0, total: 0, paid: 0, pending: 0 };
+    entry.sales += 1;
+    entry.total += row.commission;
+    if (row.commissionPaid) entry.paid += row.commission; else entry.pending += row.commission;
+    byAgent.set(row.agent, entry);
+  }
+
+  return {
+    data: rows,
+    agents: [...byAgent.values()].sort((a, b) => b.pending - a.pending || b.total - a.total),
+    meta: {
+      sales: rows.length,
+      total: rows.reduce((sum, row) => sum + row.commission, 0),
+      paid: rows.filter((row) => row.commissionPaid).reduce((sum, row) => sum + row.commission, 0),
+      pending: rows.filter((row) => !row.commissionPaid).reduce((sum, row) => sum + row.commission, 0),
+    },
+  };
+}
+
+export async function setCommissionPaid(id, { paid = true } = {}, actor) {
+  const job = await Job.findById(id);
+  if (!job) throw makeError('SALE_NOT_FOUND', 'That sale could not be found.', 404);
+  if (job.agent?.source !== 'agent') throw makeError('NOT_AGENT_SALE', 'This sale was not brought in by an agent.', 400);
+
+  job.agent.commissionPaid = Boolean(paid);
+  job.agent.commissionPaidAt = paid ? new Date() : undefined;
+  job.history.push({
+    status: job.status,
+    note: `Agent commission ${paid ? 'marked paid' : 'reopened'}${actor?.name ? ` by ${actor.name}` : ''}.`,
+    at: new Date(),
+    by: actor?.id,
+    byName: actor?.name ?? '',
+  });
+  await job.save();
+  return { id: job._id.toString(), commissionPaid: job.agent.commissionPaid };
+}
+
+/* --------------------------------------------------------------------------
+   Sales performance
+   -------------------------------------------------------------------------- */
+
+/** Monday 00:00 of the current week, in the server's local time. */
+function startOfWeek(now) {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekday = (start.getDay() + 6) % 7; // 0 = Monday
+  start.setDate(start.getDate() - weekday);
+  return start;
+}
+
+function parseBoundary(value, label, endOfDay = false) {
+  if (value === undefined || value === null || value === '') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw makeError('INVALID_DATE_RANGE', `Enter a valid ${label}.`, 400);
+  if (endOfDay) date.setHours(23, 59, 59, 999);
+  else date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+const isCancelled = (job) => job.status === 'cancelled';
+const isCompleted = (job) => job.status === 'completed';
+const isPending = (job) => !isCancelled(job) && !isCompleted(job);
+
+/**
+ * The admin's sales picture. Every figure is counted from stored installations;
+ * nothing is estimated. A range filters the headline numbers and the ranking,
+ * while the month and week columns always describe the current month and week so
+ * the two comparisons stay meaningful.
+ */
+export async function getSalesPerformance({ from, to, salesperson } = {}) {
+  const now = new Date();
+  const monthStart = startOfMonth();
+  const weekStart = startOfWeek(now);
+  const rangeFrom = parseBoundary(from, 'start date');
+  const rangeTo = parseBoundary(to, 'end date', true);
+
+  if (rangeFrom && rangeTo && rangeFrom > rangeTo) {
+    throw makeError('INVALID_DATE_RANGE', 'The start date is after the end date.', 400);
+  }
+
+  /* Imported legacy vehicles are already-installed records, not sales made by
+     anyone, so they are excluded: counting them would credit a salesperson with
+     history they never sold. */
+  const jobs = await Job.find({ requestType: 'new_installation', 'legacy.imported': { $ne: true } })
+    .select('reference customerName status quotedPrice listPrice packageKey approvalStatus createdAt completedAt createdBy vehicle agent cancellation')
+    .populate('createdBy', 'name')
+    .sort({ createdAt: -1 })
+    .limit(5000)
+    .lean();
+
+  const inRange = (job) => {
+    if (!rangeFrom && !rangeTo) return true;
+    const at = new Date(job.createdAt);
+    if (rangeFrom && at < rangeFrom) return false;
+    if (rangeTo && at > rangeTo) return false;
+    return true;
+  };
+
+  const inRangeJobs = jobs.filter(inRange);
+  const soldInRange = inRangeJobs.filter((job) => !isCancelled(job));
+  const sum = (rows) => rows.reduce((total, job) => total + soldPrice(job), 0);
+
+  const people = new Map();
+  const ensurePerson = (job) => {
+    const id = job.createdBy?._id?.toString() ?? 'unknown';
+    if (!people.has(id)) {
+      people.set(id, {
+        id,
+        name: job.createdBy?.name ?? 'Unassigned',
+        sales: 0,
+        completed: 0,
+        pending: 0,
+        cancelled: 0,
+        revenue: 0,
+        monthSales: 0,
+        monthRevenue: 0,
+        weekSales: 0,
+        weekRevenue: 0,
+        agentSales: 0,
+        agentCommission: 0,
+        lastSaleAt: null,
+      });
+    }
+    return people.get(id);
+  };
+
+  for (const job of inRangeJobs) {
+    const person = ensurePerson(job);
+    const value = soldPrice(job);
+    if (isCancelled(job)) {
+      person.cancelled += 1;
+    } else {
+      person.sales += 1;
+      person.revenue += value;
+      if (isCompleted(job)) person.completed += 1;
+      else person.pending += 1;
+      if (job.agent?.source === 'agent') {
+        person.agentSales += 1;
+        person.agentCommission += Number(job.agent?.commission) || 0;
+      }
+      const createdAt = new Date(job.createdAt);
+      if (!person.lastSaleAt || createdAt > new Date(person.lastSaleAt)) person.lastSaleAt = createdAt.toISOString();
+    }
+  }
+
+  for (const job of soldInRange) {
+    const person = ensurePerson(job);
+    const value = soldPrice(job);
+    const createdAt = new Date(job.createdAt);
+    if (createdAt >= monthStart) { person.monthSales += 1; person.monthRevenue += value; }
+    if (createdAt >= weekStart) { person.weekSales += 1; person.weekRevenue += value; }
+  }
+
+  /* Hot leads are a customer flag, counted per owner so the ranking can show
+     who is sitting on interest without an installation. */
+  const hotLeadCounts = await Customer.aggregate([
+    { $match: { 'hotLead.active': true } },
+    { $group: { _id: '$owner', count: { $sum: 1 } } },
+  ]);
+  const hotByOwner = new Map(hotLeadCounts.map((row) => [String(row._id), row.count]));
+
+  const bySalesperson = [...people.values()]
+    .map((person) => ({
+      ...person,
+      revenue: Math.round(person.revenue * 100) / 100,
+      monthRevenue: Math.round(person.monthRevenue * 100) / 100,
+      weekRevenue: Math.round(person.weekRevenue * 100) / 100,
+      hotLeads: hotByOwner.get(person.id) ?? 0,
+      averageSale: person.sales ? Math.round((person.revenue / person.sales) * 100) / 100 : null,
+      completionRate: person.sales + person.cancelled
+        ? Math.round((person.completed / (person.sales + person.cancelled)) * 100)
+        : null,
+    }))
+    .filter((person) => !salesperson || person.id === salesperson)
+    .sort((a, b) => b.revenue - a.revenue || b.sales - a.sales);
+
+  const monthJobs = jobs.filter((job) => !isCancelled(job) && new Date(job.createdAt) >= monthStart);
+  const weekJobs = jobs.filter((job) => !isCancelled(job) && new Date(job.createdAt) >= weekStart);
+
+  /* Agents are tracked separately from salesperson performance. */
+  const agentRows = new Map();
+  for (const job of soldInRange) {
+    if (job.agent?.source !== 'agent') continue;
+    const name = job.agent?.name || 'Unnamed agent';
+    const entry = agentRows.get(name) ?? { name, phone: job.agent?.phone ?? '', sales: 0, commission: 0, paid: 0, pending: 0 };
+    entry.sales += 1;
+    const commission = Number(job.agent?.commission) || 0;
+    entry.commission += commission;
+    if (job.agent?.commissionPaid) entry.paid += commission;
+    else entry.pending += commission;
+    agentRows.set(name, entry);
+  }
+
+  const hotLeads = await Customer.find({ 'hotLead.active': true })
+    .sort({ 'hotLead.nextFollowUp': 1, 'hotLead.updatedAt': -1 })
+    .limit(12)
+    .populate('owner', 'name')
+    .select('name phone company hotLead packageKey owner');
+
+  return {
+    range: {
+      from: rangeFrom?.toISOString() ?? null,
+      to: rangeTo?.toISOString() ?? null,
+      allTime: !rangeFrom && !rangeTo,
+    },
+    totals: {
+      sales: soldInRange.length,
+      completed: soldInRange.filter(isCompleted).length,
+      pending: soldInRange.filter(isPending).length,
+      cancelled: inRangeJobs.filter(isCancelled).length,
+      revenue: Math.round(sum(soldInRange) * 100) / 100,
+      averageSale: soldInRange.length ? Math.round((sum(soldInRange) / soldInRange.length) * 100) / 100 : null,
+      awaitingApproval: soldInRange.filter((job) => job.approvalStatus === 'pending').length,
+      monthSales: monthJobs.length,
+      monthRevenue: Math.round(sum(monthJobs) * 100) / 100,
+      weekSales: weekJobs.length,
+      weekRevenue: Math.round(sum(weekJobs) * 100) / 100,
+    },
+    bySalesperson,
+    agents: [...agentRows.values()]
+      .map((entry) => ({
+        ...entry,
+        commission: Math.round(entry.commission * 100) / 100,
+        paid: Math.round(entry.paid * 100) / 100,
+        pending: Math.round(entry.pending * 100) / 100,
+      }))
+      .sort((a, b) => b.pending - a.pending || b.commission - a.commission),
+    hotLeads: hotLeads.map((customer) => ({
+      id: customer._id.toString(),
+      name: customer.name,
+      phone: customer.phone ?? '',
+      company: customer.company ?? '',
+      status: customer.hotLead?.status ?? 'follow_up_required',
+      reason: customer.hotLead?.reason ?? '',
+      nextFollowUp: customer.hotLead?.nextFollowUp?.toISOString() ?? null,
+      owner: customer.owner?.name ?? '',
+    })),
+  };
+}

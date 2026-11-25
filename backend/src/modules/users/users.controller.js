@@ -2,6 +2,7 @@ import { requireAdmin } from '../../middleware/auth.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole } from './users.service.js';
+import { ASSIGNABLE_ROLES } from '../../config/constants.js';
 
 async function getUsersList(req, res, next) {
   try {
@@ -13,14 +14,14 @@ async function getUsersList(req, res, next) {
 
 async function createUserAccount(req, res, next) {
   try {
-    const { name, email, password, role } = req.body ?? {};
+    const { name, email, password, role, technicianId, phone, station } = req.body ?? {};
     if (!name || !email || !password || !role) {
       return next(makeError(errorCodes.VALIDATION_ERROR, 'Name, email, password and role are required.'));
     }
-    if (!['salesperson', 'manager', 'operations'].includes(role)) {
+    if (!ASSIGNABLE_ROLES.includes(role)) {
       return next(makeError(errorCodes.VALIDATION_ERROR, 'Choose a valid non-admin role.'));
     }
-    const user = await createUser({ name, email, password, role });
+    const user = await createUser({ name, email, password, role, technicianId, phone, station }, req.user);
     return res.status(201).json({ data: { user } });
   } catch (error) { next(error); }
 }

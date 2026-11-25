@@ -8,6 +8,7 @@ const adminGroups = [
       { to: '/admin/follow-ups', label: 'Follow-ups', icon: 'followup' },
       { to: '/admin/messages', label: 'WhatsApp messages', icon: 'followup' },
       { to: '/admin/sales', label: 'Sales', icon: 'sales' },
+      { to: '/admin/quotations', label: 'Quotations', icon: 'approvals' },
     ],
   },
   {
@@ -24,6 +25,7 @@ const adminGroups = [
   {
     label: 'Insight',
     items: [
+      { to: '/admin/sales-performance', label: 'Sales performance', icon: 'sales' },
       { to: '/admin/reports', label: 'Reports', icon: 'reports' },
     ],
   },
@@ -33,6 +35,7 @@ const adminGroups = [
       { to: '/admin/pricing', label: 'Pricing', icon: 'pricing' },
       { to: '/admin/approvals', label: 'Approvals', icon: 'approvals' },
       { to: '/admin/money', label: 'Money records', icon: 'approvals' },
+      { to: '/admin/technician-payments', label: 'Technician payments', icon: 'users' },
       { to: '/admin/users', label: 'Users', icon: 'users' },
       { to: '/admin/activity', label: 'Activity', icon: 'activity' },
       { to: '/admin/settings', label: 'Settings', icon: 'settings' },
@@ -59,6 +62,13 @@ const operationsGroups = [
     items: [
       { to: '/operations/inventory', label: 'Inventory', icon: 'pricing' },
       { to: '/operations/technicians', label: 'Technicians', icon: 'users' },
+    ],
+  },
+  {
+    label: 'Service',
+    items: [
+      { to: '/operations/reviews', label: 'Testing review', icon: 'approvals' },
+      { to: '/operations/microphones', label: 'Microphones', icon: 'followup' },
     ],
   },
   {
@@ -127,6 +137,8 @@ const salespersonGroups = [
   {
     label: 'Sales',
     items: [
+      { to: '/salesperson/hot-leads', label: 'Hot leads', icon: 'followup' },
+      { to: '/salesperson/quotations', label: 'Quotations', icon: 'approvals' },
       { to: '/salesperson/sales', label: 'Sales & renewals', icon: 'sales' },
     ],
   },
@@ -147,6 +159,32 @@ const salespersonTabs = [
   { to: '/salesperson/sales', label: 'Sales', icon: 'sales' },
 ];
 
+const technicianGroups = [
+  {
+    label: 'My work',
+    items: [
+      { to: '/technician', label: 'Today', icon: 'overview', end: true },
+      { to: '/technician/installations', label: 'Installations', icon: 'operations' },
+      { to: '/technician/stock', label: 'My stock', icon: 'pricing' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: '/technician/earnings', label: 'Earnings', icon: 'sales' },
+      { to: '/technician/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
+];
+
+/** Phone-sized primary navigation for the field workspace. */
+const technicianTabs = [
+  { to: '/technician', label: 'Today', icon: 'overview', end: true },
+  { to: '/technician/installations', label: 'Jobs', icon: 'operations' },
+  { to: '/technician/stock', label: 'Stock', icon: 'pricing' },
+  { to: '/technician/earnings', label: 'Earnings', icon: 'sales' },
+];
+
 /** Flat list used by the topbar to resolve the current section. */
 function flatten(groups) {
   return groups.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label })));
@@ -156,5 +194,14 @@ export const adminNavigationItems = flatten(adminGroups);
 export const salespersonNavigationItems = flatten(salespersonGroups);
 export const operationsNavigationItems = flatten(operationsGroups);
 export const managerNavigationItems = flatten(managerGroups);
+export const technicianNavigationItems = flatten(technicianGroups);
 
-export { adminGroups, operationsGroups, salespersonGroups, salespersonTabs, managerGroups };
+export {
+  adminGroups,
+  operationsGroups,
+  salespersonGroups,
+  salespersonTabs,
+  managerGroups,
+  technicianGroups,
+  technicianTabs,
+};
