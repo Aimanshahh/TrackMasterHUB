@@ -1445,3 +1445,66 @@
     white-space: nowrap;
   }
 }
+
+/* ------------------------- App-style buttons & drawers ------------------- */
+/* Thumb-sized, rounded, one clear primary action per screen. */
+.app-frame--field .btn {
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0;
+  gap: 8px;
+}
+.app-frame--field .btn--small { min-height: 40px; padding: 0 14px; border-radius: 12px; font-size: 14px; }
+.app-frame--field .btn--primary { background: #c81920; border-color: #c81920; color: #fff; box-shadow: 0 6px 16px rgb(200 25 32 / 22%); }
+.app-frame--field .btn--primary:hover:not(:disabled) { background: #a9131a; border-color: #a9131a; }
+.app-frame--field .btn--primary:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+.app-frame--field .btn--outline { background: #fff; border: 1px solid #d8d4ca; color: #23262b; }
+.app-frame--field .btn--outline:hover:not(:disabled) { background: #f6f4ee; border-color: #bfb9aa; }
+.app-frame--field .btn:disabled { opacity: .5; box-shadow: none; }
+.app-frame--field .btn:focus-visible { outline: 3px solid rgb(200 25 32 / 30%); outline-offset: 2px; }
+
+.app-frame--field .drawer { border-radius: 20px 0 0 20px; }
+.app-frame--field .drawer__foot {
+  position: sticky; bottom: 0; z-index: 1;
+  display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
+  margin: 0 -22px -22px; padding: 14px 22px calc(14px + env(safe-area-inset-bottom));
+  background: #fff; border-top: 1px solid #ece9e3;
+}
+.app-frame--field .drawer__foot .btn { width: 100%; }
+.app-frame--field .drawer__close { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #f4f2ee; }
+
+/* Request type: two roomy, rounded choices instead of a square grid. */
+.app-frame--field .segmented { gap: 10px; background: none; border: 0; }
+.app-frame--field .segmented__option {
+  gap: 4px; padding: 14px; border: 1px solid #ded9ce; border-radius: 14px; background: #fff;
+}
+.app-frame--field .segmented__option strong { font-size: 14px; }
+.app-frame--field .segmented__option small { font-size: 12px; }
+.app-frame--field .segmented__option.is-active { border-color: #c81920; background: #fff6f5; box-shadow: 0 0 0 2px #c81920 inset; }
+.app-frame--field .segmented__option.is-active strong { color: #a9131a; }
+.app-frame--field .vehicle-add { width: 100%; border-style: dashed; }
+
+@media (max-width: 520px) {
+  .app-frame--field .drawer { width: 100%; border-radius: 0; }
+}
+
+/* Fields and cards share the same rounded, roomy shape as the buttons. */
+.app-frame--field .input,
+.app-frame--field .drawer .input { min-height: 48px; border-radius: 12px; font-size: 16px; padding: 10px 14px; }
+.app-frame--field textarea.input { min-height: 96px; }
+.app-frame--field .panel,
+.app-frame--field .sp-card { border-radius: 16px; overflow: hidden; }
+.app-frame--field .sp-card__foot { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; padding: 10px; border-top: 0; background: transparent; }
+.app-frame--field .sp-card__call,
+.app-frame--field .sp-card__open {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; border-radius: 12px; font-size: 14px; font-weight: 650; text-decoration: none; border: 0;
+}
+.app-frame--field .sp-card__call { background: #e8f5ec; color: #1f6340; }
+.app-frame--field .sp-card__call.is-disabled { background: #f1efe9; color: #8b8f95; }
+.app-frame--field .sp-card__open { background: #f4f2ee; color: #23262b; }
+.app-frame--field select,
+.app-frame--field input:not([type=checkbox]):not([type=radio]) { border-radius: 12px; min-height: 46px; font-size: 16px; }
