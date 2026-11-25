@@ -76,3 +76,8 @@
 .ledger .sm-hold { margin-top: 0; min-width: 110px; }
 .ledger .sm-hold .sm-btn { white-space: nowrap; }
 .ledger .sm-hold__form { min-width: 220px; padding-top: 0; border-top: 0; }
+
+/* Four tabs must fit a 360px phone without widening the page. */
+.sm-tabs { grid-auto-columns: minmax(0, 1fr); }
+.sm-tabs button { min-width: 0; padding: 0 4px; gap: 4px; font-size: 13px; white-space: nowrap; }
+.sm-tabs button span { min-width: 18px; padding: 1px 5px; font-size: 11px; }

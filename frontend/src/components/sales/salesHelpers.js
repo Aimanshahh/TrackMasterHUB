@@ -38,11 +38,10 @@ export function renewalText(row) {
 }
 
 
-export const HOLD_REASONS = [
-  ['customer_unreachable', 'Customer not reachable'],
-  ['payment_pending', 'Waiting for payment'],
-  ['customer_postponed', 'Customer asked to wait'],
-  ['documents_missing', 'Documents missing'],
-  ['price_dispute', 'Price not agreed'],
+export const CANCEL_REASONS = [
+  ['customer_changed_mind', 'Customer changed their mind'],
+  ['technician_delayed', 'Technician was delayed'],
+  ['price_too_high', 'Price too high'],
+  ['bought_elsewhere', 'Bought elsewhere'],
   ['other', 'Other reason'],
 ];

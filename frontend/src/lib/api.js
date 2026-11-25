@@ -157,16 +157,16 @@ export function fetchMySales({ signal } = {}) {
   return apiRequest('/api/sales/mine', { signal });
 }
 
-export function suspendSale(id, input) {
-  return apiRequest(`/api/sales/${id}/suspend`, {
+export function cancelSale(id, input) {
+  return apiRequest(`/api/sales/${id}/cancel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }
 
-export function resumeSale(id) {
-  return apiRequest(`/api/sales/${id}/resume`, { method: 'POST' });
+export function restoreSale(id) {
+  return apiRequest(`/api/sales/${id}/restore`, { method: 'POST' });
 }
 
 export function fetchSalesOverview({ signal } = {}) {

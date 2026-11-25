@@ -1,14 +1,14 @@
 import { useState } from 'react';
 
-import { resumeSale, suspendSale } from '../../lib/api.js';
-import { HOLD_REASONS } from './salesHelpers.js';
+import { restoreSale, cancelSale } from '../../lib/api.js';
+import { CANCEL_REASONS } from './salesHelpers.js';
 
 /**
- * Put a sale on hold, or take it off hold. A held sale is not lost: it stays
- * where it was and leaves the active counts until it is resumed.
+ * Cancel a sale with a reason, or restore it. A cancelled sale leaves the active counts and
+ * keeps its reason; restoring puts it back where it was.
  */
-export default function SaleHold({ row, onChanged }) {
-  const held = Boolean(row.suspension);
+export default function SaleCancel({ row, onChanged }) {
+  const held = Boolean(row.cancellation);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
@@ -34,25 +34,25 @@ export default function SaleHold({ row, onChanged }) {
   if (held) {
     return (
       <div className="sm-hold">
-        <button type="button" className="sm-btn sm-btn--chat" disabled={busy} onClick={() => run(() => resumeSale(row.id))}>{busy ? 'Resuming…' : 'Resume sale'}</button>
+        <button type="button" className="sm-btn sm-btn--chat" disabled={busy} onClick={() => run(() => restoreSale(row.id))}>{busy ? 'Restoring…' : 'Restore sale'}</button>
         {error ? <p className="sm-hold__error" role="alert">{error}</p> : null}
       </div>
     );
   }
 
-  if (['completed', 'cancelled'].includes(row.status)) return null;
+  if (row.status === 'completed') return null;
 
   if (!open) {
-    return <div className="sm-hold"><button type="button" className="sm-btn" onClick={() => setOpen(true)}>Put on hold</button></div>;
+    return <div className="sm-hold"><button type="button" className="sm-btn" onClick={() => setOpen(true)}>Cancel sale</button></div>;
   }
 
   return (
-    <form className="sm-hold sm-hold__form" onSubmit={(event) => { event.preventDefault(); run(() => suspendSale(row.id, { reason, note })); }}>
+    <form className="sm-hold sm-hold__form" onSubmit={(event) => { event.preventDefault(); run(() => cancelSale(row.id, { reason, note })); }}>
       <label className="field">
-        <span className="field__label">Why is it on hold?</span>
+        <span className="field__label">Why was it cancelled?</span>
         <select className="input" required value={reason} onChange={(event) => setReason(event.target.value)}>
           <option value="">Choose a reason</option>
-          {HOLD_REASONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          {CANCEL_REASONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select>
       </label>
       <label className="field">
@@ -61,7 +61,7 @@ export default function SaleHold({ row, onChanged }) {
       </label>
       {error ? <p className="sm-hold__error" role="alert">{error}</p> : null}
       <div className="sm-actions">
-        <button type="submit" className="sm-btn sm-btn--call" disabled={busy || !reason}>{busy ? 'Saving…' : 'Hold sale'}</button>
+        <button type="submit" className="sm-btn sm-btn--call" disabled={busy || !reason}>{busy ? 'Saving…' : 'Confirm cancel'}</button>
         <button type="button" className="sm-btn" onClick={() => setOpen(false)}>Cancel</button>
       </div>
     </form>

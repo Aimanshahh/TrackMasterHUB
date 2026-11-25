@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import SaleHold from './SaleHold.jsx';
+import SaleCancel from './SaleCancel.jsx';
 import { APPROVAL_TEXT, callLink, formatDay, formatMoney, renewalText, whatsappLink } from './salesHelpers.js';
 
 function CustomerName({ row, customerLink }) {
@@ -63,8 +63,8 @@ function SaleCard({ row, customerLink, company, onChanged }) {
           </div>
         ) : null}
       </header>
-      {row.suspension ? (
-        <p className="sm-hold__why"><strong>{row.suspension.reasonLabel}</strong>{row.suspension.note ? ` · ${row.suspension.note}` : ''}<br /><span className="sm-meta">On hold since {formatDay(row.suspension.suspendedAt)}{row.suspension.suspendedBy ? ` · ${row.suspension.suspendedBy}` : ''}</span></p>
+      {row.cancellation ? (
+        <p className="sm-hold__why"><strong>{row.cancellation.reasonLabel}</strong>{row.cancellation.note ? ` · ${row.cancellation.note}` : ''}<br /><span className="sm-meta">Cancelled on {formatDay(row.cancellation.cancelledAt)}{row.cancellation.cancelledBy ? ` · ${row.cancellation.cancelledBy}` : ''}</span></p>
       ) : null}
       <footer className="sm-card__foot">
         <span className="sm-pill" data-tone={row.approvalStatus === 'pending' ? 'warn' : row.approvalStatus === 'rejected' ? 'bad' : row.approvalStatus === 'approved' ? 'good' : 'plain'}>
@@ -72,7 +72,7 @@ function SaleCard({ row, customerLink, company, onChanged }) {
         </span>
         <span className="sm-meta">{row.statusLabel} · {formatDay(row.createdAt)}{company && row.salesperson ? ` · ${row.salesperson}` : ''}</span>
       </footer>
-      <SaleHold row={row} onChanged={onChanged} />
+      <SaleCancel row={row} onChanged={onChanged} />
     </article>
   );
 }
@@ -85,8 +85,8 @@ export default function SalesMobile({ board, mode, customerLink, approvalsLink, 
   const company = mode === 'company';
   const { totals } = board;
   const tabs = company
-    ? [['sales', 'Sales', board.recent.length], ['hold', 'On hold', board.suspended?.length ?? 0], ['team', 'Team', board.bySalesperson?.length ?? 0], ['renewals', 'Renewals', board.renewals.length]]
-    : [['renewals', 'Renewals', board.renewals.length], ['sales', 'Installations', board.recent.length], ['hold', 'On hold', board.suspended?.length ?? 0], ['prices', 'Prices', packages.rows.length]];
+    ? [['sales', 'Sales', board.recent.length], ['cancelled', 'Cancelled', board.cancelled?.length ?? 0], ['team', 'Team', board.bySalesperson?.length ?? 0], ['renewals', 'Renewals', board.renewals.length]]
+    : [['renewals', 'Renewals', board.renewals.length], ['sales', 'Installations', board.recent.length], ['cancelled', 'Cancelled', board.cancelled?.length ?? 0], ['prices', 'Prices', packages.rows.length]];
   const [tab, setTab] = useState(!company && totals.renewalsDue === 0 ? 'sales' : tabs[0][0]);
 
   return (
@@ -129,10 +129,10 @@ export default function SalesMobile({ board, mode, customerLink, approvalsLink, 
             : board.recent.map((row) => <SaleCard key={row.id} row={row} customerLink={customerLink} company={company} onChanged={onChanged} />)
         ) : null}
 
-        {tab === 'hold' ? (
-          (board.suspended ?? []).length === 0
-            ? <Empty title="Nothing on hold">A sale you put on hold stays here, with the reason, until you resume it.</Empty>
-            : board.suspended.map((row) => <SaleCard key={row.id} row={row} customerLink={customerLink} company={company} onChanged={onChanged} />)
+        {tab === 'cancelled' ? (
+          (board.cancelled ?? []).length === 0
+            ? <Empty title="No cancelled sales">A cancelled sale is kept here with the reason, so you can see why it fell through.</Empty>
+            : board.cancelled.map((row) => <SaleCard key={row.id} row={row} customerLink={customerLink} company={company} onChanged={onChanged} />)
         ) : null}
 
         {tab === 'team' ? (

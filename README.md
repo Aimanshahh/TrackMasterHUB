@@ -388,10 +388,10 @@ Every response carries `X-Request-Id`.
 | GET    | `/api/manager/customers/:id`      | admin, manager             |
 | PATCH  | `/api/manager/customers/:id/briefing` | admin, manager         |
 | GET    | `/api/manager/billing-queue`      | admin, manager             |
-| GET    | `/api/sales/mine`                 | salesperson — own installation counts, held sales and renewals (no money) |
+| GET    | `/api/sales/mine`                 | salesperson — own installation counts, cancelled sales and renewals (no money) |
 | GET    | `/api/sales/overview`             | admin, manager — company sales and value, by salesperson |
-| POST   | `/api/sales/:id/suspend`          | salesperson (own), admin, manager — put a sale on hold with a reason |
-| POST   | `/api/sales/:id/resume`           | salesperson (own), admin, manager — take a sale off hold |
+| POST   | `/api/sales/:id/cancel`           | salesperson (own), admin, manager — cancel a sale with a reason |
+| POST   | `/api/sales/:id/restore`          | salesperson (own), admin, manager — restore a cancelled sale |
 | GET    | `/api/operations/customers?search=` | admin, operations — search-first, max 25 |
 | GET    | `/api/operations/customers/:id`   | admin, operations — profile without money records |
 | GET    | `/api/operations/message-templates` | admin, operations        |

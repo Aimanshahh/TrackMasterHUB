@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { fetchPackages } from '../../lib/api.js';
 import { formatMoney } from '../../lib/format.js';
-import SaleHold from './SaleHold.jsx';
+import SaleCancel from './SaleCancel.jsx';
 import SalesMobile from './SalesMobile.jsx';
 import { APPROVAL_TEXT, callLink, formatDay, renewalText, whatsappLink } from './salesHelpers.js';
 import { useMediaQuery } from './useMediaQuery.js';
@@ -56,8 +56,8 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink, o
 
   const tiles = [
     { label: company ? 'Sales this month' : 'Installations this month', value: totals.monthSales, note: company ? formatMoney(totals.monthValue) : 'Since the 1st' },
-    { label: company ? 'All sales' : 'All installations', value: totals.sales, note: company ? formatMoney(totals.salesValue) : 'Active, not on hold' },
-    { label: 'On hold', value: totals.suspended ?? 0, note: 'Waiting on the customer', attention: false },
+    { label: company ? 'All sales' : 'All installations', value: totals.sales, note: company ? formatMoney(totals.salesValue) : 'Not cancelled' },
+    { label: 'Cancelled', value: totals.cancelled ?? 0, note: 'Waiting on the customer', attention: false },
     { label: 'Awaiting price approval', value: totals.awaitingApproval, note: approvalsLink ? 'Open approvals' : 'Admin decides', to: approvalsLink, attention: totals.awaitingApproval > 0 },
     { label: 'Renewals due', value: totals.renewalsDue, note: totals.renewalsExpired ? `${totals.renewalsExpired} already expired` : 'Within 30 days', attention: totals.renewalsExpired > 0 },
   ];
@@ -96,22 +96,22 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink, o
       ) : null}
 
       <section className="wa-card">
-        <header className="wa-card__head"><h2>Sales on hold</h2></header>
-        {(board.suspended ?? []).length === 0 ? (
-          <p className="panel__note">Nothing is on hold. A sale you put on hold is kept here with the reason until it is resumed.</p>
+        <header className="wa-card__head"><h2>Cancelled sales</h2></header>
+        {(board.cancelled ?? []).length === 0 ? (
+          <p className="panel__note">No sale has been cancelled. A cancelled sale is kept here with the reason.</p>
         ) : (
           <div className="ledger-wrap">
             <table className="ledger ledger--stack">
-              <thead><tr><th>Customer</th><th>Vehicle</th><th>Reason</th><th>On hold since</th>{company ? <th>Salesperson</th> : null}<th>Hold</th></tr></thead>
+              <thead><tr><th>Customer</th><th>Vehicle</th><th>Reason</th><th>Cancelled on</th>{company ? <th>Salesperson</th> : null}<th>Action</th></tr></thead>
               <tbody>
-                {board.suspended.map((row) => (
+                {board.cancelled.map((row) => (
                   <tr key={row.id}>
                     <td data-label="Customer">{row.customerId && customerLink ? <Link to={customerLink(row.customerId)}><strong>{row.customerName || 'Customer'}</strong></Link> : <strong>{row.customerName || 'Customer'}</strong>}</td>
                     <td data-label="Vehicle" className="mono">{row.registration || '—'}</td>
-                    <td data-label="Reason">{row.suspension.reasonLabel}{row.suspension.note ? <small className="sales-muted sales-block">{row.suspension.note}</small> : null}</td>
-                    <td data-label="On hold since">{formatDay(row.suspension.suspendedAt)}</td>
+                    <td data-label="Reason">{row.cancellation.reasonLabel}{row.cancellation.note ? <small className="sales-muted sales-block">{row.cancellation.note}</small> : null}</td>
+                    <td data-label="Cancelled on">{formatDay(row.cancellation.cancelledAt)}</td>
                     {company ? <td data-label="Salesperson">{row.salesperson || '—'}</td> : null}
-                    <td data-label="Hold"><SaleHold row={row} onChanged={onChanged} /></td>
+                    <td data-label="Action"><SaleCancel row={row} onChanged={onChanged} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -146,7 +146,7 @@ export default function SalesBoard({ board, mode, customerLink, approvalsLink, o
                     <td data-label="Approval"><span className="sales-pill" data-tone={row.approvalStatus}>{APPROVAL_TEXT[row.approvalStatus] ?? row.approvalStatus}</span></td>
                     <td data-label="Progress">{row.statusLabel}</td>
                     {company ? <td data-label="Salesperson">{row.salesperson || '—'}</td> : null}
-                    <td data-label="Hold"><SaleHold row={row} onChanged={onChanged} /></td>
+                    <td data-label="Action"><SaleCancel row={row} onChanged={onChanged} /></td>
                   </tr>
                 ))}
               </tbody>

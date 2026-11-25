@@ -58,32 +58,32 @@ test('the sales board counts sales, approvals and renewals for one salesperson o
   assert.deepEqual(company.bySalesperson.map((row) => row.name).sort(), ['Ali Sales', 'Sara Sales']);
 });
 
-test('a sale can be put on hold and resumed, and held sales leave the active counts', { skip }, async () => {
+test('a sale can be cancelled with a reason and restored, and cancelled sales leave the active counts', { skip }, async () => {
   const { default: User } = await import('../src/models/User.js');
   const { default: Customer } = await import('../src/models/Customer.js');
   const { default: Job } = await import('../src/models/Job.js');
-  const { getSalesBoard, suspendSale, resumeSale } = await import('../src/modules/sales/sales.service.js');
+  const { getSalesBoard, cancelSale, restoreSale } = await import('../src/modules/sales/sales.service.js');
 
-  const rep = await User.create({ name: 'Hold Rep', email: 'hold-rep@example.com', passwordHash: 'a-long-test-password', role: 'salesperson' });
+  const rep = await User.create({ name: 'Cancel Rep', email: 'cancel-rep@example.com', passwordHash: 'a-long-test-password', role: 'salesperson' });
   const other = await User.create({ name: 'Other Rep', email: 'other-rep@example.com', passwordHash: 'a-long-test-password', role: 'salesperson' });
-  const customer = await Customer.create({ name: 'Hold Customer', phone: '03003330000', owner: rep._id });
-  const job = await Job.create({ createdBy: rep._id, customer: customer._id, customerName: customer.name, requestType: 'new_installation', vehicle: { registration: 'HOLD-1' }, packageKey: 'basic', listPrice: 10000, quotedPrice: 10000, status: 'unassigned' });
+  const customer = await Customer.create({ name: 'Cancel Customer', phone: '03003330000', owner: rep._id });
+  const job = await Job.create({ createdBy: rep._id, customer: customer._id, customerName: customer.name, requestType: 'new_installation', vehicle: { registration: 'CAN-1' }, packageKey: 'basic', listPrice: 10000, quotedPrice: 10000, status: 'unassigned' });
   const actor = { id: rep._id.toString(), role: 'salesperson' };
 
-  await assert.rejects(suspendSale(job._id, actor, { reason: 'nope' }), (e) => e.message.includes('why'));
-  await assert.rejects(suspendSale(job._id, { id: other._id.toString(), role: 'salesperson' }, { reason: 'other' }), (e) => e.message.includes('could not be found'));
+  await assert.rejects(cancelSale(job._id, actor, { reason: 'nope' }), (e) => e.message.includes('why'));
+  await assert.rejects(cancelSale(job._id, { id: other._id.toString(), role: 'salesperson' }, { reason: 'other' }), (e) => e.message.includes('could not be found'));
 
-  await suspendSale(job._id, actor, { reason: 'payment_pending', note: 'Pays Friday' });
+  await cancelSale(job._id, actor, { reason: 'technician_delayed', note: 'Waited two weeks' });
   let board = await getSalesBoard({ ownerId: rep._id });
-  assert.equal(board.totals.suspended, 1);
-  assert.equal(board.totals.sales, 0, 'a held sale is not an active sale');
-  assert.equal(board.suspended[0].suspension.reasonLabel, 'Waiting for payment');
-  assert.equal(board.suspended[0].quotedPrice, undefined);
-  await assert.rejects(suspendSale(job._id, actor, { reason: 'other' }), (e) => e.message.includes('already'));
+  assert.equal(board.totals.cancelled, 1);
+  assert.equal(board.totals.sales, 0, 'a cancelled sale is not an installation');
+  assert.equal(board.cancelled[0].cancellation.reasonLabel, 'Technician was delayed');
+  assert.equal(board.cancelled[0].quotedPrice, undefined);
+  await assert.rejects(cancelSale(job._id, actor, { reason: 'other' }), (e) => e.message.includes('already'));
 
-  await resumeSale(job._id, actor);
+  await restoreSale(job._id, actor);
   board = await getSalesBoard({ ownerId: rep._id });
-  assert.equal(board.totals.suspended, 0);
+  assert.equal(board.totals.cancelled, 0);
   assert.equal(board.totals.sales, 1);
-  assert.equal((await Job.findById(job._id)).status, 'unassigned', 'resuming keeps the job where it was');
+  assert.equal((await Job.findById(job._id)).status, 'unassigned', 'restoring puts the job back where it was');
 });

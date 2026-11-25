@@ -11,12 +11,11 @@ const startOfMonth = () => {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 };
 
-export const SUSPEND_REASONS = {
-  customer_unreachable: 'Customer not reachable',
-  payment_pending: 'Waiting for payment',
-  customer_postponed: 'Customer asked to wait',
-  documents_missing: 'Documents missing',
-  price_dispute: 'Price not agreed',
+export const CANCEL_REASONS = {
+  customer_changed_mind: 'Customer changed their mind',
+  technician_delayed: 'Technician was delayed',
+  price_too_high: 'Price too high',
+  bought_elsewhere: 'Bought elsewhere',
   other: 'Other reason',
 };
 
@@ -43,13 +42,13 @@ function saleRow(job, { withMoney = true } = {}) {
     row.quotedPrice = quoted;
     row.discount = list !== null && quoted !== null && quoted < list ? list - quoted : 0;
   }
-  if (job.suspension?.active) {
-    row.suspension = {
-      reason: job.suspension.reason,
-      reasonLabel: SUSPEND_REASONS[job.suspension.reason] ?? job.suspension.reason,
-      note: job.suspension.note ?? '',
-      suspendedAt: job.suspension.suspendedAt?.toISOString() ?? null,
-      suspendedBy: job.suspension.suspendedBy?.name ?? '',
+  if (job.status === 'cancelled') {
+    row.cancellation = {
+      reason: job.cancellation?.reason ?? null,
+      reasonLabel: CANCEL_REASONS[job.cancellation?.reason] ?? 'No reason recorded',
+      note: job.cancellation?.note ?? '',
+      cancelledAt: (job.cancellation?.cancelledAt ?? job.updatedAt)?.toISOString() ?? null,
+      cancelledBy: job.cancellation?.cancelledBy?.name ?? '',
     };
   }
   return row;
@@ -77,12 +76,12 @@ function renewalRow(job, customerById, now) {
 export async function getSalesBoard({ ownerId = null } = {}) {
   const now = new Date();
   const monthStart = startOfMonth();
-  const saleFilter = { requestType: 'new_installation', status: { $ne: 'cancelled' } };
+  const saleFilter = { requestType: 'new_installation' };
   if (ownerId) saleFilter.createdBy = ownerId;
 
-  const everything = await Job.find(saleFilter).sort({ createdAt: -1 }).populate('createdBy', 'name').populate('suspension.suspendedBy', 'name');
-  const suspended = everything.filter((job) => job.suspension?.active);
-  const sales = everything.filter((job) => !job.suspension?.active);
+  const everything = await Job.find(saleFilter).sort({ createdAt: -1 }).populate('createdBy', 'name').populate('cancellation.cancelledBy', 'name');
+  const cancelled = everything.filter((job) => job.status === 'cancelled');
+  const sales = everything.filter((job) => job.status !== 'cancelled');
   const withMoney = !ownerId;
 
   const month = sales.filter((job) => job.createdAt >= monthStart);
@@ -107,13 +106,13 @@ export async function getSalesBoard({ ownerId = null } = {}) {
     totals: {
       sales: sales.length,
       monthSales: month.length,
-      suspended: suspended.length,
+      cancelled: cancelled.length,
       awaitingApproval: sales.filter((job) => job.approvalStatus === 'pending').length,
       renewalsDue: renewals.length,
       renewalsExpired: renewals.filter((row) => row.state === 'expired').length,
     },
     recent: sales.slice(0, 15).map((job) => saleRow(job, { withMoney })),
-    suspended: suspended.map((job) => saleRow(job, { withMoney })),
+    cancelled: cancelled.map((job) => saleRow(job, { withMoney })),
     renewals,
   };
   /* Money is the admin's concern: only the company board carries it. */
@@ -145,21 +144,22 @@ async function loadSale(id, actor) {
   return job;
 }
 
-export async function suspendSale(id, actor, { reason, note } = {}) {
-  if (!SUSPEND_REASONS[reason]) throw makeError('INVALID_REASON', 'Choose why the sale is on hold.', 400);
+export async function cancelSale(id, actor, { reason, note } = {}) {
+  if (!CANCEL_REASONS[reason]) throw makeError('INVALID_REASON', 'Choose why the sale was cancelled.', 400);
   const job = await loadSale(id, actor);
-  if (['completed', 'cancelled'].includes(job.status)) throw makeError('SALE_CLOSED', 'A finished or cancelled sale cannot be put on hold.', 409);
-  if (job.suspension?.active) throw makeError('ALREADY_SUSPENDED', 'This sale is already on hold.', 409);
-  job.suspension = { active: true, reason, note: String(note ?? '').trim().slice(0, 500), suspendedAt: new Date(), suspendedBy: actor.id };
+  if (job.status === 'cancelled') throw makeError('ALREADY_CANCELLED', 'This sale is already cancelled.', 409);
+  if (job.status === 'completed') throw makeError('SALE_CLOSED', 'An installed vehicle cannot be cancelled as a sale.', 409);
+  job.cancellation = { reason, note: String(note ?? '').trim().slice(0, 500), cancelledAt: new Date(), cancelledBy: actor.id, previousStatus: job.status };
+  job.status = 'cancelled';
   await job.save();
-  return { id: job._id.toString(), suspended: true };
+  return { id: job._id.toString(), cancelled: true };
 }
 
-export async function resumeSale(id, actor) {
+export async function restoreSale(id, actor) {
   const job = await loadSale(id, actor);
-  if (!job.suspension?.active) throw makeError('NOT_SUSPENDED', 'This sale is not on hold.', 409);
-  job.suspension.active = false;
-  job.suspension.resumedAt = new Date();
+  if (job.status !== 'cancelled') throw makeError('NOT_CANCELLED', 'This sale is not cancelled.', 409);
+  job.status = job.cancellation?.previousStatus || 'unassigned';
+  job.cancellation = undefined;
   await job.save();
-  return { id: job._id.toString(), suspended: false };
+  return { id: job._id.toString(), cancelled: false };
 }

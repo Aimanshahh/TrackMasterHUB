@@ -242,14 +242,13 @@ const jobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Approval',
     },
-    // A suspended sale is on hold, not lost: the job keeps its status so resuming restores it.
-    suspension: {
-      active: { type: Boolean, default: false },
-      reason: { type: String, enum: ['customer_unreachable', 'payment_pending', 'customer_postponed', 'documents_missing', 'price_dispute', 'other'] },
+    // Why a sale was cancelled (customer changed their mind, technician delayed, ...).
+    cancellation: {
+      reason: { type: String, enum: ['customer_changed_mind', 'technician_delayed', 'price_too_high', 'bought_elsewhere', 'other'] },
       note: { type: String, trim: true, maxlength: 500 },
-      suspendedAt: Date,
-      suspendedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      resumedAt: Date,
+      cancelledAt: Date,
+      cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      previousStatus: String,
     },
     scheduledAt: {
       type: Date,
