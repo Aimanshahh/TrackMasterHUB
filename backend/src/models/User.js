@@ -24,6 +24,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Installations a salesperson aims to complete each month; 0 means no target set.
+    monthlyTarget: { type: Number, default: 0, min: 0, max: 1000 },
     role: {
       type: String,
       enum: ROLES,
@@ -75,6 +77,7 @@ userSchema.methods.toApiJson = function () {
     role: this.role,
     roleLabel: roleLabels[this.role],
     active: this.active,
+    monthlyTarget: this.monthlyTarget ?? 0,
     // Projections may omit timestamps (for example a populated customer
     // owner), so never assume the fields are present.
     createdAt: this.createdAt?.toISOString() ?? null,

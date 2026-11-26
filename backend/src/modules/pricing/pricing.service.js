@@ -74,6 +74,7 @@ async function updatePackage(key, input, actor) {
   const doc = (await Package.findOne({ key })) ?? new Package({ key });
   const catalog = packageCatalog[key];
 
+  const previousPrice = doc.price ?? null;
   doc.price = Math.round(price * 100) / 100;
   doc.name = typeof input.name === 'string' && input.name.trim() ? input.name.trim().slice(0, 80) : catalog.name;
   doc.summary = typeof input.summary === 'string' ? input.summary.trim().slice(0, 300) : doc.summary ?? catalog.summary;
@@ -86,7 +87,7 @@ async function updatePackage(key, input, actor) {
     actor: actor.id,
     type: 'pricing.updated',
     label: `${doc.name} package priced at ${CURRENCY} ${doc.price.toLocaleString()}`,
-    description: `${actor.name ?? 'An admin'} set the ${doc.name} package rate.`,
+    description: `${actor.name ?? 'An admin'} changed the ${doc.name} package rate from ${previousPrice === null ? 'not set' : `${CURRENCY} ${Number(previousPrice).toLocaleString()}`} to ${CURRENCY} ${doc.price.toLocaleString()}.`,
   });
 
   return doc.toApiJson();

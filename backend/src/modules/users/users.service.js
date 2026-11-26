@@ -6,10 +6,14 @@ import Customer from '../../models/Customer.js';
 import Job from '../../models/Job.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
+import { getMonthlyProgress } from '../sales/sales.service.js';
+import { recordActivity } from '../activity/activity.log.js';
 import { createUser as createAccount, listUsers } from '../auth/auth.service.js';
 
-async function createUser(input) {
-  return createAccount(input);
+async function createUser(input, actor) {
+  const user = await createAccount(input);
+  await recordActivity({ actor, type: 'user.created', label: `Account created · ${user.name ?? input.name}`, description: `${input.role} account for ${input.email} created by ${actor?.name ?? 'an admin'}.` });
+  return user;
 }
 
 async function getUsers({ role, search }) {
@@ -68,6 +72,7 @@ async function getSalespersonPerformance(id) {
 
   return {
     salesperson: user.toApiJson(),
+    target: await getMonthlyProgress(id),
     metrics: {
       customers: customerCount,
       followUps: followUpCount,
@@ -94,7 +99,7 @@ async function getSalespersonPerformance(id) {
   };
 }
 
-async function changeRole(input) {
+async function changeRole(input, actor) {
   const user = await User.findById(input.id);
 
   if (!user) {
@@ -113,10 +118,29 @@ async function changeRole(input) {
     return user.toApiJson();
   }
 
+  const previousRole = user.role;
   user.role = input.role;
   await user.save();
+  await recordActivity({ actor, type: 'user.role_changed', label: `Role changed · ${user.name}`, description: `${user.name} moved from ${previousRole} to ${user.role} by ${actor?.name ?? 'an admin'}.` });
 
   return user.toApiJson();
 }
 
-export { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole };
+const MAX_TARGET = 1000;
+
+/** The monthly installation target for a salesperson. Zero clears it. */
+async function setTarget(id, input, actor) {
+  const user = await User.findOne({ _id: id, role: 'salesperson' });
+  if (!user) throw makeError(errorCodes.NOT_FOUND, 'No salesperson matches that id.');
+  const target = Number(input?.target);
+  if (!Number.isInteger(target) || target < 0 || target > MAX_TARGET) {
+    throw makeError(errorCodes.VALIDATION_ERROR, `Enter a whole number of installations per month, from 0 to ${MAX_TARGET}.`);
+  }
+  const previous = user.monthlyTarget ?? 0;
+  user.monthlyTarget = target;
+  await user.save();
+  await recordActivity({ actor, type: 'target.updated', label: `Target set · ${user.name}`, description: `${user.name}'s monthly installation target changed from ${previous} to ${target} by ${actor?.name ?? 'an admin'}.` });
+  return user.toApiJson();
+}
+
+export { setTarget, createUser, getUsers, getUserById, getSalespersonPerformance, changeRole };

@@ -1,7 +1,7 @@
 import { requireAdmin } from '../../middleware/auth.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
-import { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole } from './users.service.js';
+import { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole, setTarget } from './users.service.js';
 
 async function getUsersList(req, res, next) {
   try {
@@ -20,7 +20,7 @@ async function createUserAccount(req, res, next) {
     if (!['salesperson', 'manager', 'operations'].includes(role)) {
       return next(makeError(errorCodes.VALIDATION_ERROR, 'Choose a valid non-admin role.'));
     }
-    const user = await createUser({ name, email, password, role });
+    const user = await createUser({ name, email, password, role }, req.user);
     return res.status(201).json({ data: { user } });
   } catch (error) { next(error); }
 }
@@ -35,8 +35,14 @@ async function getMe(req, res, next) {
 
 async function changeUserRole(req, res, next) {
   try {
-    const user = await changeRole({ ...req.body, id: req.params.id });
+    const user = await changeRole({ ...req.body, id: req.params.id }, req.user);
     return res.json({ data: { user } });
+  } catch (error) { next(error); }
+}
+
+async function setSalespersonTarget(req, res, next) {
+  try {
+    return res.json({ data: { user: await setTarget(req.params.id, req.body ?? {}, req.user) } });
   } catch (error) { next(error); }
 }
 
@@ -46,4 +52,4 @@ async function getSalespersonProfile(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { createUserAccount, getUsersList, getMe, getSalespersonProfile, changeUserRole };
+export { setSalespersonTarget, createUserAccount, getUsersList, getMe, getSalespersonProfile, changeUserRole };

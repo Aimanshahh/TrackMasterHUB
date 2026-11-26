@@ -1,3 +1,4 @@
+import MonthlyTarget from '../../components/sales/MonthlyTarget.jsx';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -61,6 +62,8 @@ export default function SalespersonOverviewPage() {
           <button type="button" className="btn btn--outline" onClick={() => setComplaintOpen(true)}>Log complaint</button>
         </div>
       </section>
+
+      <MonthlyTarget target={data?.target} />
 
       {summary.error ? <p className="app-notice app-notice--error" role="alert">Your desk data is unavailable: {summary.error}</p> : null}
 

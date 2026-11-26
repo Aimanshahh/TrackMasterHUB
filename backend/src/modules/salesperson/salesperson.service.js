@@ -2,6 +2,7 @@ import Complaint from '../../models/Complaint.js';
 import Customer from '../../models/Customer.js';
 import Job from '../../models/Job.js';
 import Notification from '../../models/Notification.js';
+import { getMonthlyProgress } from '../sales/sales.service.js';
 
 const OPEN_JOB_STATUSES = ['unassigned', 'assigned', 'scheduled', 'in_progress'];
 const OPEN_COMPLAINT_STATUSES = ['open', 'assigned', 'in_progress', 'waiting_customer'];
@@ -56,6 +57,7 @@ async function getSummary(userId) {
     recentJobs: recentJobs.map((job) => job.toApiJson()),
     recentComplaints: recentComplaints.map((complaint) => complaint.toApiJson()),
     followUps: dueCustomers.map((customer) => customer.toApiJson()),
+    target: await getMonthlyProgress(userId),
   };
 }
 

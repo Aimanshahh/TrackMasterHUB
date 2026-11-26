@@ -237,6 +237,18 @@ export function createCustomer(input) {
   });
 }
 
+export function checkDuplicateCustomers(phone, { signal } = {}) {
+  return apiRequest(`/api/customers/check-duplicate?phone=${encodeURIComponent(phone)}`, { signal });
+}
+
+export function setSalespersonTarget(id, target) {
+  return apiRequest(`/api/users/${encodeURIComponent(id)}/target`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target }),
+  });
+}
+
 export function updateCustomer(id, input) {
   return apiRequest(`/api/customers/${encodeURIComponent(id)}`, {
     method: 'PATCH',

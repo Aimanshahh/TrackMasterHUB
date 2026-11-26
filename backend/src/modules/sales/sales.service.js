@@ -14,6 +14,16 @@ const startOfMonth = () => {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 };
 
+/** Installations requested this month against the salesperson's monthly target. */
+export async function getMonthlyProgress(userId) {
+  const [rep, done] = await Promise.all([
+    User.findById(userId).select('monthlyTarget'),
+    Job.countDocuments({ createdBy: userId, requestType: 'new_installation', status: { $ne: 'cancelled' }, createdAt: { $gte: startOfMonth() } }),
+  ]);
+  const monthly = rep?.monthlyTarget ?? 0;
+  return { monthly, done, remaining: Math.max(0, monthly - done), met: monthly > 0 && done >= monthly };
+}
+
 export const CANCEL_REASONS = {
   customer_changed_mind: 'Customer changed their mind',
   technician_delayed: 'Technician was delayed',
@@ -119,6 +129,9 @@ export async function getSalesBoard({ ownerId = null } = {}) {
     renewals,
   };
   /* Money is the admin's concern: only the company board carries it. */
+  if (ownerId) {
+    board.target = await getMonthlyProgress(ownerId);
+  }
   if (withMoney) {
     board.totals.salesValue = sum(sales);
     board.totals.monthValue = sum(month);
