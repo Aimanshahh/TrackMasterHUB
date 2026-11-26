@@ -68,13 +68,18 @@ test('a sale can be cancelled with a reason and restored, and cancelled sales le
   const other = await User.create({ name: 'Other Rep', email: 'other-rep@example.com', passwordHash: 'a-long-test-password', role: 'salesperson' });
   const customer = await Customer.create({ name: 'Cancel Customer', phone: '03003330000', owner: rep._id });
   const job = await Job.create({ createdBy: rep._id, customer: customer._id, customerName: customer.name, requestType: 'new_installation', vehicle: { registration: 'CAN-1' }, packageKey: 'basic', listPrice: 10000, quotedPrice: 10000, status: 'unassigned' });
-  const actor = { id: rep._id.toString(), role: 'salesperson' };
+  const actor = { id: rep._id.toString(), role: 'salesperson', name: 'Cancel Rep' };
+  const { default: Notification } = await import('../src/models/Notification.js');
+  const { default: Activity } = await import('../src/models/Activity.js');
+  const admin = await User.create({ name: 'Cancel Admin', email: 'cancel-admin@example.com', passwordHash: 'a-long-test-password', role: 'admin' });
 
   await assert.rejects(cancelSale(job._id, actor, { reason: 'nope' }), (e) => e.message.includes('why'));
   await assert.rejects(cancelSale(job._id, { id: other._id.toString(), role: 'salesperson' }, { reason: 'other' }), (e) => e.message.includes('could not be found'));
 
   await cancelSale(job._id, actor, { reason: 'technician_delayed', note: 'Waited two weeks' });
   let board = await getSalesBoard({ ownerId: rep._id });
+  assert.equal(await Notification.countDocuments({ user: admin._id, type: 'sale.cancelled' }), 1, 'the admin is told');
+  assert.equal(await Activity.countDocuments({ type: 'sale.cancelled' }), 1);
   assert.equal(board.totals.cancelled, 1);
   assert.equal(board.totals.sales, 0, 'a cancelled sale is not an installation');
   assert.equal(board.cancelled[0].cancellation.reasonLabel, 'Technician was delayed');

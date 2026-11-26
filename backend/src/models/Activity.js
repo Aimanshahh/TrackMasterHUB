@@ -12,6 +12,7 @@ const activitySchema = new mongoose.Schema(
       required: true,
       enum: [
         'customer.created',
+        'sale.cancelled',
         'customer.updated',
         'customer.archived',
         'user.created',

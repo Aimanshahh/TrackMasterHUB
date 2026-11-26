@@ -1,4 +1,7 @@
 import { makeError } from '../../middleware/errors.js';
+import Activity from '../../models/Activity.js';
+import User from '../../models/User.js';
+import { notifyUser } from '../notifications/notifications.service.js';
 import Customer from '../../models/Customer.js';
 import Job, { jobStatusLabels } from '../../models/Job.js';
 import { packageCatalog } from '../../models/Package.js';
@@ -152,6 +155,26 @@ export async function cancelSale(id, actor, { reason, note } = {}) {
   job.cancellation = { reason, note: String(note ?? '').trim().slice(0, 500), cancelledAt: new Date(), cancelledBy: actor.id, previousStatus: job.status };
   job.status = 'cancelled';
   await job.save();
+
+  /* Money and pipeline are the admin's concern: record it and tell every admin. */
+  const reasonLabel = CANCEL_REASONS[reason];
+  const who = actor.name || 'A salesperson';
+  await Activity.create({
+    actor: actor.id,
+    type: 'sale.cancelled',
+    label: `Sale cancelled · ${job.vehicle?.registration || job.reference}`,
+    description: `${job.customerName || 'Customer'} · ${reasonLabel}`,
+    recordId: job.customer,
+  }).catch(() => {});
+  const admins = await User.find({ role: 'admin', active: true }).select('_id');
+  await Promise.all(admins.map((admin) => notifyUser({
+    userId: admin._id,
+    type: 'sale.cancelled',
+    title: `Sale cancelled · ${job.vehicle?.registration || job.reference}`,
+    body: `${job.customerName || 'Customer'} · ${reasonLabel}${job.cancellation.note ? ` — ${job.cancellation.note}` : ''} (${who})`,
+    link: '/admin/sales',
+    meta: { reference: job.reference, recordId: job._id.toString(), status: 'cancelled' },
+  }).catch(() => null)));
   return { id: job._id.toString(), cancelled: true };
 }
 

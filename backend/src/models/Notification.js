@@ -13,9 +13,13 @@ const notificationSchema = new mongoose.Schema(
       enum: [
         'complaint.status_changed',
         'installation.status_changed',
+<<<<<<< HEAD
         'installation.submitted',
         'installation.reviewed',
         'installation.assigned',
+=======
+        'sale.cancelled',
+>>>>>>> 343595a6be5d6926065d7efc6e42b48a3635595b
         'stock.low',
         'approval.requested',
         'approval.decided',
