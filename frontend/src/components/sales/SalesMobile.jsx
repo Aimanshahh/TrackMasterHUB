@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import MonthlyTarget from './MonthlyTarget.jsx';
 import SaleCancel from './SaleCancel.jsx';
 import { APPROVAL_TEXT, callLink, formatDay, formatMoney, renewalText, whatsappLink } from './salesHelpers.js';
 
@@ -107,6 +108,8 @@ export default function SalesMobile({ board, mode, customerLink, approvalsLink, 
           </button>
         </div>
       </section>
+
+      {!company ? <MonthlyTarget target={board.target} /> : null}
 
       <div className="sm-tabs" role="tablist" aria-label="Sales sections">
         {tabs.map(([key, label, count]) => (

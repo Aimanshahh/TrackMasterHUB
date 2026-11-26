@@ -1,5 +1,6 @@
 import Customer from '../../models/Customer.js';
 import Device from '../../models/Device.js';
+import { recordActivity } from '../activity/activity.log.js';
 import Job, { JOB_STATUSES, jobStatusLabels } from '../../models/Job.js';
 import Notification from '../../models/Notification.js';
 import Sim from '../../models/Sim.js';
@@ -412,6 +413,7 @@ async function updateJob(id, input, actor) {
   if (!job) throw makeError(errorCodes.NOT_FOUND, 'No operations job matches that id.');
 
   const previousStatus = job.status;
+  const previousTechnicianId = job.technician?.toString() ?? null;
 
   /* Installation tests, device placement, remarks and engine kill belong to Operations (and the admin). */
   if (actor?.role === 'manager') {
@@ -593,6 +595,19 @@ async function updateJob(id, input, actor) {
   const stockContextChanged = job.isModified('technician') || job.isModified('vehicle.station');
 
   await job.save();
+
+  /* Who a job is given to is an admin-visible decision: record each change. */
+  const nextTechnicianId = job.technician?.toString() ?? null;
+  if (nextTechnicianId !== previousTechnicianId) {
+    const names = new Map((await Technician.find({ _id: { $in: [previousTechnicianId, nextTechnicianId].filter(Boolean) } }).select('name')).map((row) => [row._id.toString(), row.name]));
+    await recordActivity({
+      actor,
+      type: 'job.reassigned',
+      label: `Technician ${previousTechnicianId ? 'changed' : 'assigned'} · ${job.vehicle?.registration || job.reference}`,
+      description: `${job.reference}: ${previousTechnicianId ? names.get(previousTechnicianId) ?? 'a technician' : 'nobody'} → ${nextTechnicianId ? names.get(nextTechnicianId) ?? 'a technician' : 'nobody'} (${actor?.name ?? 'staff'}).`,
+      recordId: job.customer,
+    });
+  }
 
   if (nextStatus === 'cancelled') {
     if (job.deviceImei) await releaseDevice(job.deviceImei, job._id);

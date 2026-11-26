@@ -26,5 +26,5 @@ export function errorHandler(err, req, res, next) {
     console.error('[trackmaster-hub-api] ' + err.message, err);
   }
 
-  res.status(status).json({ error: { code: err.code || errorCodes.DATABASE_ERROR, message: err.message, requestId: err.requestId || null } });
+  res.status(status).json({ error: { code: err.code || errorCodes.DATABASE_ERROR, message: err.message, requestId: err.requestId || null, ...(err.details && status < 500 ? { details: err.details } : {}) } });
 }
