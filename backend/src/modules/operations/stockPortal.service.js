@@ -32,7 +32,7 @@ async function load() {
 export async function previewStockPortal() {
   const snapshot = await load();
   const preview = await previewHandovers(rowsFrom(snapshot));
-  return { ...preview, source: { syncedAt: snapshot.syncedAt, error: snapshot.error } };
+  return { ...preview, source: { syncedAt: snapshot.syncedAt, error: snapshot.error, shape: snapshot.shape ?? null } };
 }
 
 export async function applyStockPortal(input, actor) {

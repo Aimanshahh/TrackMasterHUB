@@ -172,19 +172,77 @@ export function flattenGroups(payload) {
     .map((group) => ({ id: String(group.id ?? group.title ?? ''), title: String(group.title ?? group.name ?? '').trim(), items: group.items }));
 }
 
+
+/** "ASGHAR-SUKKER@TM.PK" -> "ASGHAR SUKKER": the portal user's login read as a technician name. */
+export function nameFromLogin(value) {
+  return String(value ?? '').split('@')[0].replace(/[-_.]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+const OWNER_PATHS = [
+  ['user_email'], ['owner_email'], ['client_email'], ['email'],
+  ['user', 'email'], ['owner', 'email'], ['client', 'email'], ['users', 0, 'email'],
+  ['device_data', 'user_email'], ['device_data', 'user', 'email'], ['device_data', 'users', 0, 'email'],
+  ['user_name'], ['owner_name'], ['client_name'], ['user', 'name'], ['owner', 'name'],
+];
+
+const dig = (item, path) => path.reduce((value, key) => (value === null || value === undefined ? undefined : value[key]), item);
+
+/** Whose account a device sits under, when the portal says so; '' when it does not. */
+export function ownerOf(item) {
+  for (const path of OWNER_PATHS) {
+    const value = dig(item, path);
+    if (typeof value === 'string' && value.trim()) return nameFromLogin(value);
+  }
+  return '';
+}
+
+const isUngrouped = (title) => !title || /^ungrouped$/i.test(String(title).trim());
+
+/** Field names only, so an operator can see what the portal sends without exposing values. */
+function shapeOf(payload, groups, ownersFound, total) {
+  const first = (Array.isArray(payload) ? payload : []).flatMap((group) => (Array.isArray(group?.items) ? group.items : [group])).find((item) => item && typeof item === 'object');
+  return {
+    totalDevices: total,
+    ownersFound,
+    groups: groups.map((group) => ({ title: group.title || '(none)', devices: group.devices.length })),
+    deviceFields: first ? Object.keys(first).sort() : [],
+    deviceDataFields: first?.device_data && typeof first.device_data === 'object' ? Object.keys(first.device_data).sort() : [],
+  };
+}
+
 async function syncTechnicianStock() {
   const portal = env.technicianStockPortal;
   if (!portal) return;
   try {
     const payload = await request(portal, `/get_devices?user_api_hash=${encodeURIComponent(portal.hash)}&lang=en`);
-    const groups = flattenGroups(payload).map((group) => ({
-      ...group,
-      devices: group.items.map((item) => toDevice({ ...item, portalSource: portal.source })).filter((device) => device.imei || device.uniqueId),
-    }));
-    /* Devices outside any named group are listed too, under their own heading. */
-    const loose = flattenDevices(payload.filter((group) => !Array.isArray(group?.items))).map((item) => toDevice({ ...item, portalSource: portal.source }));
-    if (loose.length) groups.push({ id: 'ungrouped', title: '', items: [], devices: loose });
-
+    /* A technician's devices are found by (1) the account the device sits under when the portal
+       says so, (2) the named group it is in, (3) otherwise they stay unassigned. */
+    const buckets = new Map();
+    let total = 0;
+    let ownersFound = 0;
+    const put = (title, device) => {
+      total += 1;
+      const key = title.toLowerCase();
+      if (!buckets.has(key)) buckets.set(key, { id: key || 'ungrouped', title, items: [], devices: [] });
+      buckets.get(key).devices.push(device);
+    };
+    for (const group of flattenGroups(payload)) {
+      for (const item of group.items) {
+        const device = toDevice({ ...item, portalSource: portal.source });
+        if (!device.imei && !device.uniqueId) continue;
+        const owner = ownerOf(item);
+        if (owner) ownersFound += 1;
+        put(owner || (isUngrouped(group.title) ? '' : group.title), device);
+      }
+    }
+    for (const item of flattenDevices(payload.filter((group) => !Array.isArray(group?.items)))) {
+      const device = toDevice({ ...item, portalSource: portal.source });
+      const owner = ownerOf(item);
+      if (owner) ownersFound += 1;
+      put(owner, device);
+    }
+    const groups = [...buckets.values()];
+    state.stockShape = shapeOf(payload, groups, ownersFound, total);
     state.stockGroups = groups;
     state.stockDevices = new Map();
     for (const group of groups) {
@@ -206,6 +264,7 @@ export function getTechnicianStockGroups() {
     configured: Boolean(env.technicianStockPortal),
     syncedAt: state.stockSync.syncedAt?.toISOString() ?? null,
     error: state.stockSync.error,
+    shape: state.stockShape ?? null,
     groups: state.stockGroups.map((group) => ({ id: group.id, title: group.title, devices: group.devices })),
   };
 }
