@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import { refreshCustomerCategory } from '../utils/customerCategory.js';
 import { makeReference } from '../utils/reference.js';
 import { PACKAGE_KEYS, packageCatalog } from './Package.js';
+import { confirmedItems } from '../utils/packageChecklist.js';
+import { packageHasEngineKill } from '../utils/customerLogin.js';
 import { CHECKLIST_KEYS, ENGINE_KILL_STATUSES, completionStatus, engineKillLabels } from '../utils/installation.js';
 
 export const JOB_STATUSES = [
@@ -123,6 +125,8 @@ const jobSchema = new mongoose.Schema(
       battery: {
         status: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
         connected: { type: Boolean, default: null },
+        seenConnected: { type: Boolean, default: false },
+        seenDisconnected: { type: Boolean, default: false },
         disconnectWorking: { type: Boolean, default: null },
         temperatureC: { type: Number, default: null },
         source: { type: String, enum: ['', 'portal', 'manual'], default: '' },
@@ -133,6 +137,8 @@ const jobSchema = new mongoose.Schema(
       ignition: {
         status: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
         ignitionOn: { type: Boolean, default: null },
+        seenOn: { type: Boolean, default: false },
+        seenOff: { type: Boolean, default: false },
         objectStatus: { type: String, trim: true, maxlength: 200, default: '' },
         source: { type: String, enum: ['', 'portal', 'manual'], default: '' },
         note: { type: String, trim: true, maxlength: 500, default: '' },
@@ -150,9 +156,17 @@ const jobSchema = new mongoose.Schema(
         verifiedAt: { type: Date },
         verifiedByName: { type: String, trim: true, maxlength: 120, default: '' },
       },
+      /** The last time the technician read this device from the tracking portal. */
+      portalCheck: {
+        at: { type: Date },
+        found: { type: Boolean, default: null },
+        stale: { type: Boolean, default: false },
+        lastSeenAt: { type: Date },
+        message: { type: String, trim: true, maxlength: 300, default: '' },
+      },
       /** Engine kill needs operations, so the technician can only request it. */
       engineKillTest: {
-        status: { type: String, enum: ['not_requested', 'requested', 'verified', 'failed'], default: 'not_requested' },
+        status: { type: String, enum: ['not_requested', 'requested', 'verified', 'failed', 'not_supported'], default: 'not_requested' },
         requestedAt: { type: Date },
         requestedByName: { type: String, trim: true, maxlength: 120, default: '' },
         requestNote: { type: String, trim: true, maxlength: 500, default: '' },
@@ -327,6 +341,12 @@ const jobSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    /** What the salesperson confirmed with the customer before the sale could be sent. */
+    packageChecklist: {
+      confirmed: { type: [String], default: [] },
+      confirmedAt: { type: Date },
+      confirmedByName: { type: String, trim: true, maxlength: 120, default: '' },
+    },
     deviceOwnership: {
       type: String,
       enum: ['company', 'customer'],
@@ -408,12 +428,16 @@ function testingJson(job) {
     battery: {
       ...read(t.battery),
       connected: t.battery?.connected ?? null,
+      seenConnected: Boolean(t.battery?.seenConnected),
+      seenDisconnected: Boolean(t.battery?.seenDisconnected),
       disconnectWorking: t.battery?.disconnectWorking ?? null,
       temperatureC: t.battery?.temperatureC ?? null,
     },
     ignition: {
       ...read(t.ignition),
       ignitionOn: t.ignition?.ignitionOn ?? null,
+      seenOn: Boolean(t.ignition?.seenOn),
+      seenOff: Boolean(t.ignition?.seenOff),
       objectStatus: t.ignition?.objectStatus ?? '',
     },
     location: {
@@ -423,6 +447,14 @@ function testingJson(job) {
       longitude: t.location?.longitude ?? null,
       gpsReceived: t.location?.gpsReceived ?? null,
     },
+    portalCheck: {
+      at: t.portalCheck?.at?.toISOString?.() ?? null,
+      found: t.portalCheck?.found ?? null,
+      stale: Boolean(t.portalCheck?.stale),
+      lastSeenAt: t.portalCheck?.lastSeenAt?.toISOString?.() ?? null,
+      message: t.portalCheck?.message ?? '',
+    },
+    engineKillApplicable: packageHasEngineKill(job.packageKey),
     engineKillTest: {
       status: t.engineKillTest?.status ?? 'not_requested',
       requestedAt: t.engineKillTest?.requestedAt?.toISOString?.() ?? null,
@@ -501,6 +533,11 @@ jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
     } : {}),
     approvalStatus: this.approvalStatus ?? 'not_required',
     packageFeatures: this.packageFeatures ?? [],
+    packageChecklist: {
+      items: confirmedItems(this.packageKey, this.packageChecklist?.confirmed).map((item) => item.label),
+      confirmedAt: this.packageChecklist?.confirmedAt?.toISOString?.() ?? null,
+      confirmedByName: this.packageChecklist?.confirmedByName ?? '',
+    },
     deviceOwnership: this.deviceOwnership ?? 'company',
     approvalId: this.approval ? this.approval.toString() : null,
     scheduledAt: this.scheduledAt?.toISOString() ?? null,

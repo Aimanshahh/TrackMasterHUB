@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import { createCustomer, createJobRecord } from '../../lib/api.js';
+import { Link } from 'react-router-dom';
+
+import { checkDuplicateCustomers, createCustomer, createJobRecord } from '../../lib/api.js';
 import { PRIORITY_OPTIONS } from '../../app/operations.js';
 import { usePackages } from '../../hooks/usePackages.js';
 import { formatMoney } from '../../lib/format.js';
@@ -37,6 +39,7 @@ function newVehicle() {
     packageKey: '',
     quotedPrice: '',
     packageFeatures: '',
+    checklist: [],
     deviceOwnership: 'company',
     approvalReason: '',
   };
@@ -75,6 +78,8 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [duplicates, setDuplicates] = useState([]);
+  const [confirmedNew, setConfirmedNew] = useState(false);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -92,6 +97,8 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
       setSavedCustomer(null);
       setError(null);
       setNotice(null);
+      setDuplicates([]);
+      setConfirmedNew(false);
     }
   }, [open]);
 
@@ -100,6 +107,18 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
   const update = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
   const isInstallation = form.requestType === 'new_installation';
 
+  /* Look the number up as soon as the field is left, so the warning shows before the form is filled in. */
+  async function lookForDuplicates() {
+    if (savedCustomer || form.phone.replace(/\D/g, '').length < 7) { setDuplicates([]); return; }
+    try {
+      const payload = await checkDuplicateCustomers(form.phone);
+      setDuplicates(payload.data?.duplicates ?? []);
+      setConfirmedNew(false);
+    } catch {
+      /* the server checks again on save, so a failed look-up is not shown */
+    }
+  }
+
   const updateVehicle = (id, key) => (event) => {
     const { value } = event.target;
     setVehicles((current) => current.map((vehicle) => (vehicle.id === id ? { ...vehicle, [key]: value } : vehicle)));
@@ -107,9 +126,15 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
 
   function choosePackage(id, pkg) {
     setVehicles((current) => current.map((vehicle) => (
-      vehicle.id === id ? { ...vehicle, packageKey: pkg.key, quotedPrice: pkg.price ?? '' } : vehicle
+      vehicle.id === id ? { ...vehicle, packageKey: pkg.key, quotedPrice: pkg.price ?? '', checklist: vehicle.packageKey === pkg.key ? vehicle.checklist : [] } : vehicle
     )));
   }
+
+  const toggleCheck = (id, key) => setVehicles((current) => current.map((vehicle) => {
+    if (vehicle.id !== id) return vehicle;
+    const has = vehicle.checklist.includes(key);
+    return { ...vehicle, checklist: has ? vehicle.checklist.filter((entry) => entry !== key) : [...vehicle.checklist, key] };
+  }));
 
   const addVehicle = () => setVehicles((current) => [...current, newVehicle()]);
   const removeVehicle = (id) => setVehicles((current) => (current.length > 1 ? current.filter((vehicle) => vehicle.id !== id) : current));
@@ -144,6 +169,15 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
           setError(`${label}Enter the price you quoted the customer.`);
           return;
         }
+        const unticked = (pkg.checklist ?? []).filter((item) => !vehicle.checklist.includes(item.key));
+        if (unticked.length) {
+          setError(`${label}Confirm with the customer first: ${unticked.map((item) => item.label).join('; ')}.`);
+          return;
+        }
+        if (pkg.key === 'customize' && !vehicle.packageFeatures.trim()) {
+          setError(`${label}List the features the customer agreed to for the Customize package.`);
+          return;
+        }
         // The minimum price is a floor, not a suggestion: the backend refuses it.
         if (belowFloor) {
           setError(`${label}The ${pkg.name} package cannot be sold below ${formatMoney(floor)}. Quote that or more, or ask the admin to lower the minimum price.`);
@@ -167,7 +201,13 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
 
     try {
       if (!customer) {
+        if (duplicates.length > 0 && !confirmedNew) {
+          setError('This phone number is already in the system. Open the existing record, or tick the box to confirm this is a different customer.');
+          setSaving(false);
+          return;
+        }
         const payload = await createCustomer({
+          confirmDuplicate: confirmedNew,
           name: form.name,
           phone: form.phone,
           email: form.email,
@@ -181,6 +221,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
         setSavedCustomer(customer);
       }
     } catch (saveError) {
+      if (saveError.code === 'CONFLICT' && saveError.details?.duplicates) setDuplicates(saveError.details.duplicates);
       setError(saveError.message || 'The customer could not be saved.');
       setSaving(false);
       return;
@@ -215,6 +256,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
           notes: form.notes,
           packageKey: vehicle.packageKey,
           quotedPrice: quote,
+          packageChecklist: vehicle.checklist,
           packageFeatures: vehicle.packageFeatures.split('\n').map((feature) => feature.trim()).filter(Boolean),
           deviceOwnership: vehicle.deviceOwnership,
           approvalReason: state === 'below' ? vehicle.approvalReason : undefined,
@@ -301,8 +343,25 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
             </label>
             <label className="field">
               <span className="field__label">Phone <i>Required</i></span>
-              <input className="input" type="tel" required maxLength={60} autoComplete="tel" placeholder="Customer’s own number" value={form.phone} onChange={update('phone')} />
+              <input className="input" type="tel" required maxLength={60} autoComplete="tel" placeholder="Customer’s own number" value={form.phone} onChange={update('phone')} onBlur={lookForDuplicates} />
             </label>
+            {duplicates.length > 0 ? (
+              <div className="dup-warning field--full" role="alert">
+                <strong>This number is already in the system</strong>
+                <ul>
+                  {duplicates.map((match) => (
+                    <li key={`${match.id ?? match.name}-${match.phone}`}>
+                      <span>{match.name}<small>{match.mine ? 'Your customer' : match.owner ? `Owned by ${match.owner}` : 'Another salesperson'} · {match.phone}</small></span>
+                      {match.id ? <Link to={`/salesperson/customers/${match.id}`} onClick={onClose}>Open record</Link> : null}
+                    </li>
+                  ))}
+                </ul>
+                <label className="dup-warning__confirm">
+                  <input type="checkbox" checked={confirmedNew} onChange={(event) => setConfirmedNew(event.target.checked)} />
+                  <span>This is a different customer, add anyway</span>
+                </label>
+              </div>
+            ) : null}
             <label className="field">
               <span className="field__label">Email</span>
               <input className="input" type="email" maxLength={240} autoComplete="email" placeholder="Optional" value={form.email} onChange={update('email')} />
@@ -338,7 +397,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
               ) : null}
 
               {vehicles.map((vehicle, index) => {
-                const { pkg, state } = quoteStateFor(vehicle, packages.rows);
+                const { pkg, state, floor, belowFloor } = quoteStateFor(vehicle, packages.rows);
                 return (
                   <fieldset className="vehicle-block" key={vehicle.id}>
                     <legend className="vehicle-block__title">
@@ -402,6 +461,17 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                           />
                         </div>
                       </label>
+                  {(pkg?.checklist ?? []).length ? (
+                    <fieldset className="pkg-check field--full">
+                      <legend className="field__label">Confirm with the customer <i>All required</i></legend>
+                      {pkg.checklist.map((item) => (
+                        <label className="pkg-check__row" key={item.key}>
+                          <input type="checkbox" checked={vehicle.checklist.includes(item.key)} onChange={() => toggleCheck(vehicle.id, item.key)} disabled={saving} />
+                          <span>{item.label}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : null}
                   {pkg?.key === 'customize' ? (
                     <label className="field field--full">
                       <span className="field__label">Additional features</span>

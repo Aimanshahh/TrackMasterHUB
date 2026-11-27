@@ -48,6 +48,7 @@ async function newSale(plate) {
     vehicleRegistration: plate,
     station: 'Rawalpindi',
     packageKey: 'basic',
+    packageChecklist: ['engine_kill_call'],
     quotedPrice: 20000,
   }, { id: ctx.sales._id.toString(), role: 'salesperson' });
 }

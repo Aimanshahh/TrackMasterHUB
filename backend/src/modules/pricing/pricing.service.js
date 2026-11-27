@@ -1,4 +1,5 @@
 import Activity from '../../models/Activity.js';
+import { checklistFor } from '../../utils/packageChecklist.js';
 import Package, { PACKAGE_KEYS, packageCatalog } from '../../models/Package.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
@@ -15,6 +16,7 @@ function unconfigured(key) {
     summary: catalog.summary,
     features: [],
     configured: false,
+    checklist: checklistFor(key),
     updatedAt: null,
   };
 }
@@ -29,7 +31,7 @@ async function listPackages() {
   const byKey = new Map(docs.map((doc) => [doc.key, doc]));
 
   return {
-    data: PACKAGE_KEYS.map((key) => (byKey.has(key) ? byKey.get(key).toApiJson() : unconfigured(key))),
+    data: PACKAGE_KEYS.map((key) => (byKey.has(key) ? { ...byKey.get(key).toApiJson(), checklist: checklistFor(key) } : unconfigured(key))),
     meta: { currency: CURRENCY },
   };
 }
@@ -92,6 +94,7 @@ async function updatePackage(key, input, actor) {
     }
   }
 
+  const previousPrice = doc.price ?? null;
   doc.price = Math.round(price * 100) / 100;
   doc.minPrice = minPrice;
   doc.name = typeof input.name === 'string' && input.name.trim() ? input.name.trim().slice(0, 80) : catalog.name;
@@ -105,7 +108,7 @@ async function updatePackage(key, input, actor) {
     actor: actor.id,
     type: 'pricing.updated',
     label: `${doc.name} package priced at ${CURRENCY} ${doc.price.toLocaleString()}`,
-    description: `${actor.name ?? 'An admin'} set the ${doc.name} package rate.`,
+    description: `${actor.name ?? 'An admin'} changed the ${doc.name} package rate from ${previousPrice === null ? 'not set' : `${CURRENCY} ${Number(previousPrice).toLocaleString()}`} to ${CURRENCY} ${doc.price.toLocaleString()}.`,
   });
 
   return doc.toApiJson();

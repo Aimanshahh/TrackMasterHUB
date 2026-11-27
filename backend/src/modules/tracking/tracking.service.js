@@ -20,6 +20,9 @@ const state = {
   devices: new Map(),
   portalDevices: new Map(),
   portalSync: new Map(),
+  stockGroups: [],
+  stockDevices: new Map(),
+  stockSync: { syncedAt: null, error: null },
   syncedAt: null,
   lastAttemptAt: null,
   lastError: null,
@@ -28,7 +31,7 @@ const state = {
 };
 
 export function isTrackingConfigured() {
-  return env.trackingPortals.length > 0;
+  return env.trackingPortals.length > 0 || Boolean(env.technicianStockPortal);
 }
 
 /** "AYM-118", " AYM 118 " and "aym118" all become "AYM118". */
@@ -161,6 +164,57 @@ export function toDevice(item) {
   };
 }
 
+/** Groups with their title, so the technician-stock portal can tell whose stock a device is. */
+export function flattenGroups(payload) {
+  if (!Array.isArray(payload)) throw new TrackingError('The tracking server sent a device list in an unexpected shape.');
+  return payload
+    .filter((group) => Array.isArray(group?.items))
+    .map((group) => ({ id: String(group.id ?? group.title ?? ''), title: String(group.title ?? group.name ?? '').trim(), items: group.items }));
+}
+
+async function syncTechnicianStock() {
+  const portal = env.technicianStockPortal;
+  if (!portal) return;
+  try {
+    const payload = await request(portal, `/get_devices?user_api_hash=${encodeURIComponent(portal.hash)}&lang=en`);
+    const groups = flattenGroups(payload).map((group) => ({
+      ...group,
+      devices: group.items.map((item) => toDevice({ ...item, portalSource: portal.source })).filter((device) => device.imei || device.uniqueId),
+    }));
+    /* Devices outside any named group are listed too, under their own heading. */
+    const loose = flattenDevices(payload.filter((group) => !Array.isArray(group?.items))).map((item) => toDevice({ ...item, portalSource: portal.source }));
+    if (loose.length) groups.push({ id: 'ungrouped', title: '', items: [], devices: loose });
+
+    state.stockGroups = groups;
+    state.stockDevices = new Map();
+    for (const group of groups) {
+      for (const device of group.devices) {
+        if (device.imei) state.stockDevices.set(`imei:${device.imei}`, device);
+        if (device.uniqueId) state.stockDevices.set(`unique:${device.uniqueId}`, device);
+      }
+    }
+    state.stockSync = { syncedAt: new Date(), error: null };
+  } catch (error) {
+    const message = error instanceof TrackingError ? error.message : 'Technician stock: sync failed unexpectedly.';
+    state.stockSync = { syncedAt: state.stockSync.syncedAt, error: message };
+  }
+}
+
+/** What the technician-stock account currently lists, grouped by technician, with how fresh it is. */
+export function getTechnicianStockGroups() {
+  return {
+    configured: Boolean(env.technicianStockPortal),
+    syncedAt: state.stockSync.syncedAt?.toISOString() ?? null,
+    error: state.stockSync.error,
+    groups: state.stockGroups.map((group) => ({ id: group.id, title: group.title, devices: group.devices })),
+  };
+}
+
+export async function refreshTechnicianStock() {
+  await syncTechnicianStock();
+  return getTechnicianStockGroups();
+}
+
 async function fetchPortalDevices(portal) {
   const payload = await request(
     portal,
@@ -246,6 +300,8 @@ async function runSync() {
         state.portalSync.set(portal.id, { syncedAt: state.portalSync.get(portal.id)?.syncedAt ?? null, error: message });
       }
     }
+
+    await syncTechnicianStock();
 
     if (!successfulPortals && errors.length && !state.syncedAt) throw new TrackingError(errors.join(' '));
 
@@ -399,8 +455,10 @@ export function statusFor(plate, imeiOrNow, now = Date.now(), options = {}) {
  */
 export function getDeviceTelemetry(imei) {
   const key = normalizeDeviceId(imei);
+  /* A device still in the technician-stock account is a real portal reading too: it is
+     used only when no customer portal lists the IMEI, and its source says so. */
   const device = key
-    ? state.devices.get(`imei:${key}`) ?? state.devices.get(`unique:${key}`)
+    ? state.devices.get(`imei:${key}`) ?? state.devices.get(`unique:${key}`) ?? state.stockDevices.get(`imei:${key}`) ?? state.stockDevices.get(`unique:${key}`)
     : null;
 
   if (!device) {
@@ -427,6 +485,14 @@ export function getDeviceTelemetry(imei) {
     address: device.address ?? '',
     portalSource: device.portalSource ?? '',
   };
+}
+
+/** Test hook: replace the technician-stock cache. */
+export function __setTechnicianStockCache(devices) {
+  state.stockDevices = new Map();
+  for (const device of devices) {
+    if (device.imei) state.stockDevices.set(`imei:${normalizeDeviceId(device.imei)}`, device);
+  }
 }
 
 /** Test hook: replace the cache without touching the network. */

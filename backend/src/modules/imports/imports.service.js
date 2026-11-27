@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import Activity from '../../models/Activity.js';
+import User from '../../models/User.js';
 import Customer, { CUSTOMER_CATEGORIES } from '../../models/Customer.js';
 import Counter from '../../models/Counter.js';
 import ImportBatch from '../../models/ImportBatch.js';
@@ -21,6 +22,29 @@ const STALE_IMPORT_MS = 2 * 60 * 1000;
 const sha = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
 export const importFields = () => IMPORT_FIELDS.map(({ key, label, group, required }) => ({ key, label, group, required }));
+
+/** "  Ali   KHAN " and "ali khan" are the same person. */
+export const salespersonKey = (name) => String(name ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * Match a name from the sheet to a salesperson account: the admin's correction
+ * first, then an exact name, then a first name that only one salesperson has.
+ */
+export function resolveSalesperson(sheetName, salespeople, map = {}) {
+  const key = salespersonKey(sheetName);
+  if (!key) return { status: 'missing', sheetName: '', userId: null, userName: '' };
+  if (Object.hasOwn(map, key)) {
+    const chosen = map[key] ? salespeople.find((user) => user.id === map[key]) : null;
+    return chosen
+      ? { status: 'corrected', sheetName, userId: chosen.id, userName: chosen.name }
+      : { status: 'unassigned', sheetName, userId: null, userName: '' };
+  }
+  const exact = salespeople.filter((user) => salespersonKey(user.name) === key);
+  if (exact.length === 1) return { status: 'matched', sheetName, userId: exact[0].id, userName: exact[0].name };
+  const partial = salespeople.filter((user) => salespersonKey(user.name).split(' ')[0] === key.split(' ')[0] && (key.split(' ').length === 1 || salespersonKey(user.name).startsWith(key)));
+  if (exact.length === 0 && partial.length === 1) return { status: 'matched', sheetName, userId: partial[0].id, userName: partial[0].name };
+  return { status: 'unmatched', sheetName, userId: null, userName: '' };
+}
 
 function cleanMapping(input, headers) {
   const mapping = {};
@@ -46,9 +70,17 @@ function cleanOptions(input, headers, mapping) {
     ? availableExtras
     : [...new Set(requestedExtras)].filter((header) => availableExtras.includes(header));
 
+  /* The admin's corrections to the salesperson names found in the file: sheet name -> account id ('' leaves the customer unassigned). */
+  const salespersonMap = {};
+  for (const [name, userId] of Object.entries(input?.salespersonMap ?? {})) {
+    const key = salespersonKey(name);
+    if (key) salespersonMap[key] = String(userId ?? '');
+  }
+
   return {
     onExisting: input?.onExisting === 'skip' ? 'skip' : 'attach',
     extraHeaders,
+    salespersonMap,
   };
 }
 
@@ -90,6 +122,8 @@ async function buildPlan(batch) {
   const options = batch.options ?? {};
   const batchId = batch._id.toString();
 
+  const salespeople = (await User.find({ role: 'salesperson', active: true }).select('name').lean()).map((user) => ({ id: user._id.toString(), name: user.name }));
+  const salespersonFound = new Map(); // key -> { sheetName, count, ...resolution }
   const customers = await Customer.find({}).select('name phone legacy').lean();
   const byLegacy = new Map();
   const byPhone = new Map();
@@ -120,6 +154,23 @@ async function buildPlan(batch) {
       customerName: values.name, phone: values.phone, legacyId: values.legacyId, registration: values.registration,
     };
     prepared.push({ values, extra: keptExtra });
+
+    /* The salesperson named in the sheet owns the customer; the person importing does not. */
+    const seller = resolveSalesperson(values.salesperson, salespeople, options.salespersonMap);
+    result.salesperson = seller.userName || seller.sheetName;
+    result.salespersonId = seller.userId;
+    result.salespersonStatus = seller.status;
+    if (seller.status !== 'missing') {
+      const key = salespersonKey(values.salesperson);
+      const entry = salespersonFound.get(key) ?? { ...seller, count: 0 };
+      entry.count += 1;
+      salespersonFound.set(key, entry);
+    }
+    if (mapping.salesperson) {
+      if (seller.status === 'missing') result.warnings.push('No salesperson name on this row, so a new customer will have no owner until the admin assigns one.');
+      else if (seller.status === 'unmatched') result.warnings.push(`"${seller.sheetName}" does not match any salesperson account, so a new customer will have no owner until you pick one.`);
+      else if (seller.status === 'unassigned') result.warnings.push(`"${seller.sheetName}" was left unassigned on purpose.`);
+    }
 
     if (errors.length) {
       Object.assign(result, { status: 'error', outcome: 'error', message: errors.join(' ') });
@@ -233,7 +284,7 @@ async function buildPlan(batch) {
     results.push(result);
   }
 
-  return { results, prepared, fileCustomers };
+  return { results, prepared, fileCustomers, salespeople: [...salespersonFound.values()].sort((a, b) => b.count - a.count), accounts: salespeople };
 }
 
 /** Fill the app login and password on a customer that already exists, but never overwrite what is there. */
@@ -278,9 +329,9 @@ export async function previewBatch(id, { mapping, options } = {}) {
   batch.mapping = cleanMapping(mapping ?? batch.mapping, batch.headers);
   batch.options = cleanOptions(options ?? batch.options, batch.headers, batch.mapping);
 
-  const { results } = await buildPlan(batch);
+  const { results, salespeople, accounts } = await buildPlan(batch);
   batch.results = results;
-  batch.summary = summarize(results);
+  batch.summary = { ...summarize(results), salespeople, salespersonUnmatched: salespeople.filter((entry) => entry.status === 'unmatched').length };
   batch.status = 'previewed';
   batch.previewHash = sha(JSON.stringify({ m: batch.mapping, o: batch.options, f: batch.fileHash, s: batch.summary }));
   batch.markModified('mapping');
@@ -289,6 +340,8 @@ export async function previewBatch(id, { mapping, options } = {}) {
 
   return {
     batch: batch.toApiJson({ withHeaders: true }),
+    salespeople,
+    accounts,
     rows: results.filter((r) => r.status === 'error').slice(0, 100).concat(results.filter((r) => r.status !== 'error').slice(0, 100)),
   };
 }
@@ -366,6 +419,7 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
         if (result.outcome !== 'add_vehicle' && !group.customerId) {
           const customer = await Customer.create({
             name: values.name || `Imported customer row ${result.n}`,
+            owner: result.salespersonId || undefined,
             phone: values.phone,
             email: values.email,
             company: values.company,
@@ -466,7 +520,7 @@ export async function confirmBatch(id, { previewHash } = {}, actor) {
 
     batch.results = results;
     batch.markModified('results');
-    batch.summary = { ...summarize(results), finished: true };
+    batch.summary = { ...summarize(results), salespeople: batch.summary?.salespeople ?? [], finished: true };
     batch.status = 'completed';
     batch.completedAt = new Date();
     await batch.save();

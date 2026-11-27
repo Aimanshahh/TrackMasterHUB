@@ -14,6 +14,16 @@ const startOfMonth = () => {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 };
 
+/** Installations requested this month against the salesperson's monthly target. */
+export async function getMonthlyProgress(userId) {
+  const [rep, done] = await Promise.all([
+    User.findById(userId).select('monthlyTarget'),
+    Job.countDocuments({ createdBy: userId, requestType: 'new_installation', 'legacy.imported': { $ne: true }, status: { $ne: 'cancelled' }, createdAt: { $gte: startOfMonth() } }),
+  ]);
+  const monthly = rep?.monthlyTarget ?? 0;
+  return { monthly, done, remaining: Math.max(0, monthly - done), met: monthly > 0 && done >= monthly };
+}
+
 export const CANCEL_REASONS = {
   customer_changed_mind: 'Customer changed their mind',
   technician_delayed: 'Technician was delayed',
@@ -79,7 +89,8 @@ function renewalRow(job, customerById, now) {
 export async function getSalesBoard({ ownerId = null } = {}) {
   const now = new Date();
   const monthStart = startOfMonth();
-  const saleFilter = { requestType: 'new_installation' };
+  /* Imported legacy vehicles are already-installed records, never new sales. */
+  const saleFilter = { requestType: 'new_installation', 'legacy.imported': { $ne: true } };
   if (ownerId) saleFilter.createdBy = ownerId;
 
   const everything = await Job.find(saleFilter).sort({ createdAt: -1 }).populate('createdBy', 'name').populate('cancellation.cancelledBy', 'name');
@@ -119,6 +130,9 @@ export async function getSalesBoard({ ownerId = null } = {}) {
     renewals,
   };
   /* Money is the admin's concern: only the company board carries it. */
+  if (ownerId) {
+    board.target = await getMonthlyProgress(ownerId);
+  }
   if (withMoney) {
     board.totals.salesValue = sum(sales);
     board.totals.monthValue = sum(month);
@@ -192,7 +206,7 @@ export async function restoreSale(id, actor) {
  * performance and technician payments, and is never marked paid automatically.
  */
 export async function getAgentCommissions({ agent } = {}) {
-  const filter = { requestType: 'new_installation', 'agent.source': 'agent' };
+  const filter = { requestType: 'new_installation', 'legacy.imported': { $ne: true }, 'agent.source': 'agent' };
   if (agent) filter['agent.name'] = new RegExp(String(agent).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
   const jobs = await Job.find(filter).sort({ createdAt: -1 }).limit(200).populate('createdBy', 'name');

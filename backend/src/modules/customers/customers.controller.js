@@ -1,4 +1,4 @@
-import { buildFilter, listCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer } from './customers.service.js';
+import { checkDuplicateCustomers, buildFilter, listCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer } from './customers.service.js';
 import { getCustomerHistory } from './history.service.js';
 import { makeError } from '../../middleware/errors.js';
 import { errorCodes } from '../../config/errorCodes.js';
@@ -28,6 +28,13 @@ async function getCustomer(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function checkDuplicates(req, res, next) {
+  try {
+    const duplicates = await checkDuplicateCustomers(String(req.query.phone ?? ''), req.user);
+    return res.json({ data: { duplicates } });
+  } catch (error) { next(error); }
+}
+
 async function createCustomerRecord(req, res, next) {
   try {
     const input = req.body ?? {};
@@ -38,7 +45,7 @@ async function createCustomerRecord(req, res, next) {
       return next(makeError(errorCodes.VALIDATION_ERROR, 'Customer phone number is required.'));
     }
     const ownerId = req.user.role === 'admin' ? undefined : req.user.id;
-    const customer = await createCustomer(input, ownerId);
+    const customer = await createCustomer(input, ownerId, req.user);
     return res.status(201).json({ data: { customer } });
   } catch (error) { next(error); }
 }
@@ -66,4 +73,4 @@ async function deleteCustomerRecord(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { getCustomerHistoryReport, getCustomers, getCustomer, createCustomerRecord, patchCustomerRecord, deleteCustomerRecord };
+export { checkDuplicates, getCustomerHistoryReport, getCustomers, getCustomer, createCustomerRecord, patchCustomerRecord, deleteCustomerRecord };

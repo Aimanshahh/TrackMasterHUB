@@ -8,6 +8,8 @@ import Technician from '../../models/Technician.js';
 import { ASSIGNABLE_ROLES } from '../../config/constants.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
+import { getMonthlyProgress } from '../sales/sales.service.js';
+import { recordActivity } from '../activity/activity.log.js';
 import { createUser as createAccount, listUsers } from '../auth/auth.service.js';
 
 /**
@@ -20,7 +22,9 @@ async function createUser(input, actor) {
   const role = ASSIGNABLE_ROLES.includes(input.role) ? input.role : 'salesperson';
 
   if (role !== 'technician') {
-    return createAccount({ ...input, role });
+    const account = await createAccount({ ...input, role });
+    await recordActivity({ actor, type: 'user.created', label: `Account created · ${account.name ?? input.name}`, description: `${role} account for ${input.email} created by ${actor?.name ?? 'an admin'}.` });
+    return account;
   }
 
   let technician = null;
@@ -42,6 +46,7 @@ async function createUser(input, actor) {
   technician.user = created.id;
   await technician.save();
 
+  await recordActivity({ actor, type: 'user.created', label: `Technician account created · ${input.name}`, description: `Technician login for ${input.email} created by ${actor?.name ?? 'an admin'}.` });
   const user = await User.findById(created.id);
   return user.toApiJson();
 }
@@ -76,12 +81,12 @@ async function getSalespersonPerformance(id) {
 
   const [customers, jobs, complaints, approvals, recentActivity, quoted] = await Promise.all([
     Customer.find({ owner: id }).sort({ createdAt: -1 }).limit(8).select('name phone packageName packageKey createdAt followUp'),
-    Job.find({ createdBy: id }).sort({ createdAt: -1 }).limit(8).select('reference customerName status packageKey quotedPrice createdAt completedAt'),
+    Job.find({ createdBy: id, 'legacy.imported': { $ne: true } }).sort({ createdAt: -1 }).limit(8).select('reference customerName status packageKey quotedPrice createdAt completedAt'),
     Complaint.find({ createdBy: id }).sort({ createdAt: -1 }).limit(8).select('reference title status customerName createdAt'),
     Approval.find({ requestedBy: id }).sort({ createdAt: -1 }).limit(8).select('status packageKey quotedPrice customerName createdAt decisionAt'),
     Activity.find({ actor: id }).sort({ createdAt: -1 }).limit(10).select('type label description createdAt'),
     Job.aggregate([
-      { $match: { createdBy: user._id, quotedPrice: { $ne: null } } },
+      { $match: { createdBy: user._id, 'legacy.imported': { $ne: true }, quotedPrice: { $ne: null } } },
       { $group: { _id: null, total: { $sum: '$quotedPrice' }, count: { $sum: 1 } } },
     ]),
   ]);
@@ -90,7 +95,7 @@ async function getSalespersonPerformance(id) {
     Customer.countDocuments({ owner: id }),
     Customer.countDocuments({ owner: id, followUp: { $ne: null } }),
     Customer.countDocuments({ owner: id, followUp: { $lt: new Date(), $ne: null } }),
-    Job.aggregate([{ $match: { createdBy: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Job.aggregate([{ $match: { createdBy: user._id, 'legacy.imported': { $ne: true } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
     Complaint.aggregate([{ $match: { createdBy: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
     Approval.aggregate([{ $match: { requestedBy: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
   ]);
@@ -102,6 +107,7 @@ async function getSalespersonPerformance(id) {
 
   return {
     salesperson: user.toApiJson(),
+    target: await getMonthlyProgress(id),
     metrics: {
       customers: customerCount,
       followUps: followUpCount,
@@ -128,7 +134,7 @@ async function getSalespersonPerformance(id) {
   };
 }
 
-async function changeRole(input) {
+async function changeRole(input, actor) {
   const user = await User.findById(input.id);
 
   if (!user) {
@@ -147,10 +153,29 @@ async function changeRole(input) {
     return user.toApiJson();
   }
 
+  const previousRole = user.role;
   user.role = input.role;
   await user.save();
+  await recordActivity({ actor, type: 'user.role_changed', label: `Role changed · ${user.name}`, description: `${user.name} moved from ${previousRole} to ${user.role} by ${actor?.name ?? 'an admin'}.` });
 
   return user.toApiJson();
 }
 
-export { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole };
+const MAX_TARGET = 1000;
+
+/** The monthly installation target for a salesperson. Zero clears it. */
+async function setTarget(id, input, actor) {
+  const user = await User.findOne({ _id: id, role: 'salesperson' });
+  if (!user) throw makeError(errorCodes.NOT_FOUND, 'No salesperson matches that id.');
+  const target = Number(input?.target);
+  if (!Number.isInteger(target) || target < 0 || target > MAX_TARGET) {
+    throw makeError(errorCodes.VALIDATION_ERROR, `Enter a whole number of installations per month, from 0 to ${MAX_TARGET}.`);
+  }
+  const previous = user.monthlyTarget ?? 0;
+  user.monthlyTarget = target;
+  await user.save();
+  await recordActivity({ actor, type: 'target.updated', label: `Target set · ${user.name}`, description: `${user.name}'s monthly installation target changed from ${previous} to ${target} by ${actor?.name ?? 'an admin'}.` });
+  return user.toApiJson();
+}
+
+export { setTarget, createUser, getUsers, getUserById, getSalespersonPerformance, changeRole };

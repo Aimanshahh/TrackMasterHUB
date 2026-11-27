@@ -54,6 +54,11 @@ const validImei = (imei) => /^\d{14,17}$/.test(imei);
 /** What importing would do, without changing anything. */
 export async function previewShezzSync() {
   const { rows, hasMore } = await fetchHandovers();
+  return previewHandovers(rows, hasMore);
+}
+
+/** Preview for any source that can say which technician holds which IMEI. */
+export async function previewHandovers(rows, hasMore = false) {
   const handovers = latestPerImei(rows);
   const technicians = await Technician.find({ active: true }).sort({ name: 1 });
   const existing = await Device.find({ imei: { $in: handovers.map((row) => String(row.imei).trim()) } }).select('imei technician job');
@@ -104,6 +109,10 @@ export async function previewShezzSync() {
  */
 export async function applyShezzSync({ mappings = {} } = {}, actor) {
   const { rows } = await fetchHandovers();
+  return applyHandovers(rows, { mappings }, actor, 'Shezz Traders');
+}
+
+export async function applyHandovers(rows, { mappings = {} } = {}, actor, sourceLabel = 'Shezz Traders') {
   const technicians = await Technician.find({ active: true });
   const byId = new Map(technicians.map((t) => [t._id.toString(), t]));
 
@@ -139,7 +148,7 @@ export async function applyShezzSync({ mappings = {} } = {}, actor) {
           station: technician.station || undefined,
           technician: technician._id,
           status: 'assigned',
-          notes: source ? `Imported from Shezz Traders (${source}).` : 'Imported from Shezz Traders.',
+          notes: source ? `Imported from ${sourceLabel} (${source}).` : `Imported from ${sourceLabel}.`,
           createdBy: actor?.id,
         });
         summary.created += 1;

@@ -4,35 +4,19 @@ import { Link, useParams } from 'react-router-dom';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useTechnicianJob } from '../../hooks/useTechnician.js';
 import {
+  markEngineKillUnsupported,
   requestEngineKillTest,
+  runTechnicianPortalCheck,
   saveTechnicianTest,
   selectTechnicianStock,
   submitInstallationForReview,
 } from '../../lib/api.js';
 import { formatDateTime } from '../../lib/format.js';
 
-const TESTS = [
-  {
-    key: 'battery',
-    title: 'Battery & disconnect',
-    lead: 'Confirm the tracker is powered by the vehicle and the battery disconnect is reported.',
-  },
-  {
-    key: 'ignition',
-    title: 'Ignition ON / OFF',
-    lead: 'Switch the ignition and confirm the change is reported by the device.',
-  },
-  {
-    key: 'location',
-    title: 'Installation location',
-    lead: 'Record where the device was fitted and confirm the tracker reports a position.',
-  },
-];
-
 function toneFor(status) {
   if (status === 'verified') return 'ok';
   if (status === 'failed') return 'bad';
-  if (status === 'requested') return 'warn';
+  if (status === 'requested' || status === 'not_supported') return 'warn';
   return 'plain';
 }
 
@@ -40,6 +24,7 @@ function labelFor(status) {
   if (status === 'verified') return 'Verified';
   if (status === 'failed') return 'Failed';
   if (status === 'requested') return 'Requested';
+  if (status === 'not_supported') return 'Not possible';
   return 'Not done';
 }
 
@@ -56,7 +41,7 @@ export default function TechnicianJobPage() {
 
   const [imei, setImei] = useState('');
   const [simNumber, setSimNumber] = useState('');
-  const [forms, setForms] = useState({});
+  const [place, setPlace] = useState('');
   const [engineKillNote, setEngineKillNote] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState(null);
@@ -65,6 +50,7 @@ export default function TechnicianJobPage() {
     if (!job) return;
     setImei(job.deviceImei ?? '');
     setSimNumber(job.simNumber ?? '');
+    setPlace(job.testing?.location?.physicalLocation ?? '');
   }, [job?.deviceImei, job?.simNumber, job?.id]);
 
   const closed = job ? ['completed', 'cancelled'].includes(job.status) : false;
@@ -72,18 +58,15 @@ export default function TechnicianJobPage() {
 
   const missing = useMemo(() => {
     if (!job) return [];
+    const t = job.testing ?? {};
     const list = [];
     if (!job.deviceImei || !job.simNumber) list.push('select your device and SIM');
-    if (job.testing?.battery?.status !== 'verified') list.push('battery test');
-    if (job.testing?.ignition?.status !== 'verified') list.push('ignition test');
-    if (job.testing?.location?.status !== 'verified') list.push('location test');
-    if (!['requested', 'verified'].includes(job.testing?.engineKillTest?.status)) list.push('engine kill request');
+    if (t.battery?.status !== 'verified') list.push('battery disconnect check');
+    if (t.ignition?.status !== 'verified') list.push('ignition ON/OFF check');
+    if (t.location?.status !== 'verified') list.push('geolocation check');
+    if (t.engineKillApplicable && !['requested', 'verified', 'not_supported'].includes(t.engineKillTest?.status)) list.push('engine kill');
     return list;
   }, [job]);
-
-  function updateForm(key, patch) {
-    setForms((previous) => ({ ...previous, [key]: { ...(previous[key] ?? {}), ...patch } }));
-  }
 
   async function run(action, work) {
     setBusy(action);
@@ -106,12 +89,26 @@ export default function TechnicianJobPage() {
     if (ok) setMessage({ tone: 'ok', text: 'Device and SIM confirmed against your stock.' });
   }
 
-  async function saveTest(key, event) {
+  async function checkNow() {
+    const ok = await run('portal', () => runTechnicianPortalCheck(id));
+    if (ok) setMessage({ tone: 'ok', text: 'Read from the tracking portal.' });
+  }
+
+  async function saveLocation(event) {
     event.preventDefault();
-    const form = forms[key] ?? {};
-    const payload = { [key]: { ...form, status: form.status ?? 'verified' } };
-    const ok = await run(`test-${key}`, () => saveTechnicianTest(id, payload));
-    if (ok) setMessage({ tone: 'ok', text: `${TESTS.find((entry) => entry.key === key)?.title ?? 'Test'} recorded.` });
+    const ok = await run('location', () => saveTechnicianTest(id, { location: { physicalLocation: place } }));
+    if (ok) setMessage({ tone: 'ok', text: 'Fitting location saved.' });
+  }
+
+  async function saveManual(key, status) {
+    const ok = await run(`manual-${key}`, () => saveTechnicianTest(id, { [key]: { status, note: 'Not exposed by the portal for this device' } }));
+    if (ok) setMessage({ tone: 'ok', text: 'Recorded manually because the portal does not report it for this device.' });
+  }
+
+  async function cannotKill(event) {
+    event.preventDefault();
+    const ok = await run('unsupported', () => markEngineKillUnsupported(id, { note: engineKillNote }));
+    if (ok) { setEngineKillNote(''); setMessage({ tone: 'ok', text: 'Noted. Operations will see that this vehicle cannot take an engine kill.' }); }
   }
 
   async function requestKill(event) {
@@ -186,6 +183,9 @@ export default function TechnicianJobPage() {
           <div><dt>Address</dt><dd>{job.installation?.address || 'Not recorded yet'}</dd></div>
           <div><dt>Status</dt><dd>{job.statusLabel}</dd></div>
         </dl>
+        {job.packageChecklist?.items?.length ? (
+          <p className="tech-ops-note"><strong>Package includes:</strong> {job.packageChecklist.items.join(' · ')}</p>
+        ) : null}
         {job.notes ? <p className="tech-ops-note"><strong>Operations note:</strong> {job.notes}</p> : null}
       </section>
 
@@ -242,211 +242,142 @@ export default function TechnicianJobPage() {
         ) : null}
       </section>
 
-      {telemetry ? (
-        <section className="tech-section">
-          <div className="tech-section__head">
-            <h2>Tracking portal</h2>
-            <span className="tech-section__asof">
-              {telemetry.syncedAt ? `read ${formatDateTime(telemetry.syncedAt)}` : 'not read yet'}
-            </span>
-          </div>
-          {telemetry.found ? (
-            <dl className="tech-telemetry">
-              <div><dt>Connection</dt><dd>{telemetry.gpsState || 'unknown'}</dd></div>
-              <div><dt>Last report</dt><dd>{telemetry.lastSeenAt ? formatDateTime(telemetry.lastSeenAt) : 'never'}</dd></div>
-              <div><dt>Object status</dt><dd><TelemetryValue value={telemetry.objectStatus} /></dd></div>
-              <div><dt>Ignition</dt><dd><TelemetryValue value={telemetry.ignitionOn === null ? null : telemetry.ignitionOn ? 'ON' : 'OFF'} /></dd></div>
-              <div><dt>Battery temp</dt><dd><TelemetryValue value={telemetry.batteryTemperatureC} suffix=" °C" /></dd></div>
-              <div><dt>Battery power</dt><dd><TelemetryValue value={telemetry.batteryConnected === null ? null : telemetry.batteryConnected ? 'connected' : 'disconnected'} /></dd></div>
-              <div><dt>GPS position</dt><dd>{telemetry.latitude !== null && telemetry.longitude !== null ? `${telemetry.latitude}, ${telemetry.longitude}` : <span className="tech-telemetry__none">not reported</span>}</dd></div>
-            </dl>
-          ) : (
-            <p className="tech-note">
-              {telemetry.error || 'This device is not listed on the tracking portal yet.'} The portal can lag a few minutes after a device is first powered on — verify manually and record it below.
-            </p>
-          )}
-        </section>
-      ) : null}
-
       <section className="tech-section">
-        <div className="tech-section__head"><h2>Installation tests</h2></div>
+        <div className="tech-section__head">
+          <h2>Installation tests</h2>
+          <span className="tech-section__asof">
+            {job.testing?.portalCheck?.at ? `read ${formatDateTime(job.testing.portalCheck.at)}` : 'not read yet'}
+          </span>
+        </div>
         <p className="tech-section__lead">
-          Record what you actually observed. A manual verification carries your name and the time it was recorded.
+          Location, ignition and battery disconnect are read straight from the tracking portal using the IMEI above. Operations creates the device on the portal; you switch the ignition and disconnect the battery, then tap Check now after each change.
         </p>
 
+        {!closed ? (
+          <button type="button" className="btn btn--primary tech-checknow" onClick={checkNow} disabled={busy === 'portal' || !job.deviceImei}>
+            {busy === 'portal' ? 'Reading the portal…' : 'Check now'}
+          </button>
+        ) : null}
+        {job.testing?.portalCheck?.message ? <p className="tech-note">{job.testing.portalCheck.message}</p> : null}
+
+        {telemetry?.found ? (
+          <dl className="tech-telemetry">
+            <div><dt>Last report</dt><dd>{telemetry.lastSeenAt ? formatDateTime(telemetry.lastSeenAt) : 'never'}</dd></div>
+            <div><dt>Ignition</dt><dd><TelemetryValue value={telemetry.ignitionOn === null ? null : telemetry.ignitionOn ? 'ON' : 'OFF'} /></dd></div>
+            <div><dt>Battery</dt><dd><TelemetryValue value={telemetry.batteryConnected === null ? null : telemetry.batteryConnected ? 'connected' : 'disconnected'} /></dd></div>
+            <div><dt>Position</dt><dd>{telemetry.latitude !== null && telemetry.longitude !== null ? `${telemetry.latitude}, ${telemetry.longitude}` : <span className="tech-telemetry__none">not reported</span>}</dd></div>
+          </dl>
+        ) : null}
+
         <div className="tech-checklist">
-          {TESTS.map((test) => {
-            const state = job.testing?.[test.key] ?? {};
-            const form = forms[test.key] ?? {};
-            return (
-              <article className={`tech-check tech-check--${toneFor(state.status)}`} key={test.key}>
-                <header className="tech-check__head">
-                  <div>
-                    <h3>{test.title}</h3>
-                    <p>{test.lead}</p>
-                  </div>
-                  <span className={`tech-pill tech-pill--${toneFor(state.status)}`}>{labelFor(state.status)}</span>
-                </header>
-
-                {state.verifiedAt ? (
-                  <p className="tech-check__stamp">
-                    Recorded {formatDateTime(state.verifiedAt)} · {state.source === 'portal' ? 'portal reading' : 'manual verification'}
-                    {state.verifiedByName ? ` · ${state.verifiedByName}` : ''}
-                    {state.note ? ` · ${state.note}` : ''}
-                  </p>
-                ) : null}
-
-                {!closed ? (
-                  <form className="tech-check__form" onSubmit={(event) => saveTest(test.key, event)}>
-                    {test.key === 'battery' ? (
-                      <>
-                        <label className="tech-field tech-field--inline">
-                          <span>Battery connected</span>
-                          <select value={form.connected ?? ''} onChange={(event) => updateForm(test.key, { connected: event.target.value === '' ? null : event.target.value === 'yes' })}>
-                            <option value="">Not checked</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                          </select>
-                        </label>
-                        <label className="tech-field tech-field--inline">
-                          <span>Disconnect works</span>
-                          <select value={form.disconnectWorking ?? ''} onChange={(event) => updateForm(test.key, { disconnectWorking: event.target.value === '' ? null : event.target.value === 'yes' })}>
-                            <option value="">Not checked</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                          </select>
-                        </label>
-                        <label className="tech-field tech-field--inline">
-                          <span>Temperature °C</span>
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={form.temperatureC ?? ''}
-                            onChange={(event) => updateForm(test.key, { temperatureC: event.target.value === '' ? null : event.target.value })}
-                            placeholder="optional"
-                          />
-                        </label>
-                      </>
-                    ) : null}
-
-                    {test.key === 'ignition' ? (
-                      <>
-                        <label className="tech-field tech-field--inline">
-                          <span>Ignition reported</span>
-                          <select value={form.ignitionOn ?? ''} onChange={(event) => updateForm(test.key, { ignitionOn: event.target.value === '' ? null : event.target.value === 'on' })}>
-                            <option value="">Not checked</option>
-                            <option value="on">ON</option>
-                            <option value="off">OFF</option>
-                          </select>
-                        </label>
-                        <label className="tech-field tech-field--inline tech-field--wide">
-                          <span>Object status seen</span>
-                          <input
-                            type="text"
-                            value={form.objectStatus ?? ''}
-                            onChange={(event) => updateForm(test.key, { objectStatus: event.target.value })}
-                            placeholder="e.g. parked, ignition on"
-                          />
-                        </label>
-                      </>
-                    ) : null}
-
-                    {test.key === 'location' ? (
-                      <>
-                        <label className="tech-field tech-field--wide">
-                          <span>Where the device was fitted</span>
-                          <input
-                            type="text"
-                            value={form.physicalLocation ?? ''}
-                            onChange={(event) => updateForm(test.key, { physicalLocation: event.target.value })}
-                            placeholder="Address or landmark"
-                          />
-                        </label>
-                        <label className="tech-field tech-field--inline">
-                          <span>Latitude</span>
-                          <input type="number" step="0.000001" value={form.latitude ?? ''} onChange={(event) => updateForm(test.key, { latitude: event.target.value === '' ? null : event.target.value })} placeholder="optional" />
-                        </label>
-                        <label className="tech-field tech-field--inline">
-                          <span>Longitude</span>
-                          <input type="number" step="0.000001" value={form.longitude ?? ''} onChange={(event) => updateForm(test.key, { longitude: event.target.value === '' ? null : event.target.value })} placeholder="optional" />
-                        </label>
-                        <label className="tech-field tech-field--inline">
-                          <span>Position received</span>
-                          <select value={form.gpsReceived ?? ''} onChange={(event) => updateForm(test.key, { gpsReceived: event.target.value === '' ? null : event.target.value === 'yes' })}>
-                            <option value="">Not checked</option>
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                          </select>
-                        </label>
-                      </>
-                    ) : null}
-
-                    <label className="tech-field tech-field--wide">
-                      <span>Note</span>
-                      <input
-                        type="text"
-                        value={form.note ?? ''}
-                        onChange={(event) => updateForm(test.key, { note: event.target.value })}
-                        placeholder="Optional remark"
-                      />
-                    </label>
-
-                    <div className="tech-check__actions">
-                      <select
-                        aria-label="Test result"
-                        value={form.status ?? 'verified'}
-                        onChange={(event) => updateForm(test.key, { status: event.target.value })}
-                      >
-                        <option value="verified">Passed</option>
-                        <option value="failed">Failed</option>
-                      </select>
-                      <button type="submit" className="btn btn--outline btn--small" disabled={busy === `test-${test.key}`}>
-                        {busy === `test-${test.key}` ? 'Saving…' : 'Save test'}
-                      </button>
-                    </div>
-                  </form>
-                ) : null}
-              </article>
-            );
-          })}
-
-          <article className={`tech-check tech-check--${toneFor(engineKillTest.status)}`}>
+          <article className={`tech-check tech-check--${toneFor(job.testing?.battery?.status)}`}>
             <header className="tech-check__head">
               <div>
-                <h3>Engine kill / restore</h3>
-                <p>Operations triggers the kill. You can only request the test — never perform it yourself, and never while the vehicle is moving.</p>
+                <h3>Battery disconnect</h3>
+                <p>Disconnect the vehicle battery, check, then reconnect it and check again. The portal must see both.</p>
               </div>
-              <span className={`tech-pill tech-pill--${toneFor(engineKillTest.status)}`}>{labelFor(engineKillTest.status)}</span>
+              <span className={`tech-pill tech-pill--${toneFor(job.testing?.battery?.status)}`}>{labelFor(job.testing?.battery?.status)}</span>
+            </header>
+            <ul className="tech-seen">
+              <li className={job.testing?.battery?.seenDisconnected ? 'is-done' : ''}>Disconnected seen</li>
+              <li className={job.testing?.battery?.seenConnected ? 'is-done' : ''}>Reconnected seen</li>
+            </ul>
+            {!closed && telemetry?.found && telemetry.batteryConnected === null && job.testing?.battery?.status !== 'verified' ? (
+              <div className="tech-check__actions">
+                <button type="button" className="btn btn--outline btn--small" disabled={busy === 'manual-battery'} onClick={() => saveManual('battery', 'verified')}>Portal does not report it — passed</button>
+              </div>
+            ) : null}
+          </article>
+
+          <article className={`tech-check tech-check--${toneFor(job.testing?.ignition?.status)}`}>
+            <header className="tech-check__head">
+              <div>
+                <h3>Ignition ON / OFF</h3>
+                <p>Turn the ignition ON, check, then OFF and check again.</p>
+              </div>
+              <span className={`tech-pill tech-pill--${toneFor(job.testing?.ignition?.status)}`}>{labelFor(job.testing?.ignition?.status)}</span>
+            </header>
+            <ul className="tech-seen">
+              <li className={job.testing?.ignition?.seenOn ? 'is-done' : ''}>ON seen</li>
+              <li className={job.testing?.ignition?.seenOff ? 'is-done' : ''}>OFF seen</li>
+            </ul>
+            {!closed && telemetry?.found && telemetry.ignitionOn === null && job.testing?.ignition?.status !== 'verified' ? (
+              <div className="tech-check__actions">
+                <button type="button" className="btn btn--outline btn--small" disabled={busy === 'manual-ignition'} onClick={() => saveManual('ignition', 'verified')}>Portal does not report it — passed</button>
+              </div>
+            ) : null}
+          </article>
+
+          <article className={`tech-check tech-check--${toneFor(job.testing?.location?.status)}`}>
+            <header className="tech-check__head">
+              <div>
+                <h3>Geolocation</h3>
+                <p>The portal must report a position. Add where the device was fitted in the vehicle.</p>
+              </div>
+              <span className={`tech-pill tech-pill--${toneFor(job.testing?.location?.status)}`}>{labelFor(job.testing?.location?.status)}</span>
+            </header>
+            <ul className="tech-seen">
+              <li className={job.testing?.location?.gpsReceived ? 'is-done' : ''}>Position received</li>
+              <li className={job.testing?.location?.physicalLocation ? 'is-done' : ''}>Fitting place added</li>
+            </ul>
+            {!closed ? (
+              <form className="tech-check__form" onSubmit={saveLocation}>
+                <label className="tech-field tech-field--wide">
+                  <span>Where the device was fitted</span>
+                  <input type="text" value={place} onChange={(event) => setPlace(event.target.value)} placeholder="e.g. behind the glovebox" />
+                </label>
+                <div className="tech-check__actions">
+                  <button type="submit" className="btn btn--outline btn--small" disabled={busy === 'location' || !place.trim()}>
+                    {busy === 'location' ? 'Saving…' : 'Save place'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </article>
+
+          <article className={`tech-check tech-check--${job.testing?.engineKillApplicable ? toneFor(engineKillTest.status) : 'plain'}`}>
+            <header className="tech-check__head">
+              <div>
+                <h3>Engine kill</h3>
+                <p>
+                  {job.testing?.engineKillApplicable
+                    ? 'Call Operations to test it while the vehicle is stationary. Operations checks it on the portal.'
+                    : `The ${job.packageName || 'selected'} package does not include an engine kill.`}
+                </p>
+              </div>
+              <span className={`tech-pill tech-pill--${job.testing?.engineKillApplicable ? toneFor(engineKillTest.status) : 'plain'}`}>
+                {job.testing?.engineKillApplicable ? labelFor(engineKillTest.status) : 'Not in package'}
+              </span>
             </header>
 
             {engineKillTest.requestedAt ? (
               <p className="tech-check__stamp">
-                Requested {formatDateTime(engineKillTest.requestedAt)}{engineKillTest.requestNote ? ` · ${engineKillTest.requestNote}` : ''}
+                {engineKillTest.status === 'not_supported' ? 'Reported' : 'Requested'} {formatDateTime(engineKillTest.requestedAt)}{engineKillTest.requestNote ? ` · ${engineKillTest.requestNote}` : ''}
               </p>
             ) : null}
             {engineKillTest.verifiedAt ? (
-              <p className="tech-check__stamp">
-                Verified by {engineKillTest.verifiedByName || 'operations'} {formatDateTime(engineKillTest.verifiedAt)}
-                {engineKillTest.restored === false ? ' · vehicle NOT restored' : ''}
-              </p>
+              <p className="tech-check__stamp">Verified by {engineKillTest.verifiedByName || 'operations'} {formatDateTime(engineKillTest.verifiedAt)}</p>
             ) : null}
 
-            {!closed && engineKillTest.status === 'not_requested' ? (
+            {!closed && job.testing?.engineKillApplicable && ['not_requested', 'failed'].includes(engineKillTest.status) ? (
               <form className="tech-check__form" onSubmit={requestKill}>
                 <label className="tech-field tech-field--wide">
-                  <span>Request note</span>
-                  <input type="text" value={engineKillNote} onChange={(event) => setEngineKillNote(event.target.value)} placeholder="Vehicle stationary, ready for the test" />
+                  <span>Note</span>
+                  <input type="text" value={engineKillNote} onChange={(event) => setEngineKillNote(event.target.value)} placeholder="Request note, or why this vehicle cannot take one" />
                 </label>
                 <div className="tech-check__actions">
                   <button type="submit" className="btn btn--outline btn--small" disabled={busy === 'kill'}>
-                    {busy === 'kill' ? 'Sending…' : 'Request engine kill test'}
+                    {busy === 'kill' ? 'Sending…' : 'I called Operations — request test'}
+                  </button>
+                  <button type="button" className="btn btn--outline btn--small" disabled={busy === 'unsupported' || !engineKillNote.trim()} onClick={cannotKill}>
+                    Vehicle cannot take engine kill
                   </button>
                 </div>
               </form>
             ) : null}
 
             {engineKillTest.status === 'requested' ? (
-              <p className="tech-note">Waiting for operations to coordinate and record the kill and restore result. You can still submit once the rest of the tests are done.</p>
+              <p className="tech-note">Waiting for Operations to test it. You can submit once the other checks are done.</p>
             ) : null}
           </article>
         </div>

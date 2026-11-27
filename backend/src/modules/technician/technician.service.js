@@ -10,6 +10,8 @@ import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { notifyUser } from '../notifications/notifications.service.js';
 import { getDeviceTelemetry } from '../tracking/tracking.service.js';
+import { packageHasEngineKill } from '../../utils/customerLogin.js';
+import { applyTelemetry, refreshPortals, settleTests } from './portalCheck.js';
 
 const ACTIVE_JOB_STATUSES = ['assigned', 'scheduled', 'in_progress'];
 
@@ -272,12 +274,39 @@ async function selectStock(user, id, input) {
   return (await getJob(user, id));
 }
 
-const TEST_KEYS = ['battery', 'ignition', 'location'];
+/**
+ * Reads the installed device from the tracking portal by its IMEI. Location,
+ * ignition and battery disconnect are portal results, never typed in.
+ */
+async function runPortalCheck(user, id) {
+  const technician = await currentTechnician(user);
+  const job = await loadJob(technician, id);
+  if (job.status === 'completed' || job.status === 'cancelled') {
+    throw makeError(errorCodes.CONFLICT, 'This installation is closed.', 409);
+  }
+  if (!job.deviceImei) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Select your device first so it can be read from the tracking portal.');
+  }
+
+  await refreshPortals();
+  const now = new Date();
+  const check = applyTelemetry(job, getDeviceTelemetry(job.deviceImei), now);
+  job.history.push({
+    status: job.status,
+    kind: 'checklist',
+    note: check.found && !check.stale ? 'Device read from the tracking portal.' : `Portal check: ${check.message}`,
+    at: now,
+    by: user.id,
+    byName: nameOf(user),
+  });
+  await job.save();
+  return getJob(user, id);
+}
 
 /**
- * Records one installation test. The technician's own reading is stored as a
- * manual verification with its timestamp; portal telemetry is shown separately
- * so a manual tick is never mistaken for a live portal result.
+ * The technician only adds what the portal cannot know: where the device was
+ * fitted. A manual battery/ignition result is accepted only when the portal
+ * does not expose that measure for this device.
  */
 async function saveTest(user, id, input) {
   const technician = await currentTechnician(user);
@@ -286,75 +315,81 @@ async function saveTest(user, id, input) {
     throw makeError(errorCodes.CONFLICT, 'This installation is closed.', 409);
   }
 
-  const key = TEST_KEYS.find((entry) => input?.[entry] && typeof input[entry] === 'object');
+  const key = ['battery', 'ignition', 'location'].find((entry) => input?.[entry] && typeof input[entry] === 'object');
   if (!key) throw makeError(errorCodes.VALIDATION_ERROR, 'Choose which test to record.');
-
   const payload = input[key];
-  const status = payload.status === 'verified' || payload.status === 'failed' ? payload.status : null;
-  if (!status) throw makeError(errorCodes.VALIDATION_ERROR, 'Record whether the test passed or failed.');
-
   const now = new Date();
   const target = job.testing[key];
-  target.status = status;
-  target.note = String(payload.note ?? '').trim().slice(0, 500);
-  target.verifiedAt = now;
-  target.verifiedByName = nameOf(user);
-  target.source = payload.source === 'portal' ? 'portal' : 'manual';
-
-  if (key === 'battery') {
-    if (payload.connected !== undefined) target.connected = payload.connected === null ? null : Boolean(payload.connected);
-    if (payload.disconnectWorking !== undefined) target.disconnectWorking = payload.disconnectWorking === null ? null : Boolean(payload.disconnectWorking);
-    if (payload.temperatureC !== undefined && payload.temperatureC !== null && payload.temperatureC !== '') {
-      const value = Number(payload.temperatureC);
-      if (!Number.isFinite(value) || value < -50 || value > 150) {
-        throw makeError(errorCodes.VALIDATION_ERROR, 'Battery temperature must be between -50 and 150 °C.');
-      }
-      target.temperatureC = value;
-    } else if (payload.temperatureC === null || payload.temperatureC === '') {
-      target.temperatureC = null;
-    }
-  }
-
-  if (key === 'ignition') {
-    if (payload.ignitionOn !== undefined) target.ignitionOn = payload.ignitionOn === null ? null : Boolean(payload.ignitionOn);
-    if (payload.objectStatus !== undefined) target.objectStatus = String(payload.objectStatus ?? '').trim().slice(0, 200);
-  }
 
   if (key === 'location') {
-    if (payload.physicalLocation !== undefined) {
-      const address = String(payload.physicalLocation ?? '').trim().slice(0, 400);
-      if (!address) throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the physical location where the device was fitted.');
-      target.physicalLocation = address;
-      job.installation.address = address;
-    }
-    if (payload.latitude !== undefined && payload.latitude !== null && payload.latitude !== '') {
-      const latitude = Number(payload.latitude);
-      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-        throw makeError(errorCodes.VALIDATION_ERROR, 'Latitude must be a number between -90 and 90.');
-      }
-      target.latitude = latitude;
-    }
-    if (payload.longitude !== undefined && payload.longitude !== null && payload.longitude !== '') {
-      const longitude = Number(payload.longitude);
-      if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-        throw makeError(errorCodes.VALIDATION_ERROR, 'Longitude must be a number between -180 and 180.');
-      }
-      target.longitude = longitude;
-    }
-    if (payload.gpsReceived !== undefined) target.gpsReceived = payload.gpsReceived === null ? null : Boolean(payload.gpsReceived);
+    const address = String(payload.physicalLocation ?? '').trim().slice(0, 400);
+    if (!address) throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the physical location where the device was fitted.');
+    target.physicalLocation = address;
+    target.note = String(payload.note ?? target.note ?? '').trim().slice(0, 500);
+    job.installation.address = address;
     if (!job.installation.placement) job.installation.placement = 'Recorded during installation';
+    settleTests(job, now);
+  } else {
+    const telemetry = job.deviceImei ? getDeviceTelemetry(job.deviceImei) : { found: false };
+    const exposed = key === 'battery' ? telemetry.batteryConnected : telemetry.ignitionOn;
+    if (!telemetry.found || (exposed !== null && exposed !== undefined)) {
+      throw makeError(
+        errorCodes.VALIDATION_ERROR,
+        key === 'battery'
+          ? 'Battery disconnect is read from the tracking portal. Use "Check now".'
+          : 'Ignition is read from the tracking portal. Use "Check now".',
+      );
+    }
+    const status = payload.status === 'verified' || payload.status === 'failed' ? payload.status : null;
+    if (!status) throw makeError(errorCodes.VALIDATION_ERROR, 'Record whether the test passed or failed.');
+    target.status = status;
+    target.source = 'manual';
+    target.note = String(payload.note ?? '').trim().slice(0, 500);
+    target.verifiedAt = now;
+    target.verifiedByName = nameOf(user);
   }
 
   job.history.push({
     status: job.status,
     kind: 'checklist',
-    note: `${key === 'engineKill' ? 'Engine kill' : key.charAt(0).toUpperCase() + key.slice(1)} test ${status}.`,
+    note: `${key.charAt(0).toUpperCase() + key.slice(1)} test updated.`,
     at: now,
     by: user.id,
     byName: nameOf(user),
   });
   await job.save();
+  return getJob(user, id);
+}
 
+/** The technician states this vehicle cannot take an engine kill. */
+async function markEngineKillUnsupported(user, id, input) {
+  const technician = await currentTechnician(user);
+  const job = await loadJob(technician, id);
+  if (job.status === 'completed' || job.status === 'cancelled') {
+    throw makeError(errorCodes.CONFLICT, 'This installation is closed.', 409);
+  }
+  if (!packageHasEngineKill(job.packageKey)) {
+    throw makeError(errorCodes.CONFLICT, 'This package does not include an engine kill, so nothing needs recording.', 409);
+  }
+  const note = String(input?.note ?? '').trim().slice(0, 500);
+  if (!note) throw makeError(errorCodes.VALIDATION_ERROR, 'Add a note explaining why this vehicle cannot take an engine kill.');
+
+  const now = new Date();
+  Object.assign(job.testing.engineKillTest, {
+    status: 'not_supported',
+    requestNote: note,
+    requestedAt: now,
+    requestedByName: nameOf(user),
+  });
+  job.history.push({
+    status: job.status,
+    kind: 'engine_kill',
+    note: `Technician reported this vehicle cannot take an engine kill — ${note}`,
+    at: now,
+    by: user.id,
+    byName: nameOf(user),
+  });
+  await job.save();
   return getJob(user, id);
 }
 
@@ -364,6 +399,10 @@ async function requestEngineKillTest(user, id, input) {
   const job = await loadJob(technician, id);
   if (job.status === 'completed' || job.status === 'cancelled') {
     throw makeError(errorCodes.CONFLICT, 'This installation is closed.', 409);
+  }
+
+  if (!packageHasEngineKill(job.packageKey)) {
+    throw makeError(errorCodes.CONFLICT, 'This package does not include an engine kill.', 409);
   }
 
   const now = new Date();
@@ -407,10 +446,12 @@ async function submitForReview(user, id) {
   }
 
   const missing = [];
-  if (job.testing?.battery?.status !== 'verified') missing.push('battery / battery disconnect test');
-  if (job.testing?.ignition?.status !== 'verified') missing.push('ignition ON/OFF test');
-  if (job.testing?.location?.status !== 'verified') missing.push('installation location and geolocation test');
-  if (!['requested', 'verified'].includes(job.testing?.engineKillTest?.status)) missing.push('engine kill test request');
+  if (job.testing?.battery?.status !== 'verified') missing.push('battery disconnect check (use "Check now" while disconnecting and reconnecting the battery)');
+  if (job.testing?.ignition?.status !== 'verified') missing.push('ignition check (the portal must see ignition ON and OFF)');
+  if (job.testing?.location?.status !== 'verified') missing.push('geolocation check (the portal must report a position and you must enter where it was fitted)');
+  if (packageHasEngineKill(job.packageKey) && !['requested', 'verified', 'not_supported'].includes(job.testing?.engineKillTest?.status)) {
+    missing.push('engine kill (call Operations to test it, or note that this vehicle cannot take one)');
+  }
   if (missing.length) {
     throw makeError(errorCodes.VALIDATION_ERROR, `Still needed before submitting: ${missing.join('; ')}.`);
   }
@@ -523,6 +564,8 @@ export {
   getJob,
   selectStock,
   saveTest,
+  runPortalCheck,
+  markEngineKillUnsupported,
   requestEngineKillTest,
   submitForReview,
   getStock,

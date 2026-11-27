@@ -194,6 +194,7 @@ export default function ImportCustomersPage() {
   const [mapping, setMapping] = useState({});
   const [extraHeaders, setExtraHeaders] = useState([]);
   const [onExisting, setOnExisting] = useState('attach');
+  const [salespersonMap, setSalespersonMap] = useState({});
   const [preview, setPreview] = useState(null); // { batch, rows }
   const [acknowledged, setAcknowledged] = useState(false);
   const [result, setResult] = useState(null);
@@ -227,6 +228,7 @@ export default function ImportCustomersPage() {
       };
       setUpload(restored);
       setMapping(batch.mapping ?? {});
+      setSalespersonMap(batch.options?.salespersonMap ?? {});
       setExtraHeaders(batch.options?.extraHeaders ?? batch.headers ?? []);
       setPreview(null);
       setResult(null);
@@ -240,7 +242,7 @@ export default function ImportCustomersPage() {
   }
 
   const reset = useCallback(() => {
-    setStep(0); setUpload(null); setMapping({}); setPreview(null); setResult(null); setAcknowledged(false); setError(null); setOnExisting('attach');
+    setStep(0); setUpload(null); setMapping({}); setPreview(null); setResult(null); setAcknowledged(false); setError(null); setOnExisting('attach'); setSalespersonMap({});
   }, []);
 
   async function onFile(event) {
@@ -267,7 +269,7 @@ export default function ImportCustomersPage() {
     setError(null);
     setBusy(true);
     try {
-      const payload = await previewImportBatch(upload.batch.id, { mapping, options: { onExisting, extraHeaders } });
+      const payload = await previewImportBatch(upload.batch.id, { mapping, options: { onExisting, extraHeaders, salespersonMap } });
       setPreview(payload.data);
       setAcknowledged(false);
       setStep(2);
@@ -398,6 +400,34 @@ export default function ImportCustomersPage() {
             </div>
           </div>
           <SummaryTiles summary={preview.batch.summary} />
+          {(preview.salespeople ?? []).length > 0 ? (
+            <div className="imp-people">
+              <h3>Salespeople in this file</h3>
+              <p className="field__hint">New customers are given to the salesperson named in the sheet, not to you. Fix any name that was not matched, then check the preview again.</p>
+              <table className="users-table">
+                <thead><tr><th>Name in sheet</th><th>Rows</th><th>Salesperson account</th></tr></thead>
+                <tbody>
+                  {preview.salespeople.map((entry) => {
+                    const key = entry.sheetName.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+                    const current = Object.hasOwn(salespersonMap, key) ? salespersonMap[key] : (entry.userId ?? '');
+                    return (
+                      <tr key={key}>
+                        <td><strong>{entry.sheetName}</strong>{entry.status === 'unmatched' ? <small className="imp-people__flag">Not matched</small> : null}</td>
+                        <td>{entry.count}</td>
+                        <td>
+                          <select className="input" value={current} onChange={(event) => setSalespersonMap((map) => ({ ...map, [key]: event.target.value }))}>
+                            <option value="">No owner (assign later)</option>
+                            {(preview.accounts ?? []).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <button type="button" className="btn btn--outline btn--small" onClick={runPreview} disabled={busy}>Apply and check again</button>
+            </div>
+          ) : null}
           <RowsTable rows={preview.rows} />
           {preview.batch.rowCount > preview.rows.length ? <p className="field__hint" style={{ padding: '8px 18px' }}>Showing the first rows that need attention and the first rows that will import. The full list is in the report after the import.</p> : null}
           {errorCount > 0 ? (

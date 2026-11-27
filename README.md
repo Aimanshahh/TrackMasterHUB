@@ -237,6 +237,13 @@ The billing authority, built as a ledger rather than a card dashboard.
 
 ---
 
+**Package checklist (new sale form).** Each package lists what sets it apart (the
+engine kill type, one-way or two-way voice, SIM/WhatsApp alerts, the advanced locator
+with its second device). The salesperson ticks every item with the customer, and the
+sale is not sent to Operations until all are ticked; the server enforces this too.
+Geofence and alerts come with every package, so they are not listed. The ticked items
+are saved on the sale and shown to the technician as "Package includes".
+
 ### Technician portal (`/technician`)
 
 Phone-first: one column, a bottom tab bar, and no sidebar on small screens. The
@@ -252,14 +259,21 @@ technician by the server.
   their own issued stock, and a single wrong digit is rejected with the closest
   number named. A device reserved for another installation, or one already fitted,
   is refused; the server never accepts a device from another technician.
-- **Four tests**: battery and disconnect (with temperature), ignition ON/OFF with
-  the object status seen, and the physical installation location with the reported
-  position. Each result stores who recorded it, when, and whether it came from the
-  portal or a manual verification. The tracking-portal panel shows the last reading
-  and its sync time; a device the portal does not list says so instead of guessing.
-- **Engine kill**: the technician can only request the test. Operations performs
-  and records the kill and restore, and approval is blocked until the restore is
-  confirmed.
+- **Tests read from the portal**: geolocation, battery disconnect and ignition
+  ON/OFF are read from the technician-stock tracking portal by the IMEI the
+  technician confirmed (Operations creates that device's user there). "Check now"
+  refreshes the portal and records what it sees: ignition is verified once both ON
+  and OFF have been seen, battery once both disconnected and reconnected have been
+  seen, and location once a position is reported and the technician adds where the
+  device was fitted. Readings older than `PORTAL_READING_FRESH_MINUTES` never count.
+  A manual pass is accepted only when the portal does not report that measure.
+- **Engine kill**: only for Standard, Premium and Customize packages (Basic and
+  Personal have none). The technician calls Operations, requests the test, or notes
+  that the vehicle cannot take an engine kill. Operations checks it on the portal
+  and confirms the restore at approval.
+- **Customer app login**: on approval the customer gets `<VRN>@<domain>` (for
+  example `VRN-567@trackmaster.pk`) with the shared starting password from
+  `CUSTOMER_APP_DEFAULT_PASSWORD`, only when no login exists yet.
 - **Submit**: blocked until the device, SIM and required tests are in place. After
   submission the screen waits for operations; approval or a retest request appears
   as a notification and as a banner on the installation.
@@ -382,6 +396,8 @@ cd backend && npm start           # production listener, no file watching
 |                | `WHATSAPP_GATEWAY_API_KEY`| Must equal `WEBHOOK_API_KEY` in the gateway    |
 |                | `HELPLINE_NUMBER`         | Fills `[Helpline Number]` in templates         |
 |                | `ROBOCALL_WEBHOOK_SECRET` | Token the robocall provider sends; empty closes the webhook |
+|                | `PORTAL_1_TECHNICIANSTOCK_URL`, `PORTAL_1_TECHNICIANSTOCK_HASH` | Technician-stock portal: installation test readings and technician stock sync |
+|                | `CUSTOMER_APP_LOGIN_DOMAIN`, `CUSTOMER_APP_DEFAULT_PASSWORD`, `PORTAL_READING_FRESH_MINUTES` | Customer app logins and how recent a portal reading must be |
 |                | `SHEZZ_API_URL`, `SHEZZ_API_KEY` | Shezz Traders device feed (URL ends in `/api`) |
 | `frontend/.env`| `VITE_API_BASE_URL`       | Absolute API origin when the apps are split    |
 | `whatsapp-gateway/.env` | `PORT`, `WEBHOOK_API_KEY`, `MESSAGE_DELAY_MS` | Gateway port, shared key, pause between messages |
@@ -455,7 +471,12 @@ Every response carries `X-Request-Id`.
 | GET    | `/api/technician/jobs/:id`        | technician, own record     |
 | POST   | `/api/technician/jobs/:id/stock`  | technician, own record     |
 | PATCH  | `/api/technician/jobs/:id/tests`  | technician, own record     |
+| POST   | `/api/technician/jobs/:id/portal-check` | technician, own record |
 | POST   | `/api/technician/jobs/:id/engine-kill-request` | technician    |
+| POST   | `/api/technician/jobs/:id/engine-kill-unsupported` | technician |
+| POST   | `/api/operations/jobs/:id/review/refresh` | admin, operations |
+| GET    | `/api/customers/check-duplicate`  | session                    |
+| PATCH  | `/api/users/:id/target`           | admin                      |
 | POST   | `/api/technician/jobs/:id/submit` | technician, own record     |
 | GET    | `/api/technician/stock`           | technician                 |
 | GET    | `/api/technician/earnings`        | technician                 |

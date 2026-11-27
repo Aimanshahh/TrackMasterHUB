@@ -750,3 +750,5 @@
 @media (min-width: 1100px) {
   .perf-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
+
+.inventory-toolbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
