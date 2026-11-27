@@ -1,7 +1,7 @@
 import { requireAdmin } from '../../middleware/auth.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
-import { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole, setTarget } from './users.service.js';
+import { createUser, getUsers, getUserById, getSalespersonPerformance, changeRole, setTarget, setPassword } from './users.service.js';
 import { ASSIGNABLE_ROLES } from '../../config/constants.js';
 
 async function getUsersList(req, res, next) {
@@ -41,6 +41,12 @@ async function changeUserRole(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function resetPassword(req, res, next) {
+  try {
+    return res.json({ data: { user: await setPassword(req.params.id, req.body ?? {}, req.user) } });
+  } catch (error) { next(error); }
+}
+
 async function setSalespersonTarget(req, res, next) {
   try {
     return res.json({ data: { user: await setTarget(req.params.id, req.body ?? {}, req.user) } });
@@ -53,4 +59,4 @@ async function getSalespersonProfile(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { setSalespersonTarget, createUserAccount, getUsersList, getMe, getSalespersonProfile, changeUserRole };
+export { resetPassword, setSalespersonTarget, createUserAccount, getUsersList, getMe, getSalespersonProfile, changeUserRole };

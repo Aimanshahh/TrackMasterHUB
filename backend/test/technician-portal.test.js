@@ -151,3 +151,35 @@ test('package checklist: a sale is refused until everything the package includes
   const saved = done.job ?? done;
   assert.equal(saved.packageChecklist.items.length, 4);
 });
+
+test('accounts: the admin links a technician login to the record Operations created and can reset a password', { skip }, async () => {
+  const { createUser, setPassword } = await import('../src/modules/users/users.service.js');
+  const { default: Technician } = await import('../src/models/Technician.js');
+  const { default: User } = await import('../src/models/User.js');
+  const record = await Technician.create({ name: 'Yaqoob', station: 'Lahore' });
+  const admin = { id: ctx.admin._id.toString(), name: 'Test Admin' };
+
+  const made = await createUser({ name: 'Yaqoob', email: 'yaqoob@example.com', password: 'first-pass-123', role: 'technician', technicianId: record._id.toString() }, admin);
+  const linked = await Technician.findById(record._id);
+  assert.equal(linked.user.toString(), made.id, 'the login is attached to the existing record, not a duplicate');
+  assert.equal(await Technician.countDocuments({ name: 'Yaqoob' }), 1);
+  await rejects(createUser({ name: 'Yaqoob 2', email: 'y2@example.com', password: 'first-pass-123', role: 'technician', technicianId: record._id.toString() }, admin), /already has a login/);
+
+  await rejects(setPassword(made.id, { password: 'short' }, admin), /at least 8/);
+  await setPassword(made.id, { password: 'brand-new-pass-1' }, admin);
+  const user = await User.findById(made.id);
+  assert.equal(await user.comparePassword('brand-new-pass-1'), true);
+  assert.equal(await user.comparePassword('first-pass-123'), false);
+});
+
+test('inventory: each device carries whether the tracking portal lists its IMEI', { skip }, async () => {
+  const ops = await import('../src/modules/operations/operations.service.js');
+  const { default: Device } = await import('../src/models/Device.js');
+  await Device.deleteMany({});
+  await Device.create({ imei: '350000000001111', station: 'Lahore', status: 'in_stock' });
+  await Device.create({ imei: '350000000002222', station: 'Lahore', status: 'in_stock' });
+  tracking.__setTechnicianStockCache([{ imei: '350000000001111', lastSeenAt: new Date().toISOString() }]);
+  const { data } = await ops.listDevices({});
+  const byImei = Object.fromEntries(data.map((row) => [row.imei, row.portal.found]));
+  assert.deepEqual(byImei, { '350000000001111': true, '350000000002222': false });
+});

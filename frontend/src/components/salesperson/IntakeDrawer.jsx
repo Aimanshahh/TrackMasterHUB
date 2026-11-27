@@ -47,7 +47,8 @@ function newVehicle() {
 
 /**
  * Where a quote sits against the two numbers the admin sets: the standard rate
- * (a discount off it needs approval) and the minimum price (a hard floor).
+ * and the lowest price a salesperson may agree alone. A quote from the rate down
+ * to that lowest price needs no approval; below it goes to the admin.
  */
 function quoteStateFor(vehicle, packageRows) {
   const pkg = packageRows.find((row) => row.key === vehicle.packageKey) ?? null;
@@ -56,13 +57,14 @@ function quoteStateFor(vehicle, packageRows) {
   const floor = pkg && Number.isFinite(pkg.minPrice) ? pkg.minPrice : null;
   const state = !pkg || pkg.price === null || !hasQuote
     ? null
-    : quote < pkg.price
+    : (floor !== null ? quote < floor : quote < pkg.price)
       ? 'below'
-      : quote > pkg.price
-        ? 'above'
-        : 'exact';
-  const belowFloor = Boolean(floor !== null && hasQuote && quote < floor);
-  return { pkg, quote, hasQuote, state, floor, belowFloor };
+      : quote < pkg.price
+        ? 'discount'
+        : quote > pkg.price
+          ? 'above'
+          : 'exact';
+  return { pkg, quote, hasQuote, state, floor, belowFloor: false };
 }
 
 /**
@@ -154,7 +156,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
     if (isInstallation) {
       for (let index = 0; index < vehicles.length; index += 1) {
         const vehicle = vehicles[index];
-        const { pkg, hasQuote, floor, belowFloor } = quoteStateFor(vehicle, packages.rows);
+        const { pkg, hasQuote } = quoteStateFor(vehicle, packages.rows);
         const label = vehicles.length > 1 ? `Vehicle ${index + 1}: ` : '';
 
         if (!pkg) {
@@ -176,11 +178,6 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
         }
         if (pkg.key === 'customize' && !vehicle.packageFeatures.trim()) {
           setError(`${label}List the features the customer agreed to for the Customize package.`);
-          return;
-        }
-        // The minimum price is a floor, not a suggestion: the backend refuses it.
-        if (belowFloor) {
-          setError(`${label}The ${pkg.name} package cannot be sold below ${formatMoney(floor)}. Quote that or more, or ask the admin to lower the minimum price.`);
           return;
         }
       }
@@ -397,7 +394,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
               ) : null}
 
               {vehicles.map((vehicle, index) => {
-                const { pkg, state, floor, belowFloor } = quoteStateFor(vehicle, packages.rows);
+                const { pkg, state, floor } = quoteStateFor(vehicle, packages.rows);
                 return (
                   <fieldset className="vehicle-block" key={vehicle.id}>
                     <legend className="vehicle-block__title">
@@ -438,7 +435,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                           <span className="pkg-pick__name">{row.name}</span>
                           <span className="pkg-pick__price">{row.configured ? formatMoney(row.price) : 'Not priced'}</span>
                           {row.configured && Number.isFinite(row.minPrice) ? (
-                            <span className="pkg-pick__floor">floor {formatMoney(row.minPrice)}</span>
+                            <span className="pkg-pick__floor">lowest {formatMoney(row.minPrice)}</span>
                           ) : null}
                         </button>
                       ))}
@@ -487,7 +484,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                       </select>
                     </label>
                   ) : null}
-                      {state === 'below' && !belowFloor ? (
+                      {state === 'below' ? (
                         <label className="field">
                           <span className="field__label">Why the discount?</span>
 
@@ -502,14 +499,12 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                       ) : null}
                     </div>
 
-                    {state || belowFloor ? (
-                      <p className="quote-note" data-state={belowFloor ? 'under-floor' : state}>
-                        {belowFloor
-                          ? `Below the ${pkg.name} minimum price of ${formatMoney(floor)}. This cannot be sent — the floor is what the admin allows the package to sell for.`
+                    {state ? (
+                      <p className="quote-note" data-state={state}>
+                        {state === 'below'
+                          ? `Below ${floor !== null ? `the lowest price you can agree without approval (${formatMoney(floor)})` : `the ${pkg.name} standard rate of ${formatMoney(pkg.price)}`}. The admin must approve this price before operations can complete the installation.`
                           : null}
-                        {!belowFloor && state === 'below'
-                          ? `Below the ${pkg.name} standard rate of ${formatMoney(pkg.price)}${floor !== null ? ` (floor ${formatMoney(floor)})` : ''}. This installation waits for the admin to approve the price before operations can complete it.`
-                          : null}
+                        {state === 'discount' ? `Discounted from ${formatMoney(pkg.price)}, but within your limit (lowest ${formatMoney(floor)}). No approval needed.` : null}
                         {state === 'exact' ? `At the ${pkg.name} standard rate. No approval needed.` : null}
                         {state === 'above' ? `Above the ${pkg.name} standard rate of ${formatMoney(pkg.price)}. No approval needed.` : null}
                       </p>

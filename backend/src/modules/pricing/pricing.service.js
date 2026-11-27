@@ -76,7 +76,7 @@ async function updatePackage(key, input, actor) {
   const doc = (await Package.findOne({ key })) ?? new Package({ key });
   const catalog = packageCatalog[key];
 
-  /* The minimum price is the floor a salesperson may quote before the sale has
+  /* The lowest price is what a salesperson may quote before the sale has
      to go to the admin. It can never sit above the package rate. */
   let minPrice = doc.minPrice ?? null;
   if (input.minPrice !== undefined) {
