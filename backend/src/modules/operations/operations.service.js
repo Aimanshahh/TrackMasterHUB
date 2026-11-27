@@ -175,18 +175,11 @@ async function createJob(input, actor) {
 
     quotedPrice = Math.round(quote * 100) / 100;
 
-    /* The admin sets two numbers: the standard rate and the minimum price. A
-       discount off the rate is the salesperson's call, but it needs the admin's
-       approval; the minimum price is a hard floor, so a quote under it is
-       refused here rather than stored and quietly approved later. */
-    if (minimumPrice !== null && quotedPrice < minimumPrice) {
-      throw makeError(
-        errorCodes.VALIDATION_ERROR,
-        `The ${pricing.name || 'chosen'} package cannot be sold below its minimum price of ${minimumPrice.toLocaleString()}. Quote that or more, or ask the admin to change the floor.`,
-      );
-    }
-
-    approvalStatus = quotedPrice < listPrice ? 'pending' : 'not_required';
+    /* The admin sets the standard rate and the lowest price a salesperson may agree without
+       asking. Anything from the standard rate down to that lowest price is the salesperson's
+       call; a quote below it goes to the admin for approval. With no lowest price set, any
+       discount off the standard rate needs approval. */
+    approvalStatus = (minimumPrice !== null ? quotedPrice < minimumPrice : quotedPrice < listPrice) ? 'pending' : 'not_required';
 
     /* Nothing is processed until the salesperson has confirmed what the package
        includes with the customer. */

@@ -98,10 +98,10 @@ function ApprovalCard({ approval, busyId, onDecide }) {
         </div>
         {approval.minimumPrice !== null && approval.minimumPrice !== undefined ? (
           <div>
-            <dt>Minimum price (floor)</dt>
+            <dt>Lowest price without approval</dt>
             <dd>
               {formatMoney(approval.minimumPrice)}
-              {approval.belowMinimum ? <span className="approval__flag">Under the floor</span> : null}
+              {approval.belowMinimum ? <span className="approval__flag">Below the lowest price</span> : null}
             </dd>
           </div>
         ) : null}
