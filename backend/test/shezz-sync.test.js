@@ -141,3 +141,12 @@ test('technician-stock portal readings serve installation tests only when no cus
   assert.equal(fallback.portalSource, 'Technician stock');
   assert.equal(getDeviceTelemetry('350000000000060').found, false);
 });
+
+test('a portal user login reads as a technician name, and owners are found on a device', async () => {
+  const { nameFromLogin, ownerOf } = await import('../src/modules/tracking/tracking.service.js');
+  assert.equal(nameFromLogin('ASGHAR-SUKKER@TM.PK'), 'ASGHAR SUKKER');
+  assert.equal(nameFromLogin('MUDASSIR@TM.PK'), 'MUDASSIR');
+  assert.equal(ownerOf({ user_email: 'ATIF-HYDERABAD@TM.PK' }), 'ATIF HYDERABAD');
+  assert.equal(ownerOf({ device_data: { user: { email: 'WAQAS@TM.PK' } } }), 'WAQAS');
+  assert.equal(ownerOf({ name: 'AYM-118' }), '');
+});

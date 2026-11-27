@@ -12,7 +12,7 @@ export default function OperationsInventoryPage() {
   return (
     <>
       <div className="inventory-toolbar">
-        <p>Devices are handed to technicians on Shezz Traders. Fetch them here to assign them automatically.</p>
+        <p><strong>Shezz Traders</strong> is where devices are handed to technicians (the supplier record). <strong>The tracking portal</strong> shows which technician account holds each device now. Use either to assign stock automatically; the same device is never added twice.</p>
         <div className="inventory-toolbar__actions">
           <button type="button" className="btn btn--outline btn--small" onClick={() => setSyncing('shezz')}>Fetch from Shezz</button>
           <button type="button" className="btn btn--outline btn--small" onClick={() => setSyncing('portal')}>Fetch from tracking portal</button>
