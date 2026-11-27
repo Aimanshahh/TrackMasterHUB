@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { fetchShezzPreview, runShezzSync } from '../../lib/api.js';
+import { fetchShezzPreview, fetchStockPortalPreview, runShezzSync, runStockPortalSync } from '../../lib/api.js';
 
 const HOW_TEXT = { exact: 'Matched', alias: 'Matched (remembered)', suggested: 'Check this match' };
 
@@ -9,14 +9,20 @@ const HOW_TEXT = { exact: 'Matched', alias: 'Matched (remembered)', suggested: '
  * Names that match exactly are applied by themselves; anything else is picked
  * from a list once and remembered.
  */
-export default function ShezzSyncDrawer({ onClose, onDone }) {
+const SOURCES = {
+  shezz: { name: 'Shezz Traders', load: fetchShezzPreview, run: runShezzSync, intro: 'Devices handed to technicians on Shezz, matched to the technicians created here.', column: 'Name on Shezz', empty: 'Shezz Traders has not handed any devices to technicians yet.' },
+  portal: { name: 'the tracking portal', load: fetchStockPortalPreview, run: runStockPortalSync, intro: 'Devices the tracking portal lists in each technician’s stock, matched to the technicians created here.', column: 'Group on the portal', empty: 'The technician stock account on the tracking portal lists no devices yet.' },
+};
+
+export default function ShezzSyncDrawer({ onClose, onDone, source = 'shezz' }) {
+  const from = SOURCES[source] ?? SOURCES.shezz;
   const [state, setState] = useState({ status: 'loading', data: null, error: null });
   const [choices, setChoices] = useState({});
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
 
   useEffect(() => {
-    fetchShezzPreview()
+    from.load()
       .then((payload) => {
         const initial = {};
         for (const group of payload.data.groups) {
@@ -46,7 +52,7 @@ export default function ShezzSyncDrawer({ onClose, onDone }) {
       for (const group of selected) {
         if (!group.match || group.match.how === 'suggested' || group.match.technicianId !== choices[group.key]) mappings[group.key] = choices[group.key];
       }
-      const payload = await runShezzSync(mappings);
+      const payload = await from.run(mappings);
       setResult(payload.data);
       onDone?.();
     } catch (error) {
@@ -57,18 +63,18 @@ export default function ShezzSyncDrawer({ onClose, onDone }) {
   }
 
   return (
-    <div className="drawer-root" role="dialog" aria-modal="true" aria-label="Fetch devices from Shezz Traders">
+    <div className="drawer-root" role="dialog" aria-modal="true" aria-label={`Fetch devices from ${from.name}`}>
       <button type="button" className="drawer-backdrop" aria-label="Close" onClick={onClose} />
       <aside className="drawer drawer--wide">
         <header className="drawer__head">
           <div>
-            <h2>Fetch from Shezz Traders</h2>
-            <p>Devices handed to technicians on Shezz, matched to the technicians created here.</p>
+            <h2>Fetch from {from.name}</h2>
+            <p>{from.intro}</p>
           </div>
           <button type="button" className="btn btn--outline btn--small" onClick={onClose}>Close</button>
         </header>
         <div className="drawer__body">
-          {state.status === 'loading' ? <p className="data-state" role="status">Reading from Shezz Traders…</p> : null}
+          {state.status === 'loading' ? <p className="data-state" role="status">Reading from {from.name}…</p> : null}
           {state.error ? <p className="form-alert" role="alert">{state.error}</p> : null}
 
           {result ? (
@@ -87,7 +93,7 @@ export default function ShezzSyncDrawer({ onClose, onDone }) {
 
           {state.status === 'ready' && !result ? (
             groups.length === 0 ? (
-              <p className="panel__note">Shezz Traders has not handed any devices to technicians yet.</p>
+              <p className="panel__note">{from.empty}</p>
             ) : (
               <>
                 {state.data.truncated ? <p className="panel__note">Only the first 2,000 devices were read. Run the import again afterwards for the rest.</p> : null}
@@ -95,12 +101,12 @@ export default function ShezzSyncDrawer({ onClose, onDone }) {
                 <div className="ledger-wrap">
                   <table className="ledger ledger--stack">
                     <thead>
-                      <tr><th>Name on Shezz</th><th>Devices</th><th>Technician in the Hub</th><th>Will happen</th></tr>
+                      <tr><th>{from.column}</th><th>Devices</th><th>Technician in the Hub</th><th>Will happen</th></tr>
                     </thead>
                     <tbody>
                       {groups.map((group) => (
                         <tr key={group.key}>
-                          <td data-label="Name on Shezz"><strong>{group.shezzName}</strong></td>
+                          <td data-label={from.column}><strong>{group.shezzName}</strong></td>
                           <td data-label="Devices">{group.deviceCount}</td>
                           <td data-label="Technician">
                             <select

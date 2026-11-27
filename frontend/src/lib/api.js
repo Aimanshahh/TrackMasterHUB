@@ -181,6 +181,14 @@ export function runShezzSync(mappings) {
   return sendJson('/api/operations/shezz/sync', 'POST', { mappings });
 }
 
+export function fetchStockPortalPreview() {
+  return apiRequest('/api/operations/stock-portal/preview');
+}
+
+export function runStockPortalSync(mappings) {
+  return sendJson('/api/operations/stock-portal/sync', 'POST', { mappings });
+}
+
 /* ---------------- Authentication ---------------- */
 
 export function fetchAuthStatus({ signal } = {}) {
@@ -633,6 +641,18 @@ export function saveTechnicianTest(id, input) {
 
 export function requestEngineKillTest(id, input = {}) {
   return sendJson(`/api/technician/jobs/${encodeURIComponent(id)}/engine-kill-request`, 'POST', input);
+}
+
+export function runTechnicianPortalCheck(id) {
+  return sendJson(`/api/technician/jobs/${encodeURIComponent(id)}/portal-check`, 'POST', {});
+}
+
+export function markEngineKillUnsupported(id, input = {}) {
+  return sendJson(`/api/technician/jobs/${encodeURIComponent(id)}/engine-kill-unsupported`, 'POST', input);
+}
+
+export function refreshInstallationReview(id) {
+  return sendJson(`/api/operations/jobs/${encodeURIComponent(id)}/review/refresh`, 'POST', {});
 }
 
 export function submitInstallationForReview(id) {

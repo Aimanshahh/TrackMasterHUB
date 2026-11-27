@@ -81,12 +81,12 @@ async function getSalespersonPerformance(id) {
 
   const [customers, jobs, complaints, approvals, recentActivity, quoted] = await Promise.all([
     Customer.find({ owner: id }).sort({ createdAt: -1 }).limit(8).select('name phone packageName packageKey createdAt followUp'),
-    Job.find({ createdBy: id }).sort({ createdAt: -1 }).limit(8).select('reference customerName status packageKey quotedPrice createdAt completedAt'),
+    Job.find({ createdBy: id, 'legacy.imported': { $ne: true } }).sort({ createdAt: -1 }).limit(8).select('reference customerName status packageKey quotedPrice createdAt completedAt'),
     Complaint.find({ createdBy: id }).sort({ createdAt: -1 }).limit(8).select('reference title status customerName createdAt'),
     Approval.find({ requestedBy: id }).sort({ createdAt: -1 }).limit(8).select('status packageKey quotedPrice customerName createdAt decisionAt'),
     Activity.find({ actor: id }).sort({ createdAt: -1 }).limit(10).select('type label description createdAt'),
     Job.aggregate([
-      { $match: { createdBy: user._id, quotedPrice: { $ne: null } } },
+      { $match: { createdBy: user._id, 'legacy.imported': { $ne: true }, quotedPrice: { $ne: null } } },
       { $group: { _id: null, total: { $sum: '$quotedPrice' }, count: { $sum: 1 } } },
     ]),
   ]);
@@ -95,7 +95,7 @@ async function getSalespersonPerformance(id) {
     Customer.countDocuments({ owner: id }),
     Customer.countDocuments({ owner: id, followUp: { $ne: null } }),
     Customer.countDocuments({ owner: id, followUp: { $lt: new Date(), $ne: null } }),
-    Job.aggregate([{ $match: { createdBy: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Job.aggregate([{ $match: { createdBy: user._id, 'legacy.imported': { $ne: true } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
     Complaint.aggregate([{ $match: { createdBy: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
     Approval.aggregate([{ $match: { requestedBy: user._id } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
   ]);

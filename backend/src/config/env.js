@@ -44,6 +44,11 @@ const trackingPortals = [
   readTrackingPortal('portal-2', process.env.PORTAL_2_L8_URL, process.env.PORTAL_2_L8_HASH, 'Portal 2', 1),
 ].filter(Boolean);
 
+/* A separate tracking account that holds the technicians' stock. It is read on its own
+   and never merged with the customer portals, so a stock device is not mistaken for an
+   installed vehicle. Its groups are named after the technicians. */
+const technicianStockPortal = readTrackingPortal('technician-stock', process.env.PORTAL_1_TECHNICIANSTOCK_URL, process.env.PORTAL_1_TECHNICIANSTOCK_HASH, 'Technician stock', 0);
+
 if (jwts.some((secret) => secret.length < 32)) {
   console.warn('[trackmaster-hub-api] JWT_SECRET is shorter than 32 characters. Set a longer value in .env for production.');
 }
@@ -68,6 +73,11 @@ export const env = {
   trackingApiUrl: legacyTrackingUrl,
   trackingApiHash: legacyTrackingHash,
   trackingPortals,
+  technicianStockPortal,
+  // Customer app logins: VRN@domain with one shared starting password kept in the environment, never in code.
+  customerAppLoginDomain: (process.env.CUSTOMER_APP_LOGIN_DOMAIN ?? 'trackmaster.pk').trim().replace(/^@/, ''),
+  customerAppDefaultPassword: (process.env.CUSTOMER_APP_DEFAULT_PASSWORD ?? '').trim(),
+  portalReadingFreshMinutes: Math.max(1, Number(process.env.PORTAL_READING_FRESH_MINUTES ?? 30) || 30),
   trackingSyncSeconds: Math.max(30, Number(process.env.TRACKING_SYNC_SECONDS ?? 300) || 300),
   trackingInactiveHours: Math.max(1, Number(process.env.TRACKING_INACTIVE_HOURS ?? 24) || 24),
   // GPSWOX sends times without a zone. This is the zone it uses (Pakistan).

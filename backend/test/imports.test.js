@@ -231,3 +231,45 @@ test('a column mapped twice or a missing name/phone mapping is refused', { skip 
   await assert.rejects(svc.previewBatch(up.batch.id, { mapping: { name: 'A', phone: 'A' } }), (e) => /two different fields/.test(e.message));
   await assert.rejects(svc.previewBatch(up.batch.id, { mapping: { name: 'A' } }), (e) => /phone/.test(e.message));
 });
+
+test('the salesperson column is suggested and names are matched to accounts', async () => {
+  const { resolveSalesperson } = await import('../src/modules/imports/imports.service.js');
+  assert.equal(suggestMapping(['Customer Name', 'Mobile', 'Sold By']).salesperson, 'Sold By');
+  assert.equal(suggestMapping(['Customer Name', 'Mobile', 'Sales Person']).salesperson, 'Sales Person');
+
+  const team = [{ id: 'a1', name: 'Ali Khan' }, { id: 'b2', name: 'Sara Malik' }, { id: 'c3', name: 'Sara Ahmed' }];
+  assert.equal(resolveSalesperson('  ali   KHAN ', team).userId, 'a1');
+  assert.equal(resolveSalesperson('Ali', team).userId, 'a1', 'a first name only one person has');
+  assert.equal(resolveSalesperson('Sara', team).status, 'unmatched', 'two Saras is ambiguous, so it is flagged, not guessed');
+  assert.equal(resolveSalesperson('Zubair', team).status, 'unmatched');
+  assert.equal(resolveSalesperson('', team).status, 'missing');
+  assert.equal(resolveSalesperson('Sara', team, { sara: 'c3' }).userId, 'c3', 'the admin can correct a mapping');
+  assert.equal(resolveSalesperson('Zubair', team, { zubair: '' }).status, 'unassigned');
+});
+
+test('imported customers belong to the salesperson named in the sheet, not to the person importing', { skip }, async () => {
+  const { default: User } = await import('../src/models/User.js');
+  await User.create({ name: 'Import Seller', email: 'import-seller@example.com', passwordHash: 'a-long-test-password', role: 'salesperson' });
+  const file = 'Name,Phone,Reg,Sold By\nOwned One,03211110001,OWN-1,import seller\nOwned Two,03211110002,OWN-2,Nobody Known\nOwned Three,03211110003,OWN-3,\n';
+  const up = await svc.createBatchFromUpload(Buffer.from(file), 'owners.csv', actor());
+  assert.equal(up.batch.mapping.salesperson, 'Sold By');
+  let prev = await svc.previewBatch(up.batch.id, { mapping: up.batch.mapping });
+  const byName = Object.fromEntries(prev.batch.summary.salespeople.map((entry) => [entry.sheetName, entry]));
+  assert.equal(byName['import seller'].status, 'matched');
+  assert.equal(byName['Nobody Known'].status, 'unmatched');
+  assert.equal(prev.batch.summary.salespersonUnmatched, 1);
+  assert.ok(prev.rows.find((row) => row.customerName === 'Owned Two').warnings.some((w) => /does not match any salesperson/.test(w)));
+
+  /* The admin points the unknown name at a real account before importing. */
+  const seller = await User.findOne({ email: 'import-seller@example.com' });
+  prev = await svc.previewBatch(up.batch.id, { mapping: up.batch.mapping, options: { salespersonMap: { 'nobody known': seller._id.toString() } } });
+  assert.equal(prev.batch.summary.salespersonUnmatched, 0);
+  await svc.confirmBatch(up.batch.id, { previewHash: prev.batch.previewHash }, actor());
+
+  const one = await Customer.findOne({ name: 'Owned One' });
+  const two = await Customer.findOne({ name: 'Owned Two' });
+  const three = await Customer.findOne({ name: 'Owned Three' });
+  assert.equal(one.owner.toString(), seller._id.toString());
+  assert.equal(two.owner.toString(), seller._id.toString(), 'corrected mapping is used');
+  assert.ok(!three.owner, 'no name in the sheet means no owner, never the importer');
+});

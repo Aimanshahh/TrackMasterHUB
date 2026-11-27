@@ -14,6 +14,7 @@ export const IMPORT_FIELDS = [
   { key: 'appPassword', label: 'App password', group: 'Customer', required: false, synonyms: ['app password', 'app pass', 'login password', 'tracker password', 'tracking password', 'password', 'pass'] },
   { key: 'cnic', label: 'CNIC', group: 'Customer', required: false, synonyms: ['cnic', 'cnic no', 'cnic number', 'nic', 'id card', 'national id'] },
   { key: 'notes', label: 'Notes', group: 'Customer', required: false, synonyms: ['notes', 'note', 'remarks', 'remark', 'comments', 'comment', 'final remarks'] },
+  { key: 'salesperson', label: 'Salesperson (sold by)', group: 'Commercial', required: false, synonyms: ['salesperson', 'sales person', 'sales person name', 'salesman', 'sales man', 'sales executive', 'sales officer', 'sales rep', 'sales representative', 'sold by', 'sale by', 'handled by', 'marketing person', 'agent name'] },
   { key: 'packageKey', label: 'Package (basic/standard/premium/customize/personal)', group: 'Commercial', required: false, synonyms: ['package', 'package name', 'plan', 'service package'] },
   { key: 'packagePrice', label: 'Package price', group: 'Commercial', required: false, synonyms: ['package price', 'sale price', 'selling price', 'quoted price', 'price'] },
   { key: 'packageFeatures', label: 'Additional package features', group: 'Commercial', required: false, synonyms: ['package features', 'additional features', 'custom features', 'extra features'] },

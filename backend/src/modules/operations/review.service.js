@@ -10,7 +10,11 @@ import { packageCatalog } from '../../models/Package.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { notifyUser } from '../notifications/notifications.service.js';
+import Customer from '../../models/Customer.js';
+import { env } from '../../config/env.js';
 import { getDeviceTelemetry } from '../tracking/tracking.service.js';
+import { packageHasEngineKill, suggestCustomerLogin } from '../../utils/customerLogin.js';
+import { refreshPortals } from '../technician/portalCheck.js';
 
 /** Packages that include the one-way microphone facility. */
 export const MICROPHONE_PACKAGES = ['standard', 'premium'];
@@ -28,6 +32,9 @@ function testingSummary(job) {
     ignition: t.ignition?.status ?? 'pending',
     location: t.location?.status ?? 'pending',
     engineKill: t.engineKillTest?.status ?? 'not_requested',
+    engineKillApplicable: packageHasEngineKill(job.packageKey),
+    engineKillNote: t.engineKillTest?.requestNote ?? '',
+    portalCheck: { at: t.portalCheck?.at?.toISOString?.() ?? null, message: t.portalCheck?.message ?? '' },
     submittedAt: t.submittedAt?.toISOString?.() ?? null,
     submittedByName: t.submittedByName ?? '',
     review: {
@@ -67,6 +74,7 @@ function reviewRow(job) {
     },
     address: job.installation?.address ?? '',
     telemetry: job.deviceImei ? getDeviceTelemetry(job.deviceImei) : null,
+    suggestedLogin: suggestCustomerLogin(job.vehicle?.registration),
     createdAt: job.createdAt.toISOString(),
   };
 }
@@ -86,6 +94,13 @@ async function listTestingQueue() {
       awaitingReview: pending.filter((job) => job.testing?.review?.status === 'pending').length,
     },
   };
+}
+
+/** Operations re-reads the portal while checking an installation. */
+async function refreshReview(id) {
+  const job = await loadForReview(id);
+  await refreshPortals();
+  return reviewRow(job);
 }
 
 async function loadForReview(id) {
@@ -154,18 +169,32 @@ async function reviewInstallation(id, input, actor) {
   if (missing.length) {
     throw makeError(errorCodes.VALIDATION_ERROR, `These tests are still not verified by the technician: ${missing.join('; ')}.`);
   }
-  if (job.testing?.engineKillTest?.status !== 'verified') {
-    if (!['requested', 'failed'].includes(job.testing?.engineKillTest?.status)) {
-      throw makeError(errorCodes.VALIDATION_ERROR, 'The engine kill test has not been requested or recorded.');
+  /* Engine kill: nothing to test on Basic/Personal, or when the technician reported the
+     vehicle cannot take one. Otherwise Operations has checked it on the portal. */
+  const kill = job.testing.engineKillTest;
+  if (packageHasEngineKill(job.packageKey) && kill.status !== 'not_supported' && kill.status !== 'verified') {
+    if (!['requested', 'failed'].includes(kill.status)) {
+      throw makeError(errorCodes.VALIDATION_ERROR, 'The engine kill test has not been requested. Ask the technician to request it or note that the vehicle cannot take one.');
     }
-    job.testing.engineKillTest.status = 'verified';
-    job.testing.engineKillTest.verifiedAt = now;
-    job.testing.engineKillTest.verifiedByName = who;
-    job.testing.engineKillTest.activated = input?.activated !== false;
-    job.testing.engineKillTest.restored = input?.restored !== false;
-    job.testing.engineKillTest.note = String(input?.engineKillNote ?? '').trim().slice(0, 500);
-    if (job.testing.engineKillTest.restored !== true) {
+    if (input?.restored === false) {
       throw makeError(errorCodes.VALIDATION_ERROR, 'Confirm the vehicle was restored after the engine kill test before approving.');
+    }
+    kill.status = 'verified';
+    kill.verifiedAt = now;
+    kill.verifiedByName = who;
+    kill.activated = input?.activated !== false;
+    kill.restored = true;
+    kill.note = String(input?.engineKillNote ?? '').trim().slice(0, 500);
+  }
+
+  /* The customer's app login: VRN@domain with the shared starting password from the environment. */
+  const customer = await Customer.findById(job.customer);
+  if (customer && !customer.appLogin) {
+    customer.appLogin = suggestCustomerLogin(job.vehicle?.registration);
+    if (!customer.appPassword && env.customerAppDefaultPassword) customer.appPassword = env.customerAppDefaultPassword;
+    if (customer.appLogin) {
+      await customer.save();
+      job.history.push({ status: 'completed', note: `Customer app login created: ${customer.appLogin}.`, at: now, by: actor.id, byName: who });
     }
   }
 
@@ -507,6 +536,7 @@ async function updateTechnicianRates(id, input, actor) {
 }
 
 export {
+  refreshReview,
   listTestingQueue,
   reviewInstallation,
   updateSchedule,
