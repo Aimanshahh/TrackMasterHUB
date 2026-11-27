@@ -90,6 +90,10 @@ export function fetchUsers({ signal } = {}) {
   return apiRequest('/api/users', { signal });
 }
 
+export function setUserPassword(id, password) {
+  return sendJson(`/api/users/${encodeURIComponent(id)}/password`, 'PATCH', { password });
+}
+
 export function createUser(input) {
   return apiRequest('/api/users', {
     method: 'POST',

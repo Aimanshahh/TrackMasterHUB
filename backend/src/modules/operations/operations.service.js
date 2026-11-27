@@ -9,6 +9,7 @@ import User from '../../models/User.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { createApprovalForJob } from '../approvals/approvals.service.js';
+import { getDeviceTelemetry } from '../tracking/tracking.service.js';
 import { notifyUser } from '../notifications/notifications.service.js';
 import { checklistFor, missingChecklist } from '../../utils/packageChecklist.js';
 import { getPackagePricing } from '../pricing/pricing.service.js';
@@ -919,6 +920,9 @@ async function listDevices({ status, q, page = 1, limit = 25 } = {}) {
     data: rows.map((row) => {
       const json = row.toApiJson();
       json.technician = row.technician?._id ? { id: row.technician._id.toString(), name: row.technician.name } : null;
+      /* Matched to the tracking portal by IMEI, so Operations sees which devices are already live there. */
+      const reading = getDeviceTelemetry(row.imei);
+      json.portal = { found: reading.found, lastSeenAt: reading.lastSeenAt ?? null };
       return json;
     }),
     meta: { total, page: safePage, limit: safeLimit, pages: Math.ceil(total / safeLimit) },
