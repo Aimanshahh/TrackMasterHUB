@@ -7,9 +7,9 @@ import { formatMoney } from '../../lib/format.js';
 
 /**
  * The rate sheet the whole sales flow depends on. Each package carries two
- * numbers: the standard rate, and the minimum price below which a sale is
- * refused. A discount off the rate comes back here as an approval; a quote
- * under the floor never reaches the customer.
+ * numbers: the standard rate, and the lowest price a salesperson may agree
+ * without asking. A quote from the rate down to that price needs no approval;
+ * anything lower comes back here as an approval request.
  */
 function PackageRateRow({ pkg, index, onSave }) {
   const [form, setForm] = useState({
@@ -44,7 +44,7 @@ function PackageRateRow({ pkg, index, onSave }) {
     try {
       await onSave(pkg.key, {
         price: Number(form.price),
-        // An empty minimum means "no separate floor": the rate itself is the floor.
+        // Empty means no separate lowest price: any discount off the rate needs approval.
         minPrice: form.minPrice === '' ? null : Number(form.minPrice),
         summary: form.summary,
         features: form.features.split('\n'),
@@ -58,116 +58,67 @@ function PackageRateRow({ pkg, index, onSave }) {
   }
 
   const unset = !pkg.configured;
+  const rate = Number(form.price);
+  const lowest = form.minPrice === '' ? null : Number(form.minPrice);
+  const invalid = lowest !== null && Number.isFinite(rate) && rate > 0 && lowest > rate;
 
   return (
-    <li className={`rate-row${unset ? ' rate-row--unset' : ''}`}>
-      <div className="rate-row__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
-
-      <form className="rate-row__form" onSubmit={submit}>
-        <header className="rate-row__head">
+    <li className={`pcard${unset ? ' pcard--unset' : ''}`}>
+      <form onSubmit={submit}>
+        <header className="pcard__head">
           <div>
-            <h3>
-              {pkg.name}
-              {unset ? <span className="rate-tag">Not priced</span> : null}
-            </h3>
-            <p className="rate-row__summary">
-              {pkg.summary || 'No wording set — the salesperson only sees the rate.'}
-            </p>
+            <h3>{pkg.name}{unset ? <span className="rate-tag">Not priced</span> : null}</h3>
+            <p>{pkg.summary || 'No description set.'}</p>
           </div>
-          <p className="rate-row__current">
-            <span>Standard rate</span>
-            <strong>{unset ? 'Not set' : formatMoney(pkg.price)}</strong>
-            <em className="rate-row__floor">
-              {pkg.minPrice !== null && pkg.minPrice !== undefined
-                ? `Minimum ${formatMoney(pkg.minPrice)}`
-                : 'Floor = rate'}
-            </em>
-          </p>
+          <dl className="pcard__now">
+            <div><dt>Rate</dt><dd>{unset ? '—' : formatMoney(pkg.price)}</dd></div>
+            <div><dt>Lowest</dt><dd>{pkg.minPrice !== null && pkg.minPrice !== undefined ? formatMoney(pkg.minPrice) : '—'}</dd></div>
+          </dl>
         </header>
 
-        <div className="rate-row__controls">
-          <label className="field field--price">
-            <span className="field__label">Standard rate</span>
+        <div className="pcard__fields">
+          <label className="pcard__field">
+            <span>Standard rate</span>
             <div className="money-input">
               <em aria-hidden="true">PKR</em>
-              <input
-                className="input"
-                type="number"
-                inputMode="decimal"
-                min="1"
-                step="1"
-                required
-                placeholder={unset ? 'Set the first rate' : String(pkg.price)}
-                value={form.price}
-                onChange={update('price')}
-              />
+              <input className="input" type="number" inputMode="decimal" min="1" step="1" required placeholder="e.g. 15500" value={form.price} onChange={update('price')} />
             </div>
-            <span className="field__hint">What the package is sold for.</span>
+            <small>What the package is sold for.</small>
           </label>
-
-          <div className="rate-row__save">
-            <label className="field field--price">
-              <span className="field__label">Minimum price <i>Floor</i></span>
-              <div className="money-input">
-                <em aria-hidden="true">PKR</em>
-                <input
-                  className="input"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="1"
-                  placeholder="Same as the rate"
-                  value={form.minPrice}
-                  onChange={update('minPrice')}
-                />
-              </div>
-              <span className="field__hint">
-                The lowest this package may be sold at. Leave empty and the rate itself is the floor.
-              </span>
-            </label>
-
-            <button type="submit" className="btn btn--primary btn--small" disabled={saving}>
-              {saving ? 'Saving…' : unset ? 'Set rate' : 'Update rate'}
-            </button>
-            <span className="rate-row__stamp" role="status">
-              {savedAt
-                ? `Saved ${formatDayTime(savedAt)}`
-                : pkg.configured && pkg.updatedAt
-                  ? `Updated ${formatDayTime(pkg.updatedAt)}`
-                  : ''}
-            </span>
-          </div>
+          <label className="pcard__field">
+            <span>Lowest price without approval</span>
+            <div className="money-input">
+              <em aria-hidden="true">PKR</em>
+              <input className="input" type="number" inputMode="decimal" min="0" step="1" placeholder="e.g. 11000" value={form.minPrice} onChange={update('minPrice')} />
+            </div>
+            <small>Quotes from the rate down to this need no approval.</small>
+          </label>
         </div>
 
+        {invalid ? <p className="form-alert" role="alert">The lowest price cannot be above the standard rate.</p> : null}
+
         <details className="rate-row__more">
-          <summary>Wording and inclusions</summary>
+          <summary>Description and inclusions</summary>
           <div className="field-grid">
             <label className="field field--full">
               <span className="field__label">One-line description</span>
-              <input
-                className="input"
-                maxLength={300}
-                placeholder="What this package is for"
-                value={form.summary}
-                onChange={update('summary')}
-              />
+              <input className="input" maxLength={300} placeholder="What this package is for" value={form.summary} onChange={update('summary')} />
             </label>
             <label className="field field--full">
               <span className="field__label">What the customer gets</span>
-              <textarea
-                className="input input--area"
-                rows={4}
-                maxLength={1200}
-                placeholder={'One inclusion per line\ne.g. Live GPS tracking'}
-                value={form.features}
-                onChange={update('features')}
-              />
-              <span className="field__hint">Shown to the salesperson when they quote this package.</span>
+              <textarea className="input input--area" rows={4} maxLength={1200} placeholder={'One inclusion per line\ne.g. Live GPS tracking'} value={form.features} onChange={update('features')} />
             </label>
           </div>
         </details>
 
         {error ? <p className="form-alert" role="alert">{error}</p> : null}
+
+        <footer className="pcard__foot">
+          <span className="rate-row__stamp" role="status">
+            {savedAt ? `Saved ${formatDayTime(savedAt)}` : pkg.configured && pkg.updatedAt ? `Updated ${formatDayTime(pkg.updatedAt)}` : ''}
+          </span>
+          <button type="submit" className="btn btn--primary" disabled={saving || invalid}>{saving ? 'Saving…' : unset ? 'Set rate' : 'Save'}</button>
+        </footer>
       </form>
     </li>
   );
@@ -182,12 +133,11 @@ export default function PricingPage() {
       <section className="pricing-lede">
         <div>
           <p className="app-page-head__eyebrow">COMMERCIAL CONTROLS</p>
-          <h2>Two numbers per package: the standard rate and the minimum price.</h2>
+          <h2>Set each package’s rate and the lowest price a salesperson may agree.</h2>
           <p>
-            The <strong>standard rate</strong> is what the package sells for. A salesperson may quote
-            below it — that discount arrives here as an approval request, and operations cannot complete
-            the installation until you decide. The <strong>minimum price</strong> is a hard floor: a quote
-            under it is refused on the spot, so a package can never be given away by mistake.
+            Example: rate 15,500 and lowest price 11,000. Any quote from 15,500 down to 11,000 goes
+            through with no approval. A quote below 11,000 waits for your approval before operations
+            can complete the installation. Leave the lowest price empty and every discount needs approval.
           </p>
         </div>
       </section>
@@ -201,7 +151,7 @@ export default function PricingPage() {
       ) : null}
 
       {packages.rows.length > 0 ? (
-        <ol className="rate-sheet">
+        <ol className="pcard-grid">
           {packages.rows.map((pkg, index) => (
             <PackageRateRow key={pkg.key} pkg={pkg} index={index} onSave={packages.save} />
           ))}

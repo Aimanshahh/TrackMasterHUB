@@ -1,3 +1,4 @@
+import { formatDay } from '../../app/operations.js';
 import { useState } from 'react';
 
 import { STOCK_STATUS_OPTIONS } from '../../app/operations.js';
@@ -222,8 +223,8 @@ export default function InventoryPanel() {
       {active.rows.length > 0 ? (
         <div className="ops-table__scroll">
           {tab === 'devices' ? (
-            <div className="ops-table ops-table--stock">
-              <div className="ops-table__head"><span>IMEI</span><span>Model</span><span>Station</span><span>Status</span><span>With</span><span aria-hidden="true" /></div>
+            <div className="ops-table ops-table--stock ops-table--devices">
+              <div className="ops-table__head"><span>IMEI</span><span>Model</span><span>Station</span><span>Status</span><span>With</span><span>Portal</span><span aria-hidden="true" /></div>
               {devices.rows.map((device) => (
                 <div className="ops-table__row" key={device.id}>
                   <span className="ops-mono">{device.imei}</span>
@@ -231,6 +232,7 @@ export default function InventoryPanel() {
                   <span className="ops-cell-muted">{device.station || '—'}</span>
                   <span><StockStatus status={device.status} /></span>
                   <span className="ops-cell-muted">{device.job ? 'Fitted to a job' : device.technician?.name || 'Station stock'}</span>
+                  <span className="ops-cell-muted">{device.portal?.found ? (device.portal.lastSeenAt ? `On portal · ${formatDay(device.portal.lastSeenAt)}` : 'On portal') : 'Not on portal'}</span>
                   <span className="ops-row-action">
                     {device.job ? null : (
                       <>

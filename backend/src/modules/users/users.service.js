@@ -51,6 +51,19 @@ async function createUser(input, actor) {
   return user.toApiJson();
 }
 
+/** The admin sets a new password for someone who has forgotten theirs. Only the hash is stored. */
+async function setPassword(id, { password }, actor) {
+  if (typeof password !== 'string' || password.length < 8) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Password must be at least 8 characters long.');
+  }
+  const user = await User.findById(id);
+  if (!user) throw makeError(errorCodes.NOT_FOUND, 'No account matches that id.');
+  user.passwordHash = password;
+  await user.save();
+  await recordActivity({ actor, type: 'user.role_changed', label: `Password reset · ${user.name}`, description: `${actor?.name ?? 'An admin'} set a new password for ${user.email}.`, recordId: user._id.toString() });
+  return user.toApiJson();
+}
+
 async function getUsers({ role, search }) {
   const filter = { active: true };
 
@@ -178,4 +191,5 @@ async function setTarget(id, input, actor) {
   return user.toApiJson();
 }
 
-export { setTarget, createUser, getUsers, getUserById, getSalespersonPerformance, changeRole };
+export {
+  setPassword, setTarget, createUser, getUsers, getUserById, getSalespersonPerformance, changeRole };

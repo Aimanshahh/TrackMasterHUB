@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useTechnicians } from '../../hooks/useOperations.js';
 import PasswordInput from '../ui/PasswordInput.jsx';
 
 export default function CreateUserDrawer({ open, onClose, onCreated }) {
@@ -7,6 +8,10 @@ export default function CreateUserDrawer({ open, onClose, onCreated }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('salesperson');
+  const [technicianId, setTechnicianId] = useState('');
+  const [station, setStation] = useState('');
+  const technicians = useTechnicians({ activeOnly: true });
+  const unlinked = technicians.rows.filter((row) => !row.user);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -19,10 +24,12 @@ export default function CreateUserDrawer({ open, onClose, onCreated }) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setError('Enter a valid email address.');
     if (password.length < 8) return setError('Password must be at least 8 characters.');
 
+    if (role === 'technician' && !technicianId && !station.trim()) return setError('Choose the technician record, or enter a home station to create a new one.');
+
     setSaving(true);
     try {
-      await onCreated({ name: name.trim(), email: email.trim(), password, role });
-      setName(''); setEmail(''); setPassword(''); setRole('salesperson');
+      await onCreated({ name: name.trim(), email: email.trim(), password, role, ...(role === 'technician' ? { technicianId: technicianId || undefined, station: station.trim() } : {}) });
+      setName(''); setEmail(''); setPassword(''); setRole('salesperson'); setTechnicianId(''); setStation('');
       onClose();
     } catch (error_) {
       setError(error_.message ?? 'The account could not be created.');
@@ -44,9 +51,27 @@ export default function CreateUserDrawer({ open, onClose, onCreated }) {
           <div className="field-grid">
             <label className="field field--full"><span className="field__label">Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required minLength={2} /></label>
             <label className="field field--full"><span className="field__label">Email</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label>
-            <label className="field"><span className="field__label">Role</span><select className="input" value={role} onChange={(e) => setRole(e.target.value)}><option value="salesperson">Salesperson</option><option value="manager">Manager</option><option value="operations">Operations</option></select></label>
+            <label className="field"><span className="field__label">Role</span><select className="input" value={role} onChange={(e) => setRole(e.target.value)}><option value="salesperson">Salesperson</option><option value="manager">Manager</option><option value="operations">Operations</option><option value="technician">Technician</option></select></label>
             <label className="field"><span className="field__label">Temporary password</span><PasswordInput className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" minLength={8} required /></label>
           </div>
+          {role === 'technician' ? (
+            <>
+              <div className="drawer__section-label">Technician record</div>
+              <div className="field-grid">
+                <label className="field field--full">
+                  <span className="field__label">Link to a technician Operations created</span>
+                  <select className="input" value={technicianId} onChange={(e) => { setTechnicianId(e.target.value); const row = unlinked.find((entry) => entry.id === e.target.value); if (row && !name.trim()) setName(row.name); }}>
+                    <option value="">None — create a new record</option>
+                    {unlinked.map((row) => <option key={row.id} value={row.id}>{row.name}{row.station ? ` · ${row.station}` : ''}</option>)}
+                  </select>
+                  <span className="field__hint">The login uses that record's stock and installations. Operations creates the records; you create the logins.</span>
+                </label>
+                {!technicianId ? (
+                  <label className="field field--full"><span className="field__label">Home station</span><input className="input" value={station} onChange={(e) => setStation(e.target.value)} placeholder="e.g. Rawalpindi" /></label>
+                ) : null}
+              </div>
+            </>
+          ) : null}
           <div className="drawer__section-label">Workspace access</div>
           <p className="field__hint">Choose the staff role, then set a temporary password to share securely. The backend stores only its password hash.</p>
           {error ? <p className="form-alert" role="alert">{error}</p> : null}

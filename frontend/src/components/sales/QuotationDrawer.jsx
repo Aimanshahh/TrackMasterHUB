@@ -250,17 +250,15 @@ export default function QuotationDrawer({ open, onClose, onSaved, customer = nul
 
           {belowFloor ? (
             <p className="quote-hint quote-hint--floor">
-              Under the {pkg.name} minimum price of {formatMoney(floor)}. The sales desk cannot sell the
-              package below that floor, so this figure can be quoted but will not become a sale unless the
-              admin lowers the minimum.
+              Under the {pkg.name} lowest price of {formatMoney(floor)}. The quote can be printed, but a sale
+              at this price needs the admin's approval.
             </p>
           ) : null}
 
           {belowRate && !belowFloor ? (
             <p className="quote-hint">
-              That is {formatMoney(pkg.price - amount)} below the {pkg.name} standard rate of {formatMoney(pkg.price)}
-              {floor !== null ? ` (minimum ${formatMoney(floor)})` : ''}.
-              The quote records the discount; a sale at this price needs the admin's approval.
+              {formatMoney(pkg.price - amount)} below the {pkg.name} standard rate of {formatMoney(pkg.price)}
+              {floor !== null ? ` — within your limit (lowest ${formatMoney(floor)}), no approval needed` : '; a sale at this price needs the admin\'s approval'}.
             </p>
           ) : null}
 

@@ -244,6 +244,15 @@ sale is not sent to Operations until all are ticked; the server enforces this to
 Geofence and alerts come with every package, so they are not listed. The ticked items
 are saved on the sale and shown to the technician as "Package includes".
 
+**Technician pipeline.** Operations creates technician records (Operations → Technicians) and
+fetches their devices from Shezz Traders. The admin creates the technician logins (Users → New
+account → Technician) and links each to a record. A sale goes to Operations, who assigns a
+technician; the technician selects a device and SIM from their own stock (Operations sees the
+IMEI on the job), installs, and the portal confirms geolocation, ignition and battery disconnect
+by IMEI. The technician submits; Operations checks the tests and approves. The admin can set a
+new password for any account from the Users page. The Inventory page shows, per device, whether
+the tracking portal lists its IMEI.
+
 ### Technician portal (`/technician`)
 
 Phone-first: one column, a bottom tab bar, and no sidebar on small screens. The
@@ -477,6 +486,7 @@ Every response carries `X-Request-Id`.
 | POST   | `/api/operations/jobs/:id/review/refresh` | admin, operations |
 | GET    | `/api/customers/check-duplicate`  | session                    |
 | PATCH  | `/api/users/:id/target`           | admin                      |
+| PATCH  | `/api/users/:id/password`         | admin                      |
 | POST   | `/api/technician/jobs/:id/submit` | technician, own record     |
 | GET    | `/api/technician/stock`           | technician                 |
 | GET    | `/api/technician/earnings`        | technician                 |
