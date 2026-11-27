@@ -3,6 +3,21 @@ import { PACKAGE_KEYS, packageCatalog } from './Package.js';
 
 export const CUSTOMER_CATEGORIES = ['Individual', 'Fleet', 'Corporate', 'Dealer', 'Other'];
 
+/**
+ * One key per phone number on the record: the last ten digits, so
+ * "0300-1112233", "+92 300 1112233" and "03001112233" all match. A field can
+ * hold several numbers ("0300 1112233 / 0315 4445566").
+ */
+export function phoneKeysOf(phone) {
+  const keys = new Set();
+  for (const part of String(phone ?? '').split(/[/,;|]/)) {
+    const digits = part.replace(/\D/g, '');
+    if (digits.length >= 10) keys.add(digits.slice(-10));
+    else if (digits.length >= 7) keys.add(digits);
+  }
+  return [...keys];
+}
+
 const customerSchema = new mongoose.Schema(
   {
     name: {
@@ -149,12 +164,19 @@ const customerSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    phoneKeys: {
+      type: [String],
+      index: true,
+      default: undefined,
+      select: false,
+    },
   },
   { timestamps: true },
 );
 
 customerSchema.pre('save', function () {
   this.updatedAt = new Date();
+  if (this.isNew || this.isModified('phone')) this.phoneKeys = phoneKeysOf(this.phone);
 });
 
 customerSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {

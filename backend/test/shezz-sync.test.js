@@ -104,3 +104,40 @@ test('the Shezz import matches technicians, assigns devices, is repeatable and r
   assert.equal(fitted.fitted, 1);
   assert.equal((await Device.findOne({ imei: '860000000000001' })).technician.toString(), waqas._id.toString(), 'a fitted device is left alone');
 });
+
+test('the technician stock portal is a second source: groups are matched to technicians and devices import once', { skip: !hasDb ? 'set TEST_MONGO_URI to run database tests' : false }, async () => {
+  const { default: Technician } = await import('../src/models/Technician.js');
+  const { default: Device } = await import('../src/models/Device.js');
+  const { previewHandovers, applyHandovers } = await import('../src/modules/operations/shezz.service.js');
+  await Technician.create({ name: 'Portal Zahoor', station: 'Lahore' });
+  const rows = [
+    { imei: '350000000000011', recipient: { id: '7', name: 'Portal Zahoor Technician' } },
+    { imei: '350000000000029', recipient: { id: '7', name: 'Portal Zahoor Technician' } },
+    { imei: '350000000000037', recipient: { id: '9', name: 'Somebody Else' } },
+  ];
+  const preview = await previewHandovers(rows);
+  const zahoor = preview.groups.find((group) => group.shezzName.includes('Zahoor'));
+  assert.equal(zahoor.match.name, 'Portal Zahoor');
+  assert.equal(zahoor.newDevices, 2);
+  assert.equal(preview.groups.find((group) => group.shezzName === 'Somebody Else').match, null);
+
+  const done = await applyHandovers(rows, {}, { id: undefined }, 'the technician stock portal');
+  assert.equal(done.created, 2);
+  assert.deepEqual(done.skippedNames, ['Somebody Else']);
+  assert.match((await Device.findOne({ imei: '350000000000011' })).notes, /technician stock portal/);
+  assert.equal((await applyHandovers(rows, {}, { id: undefined })).created, 0, 'a second run adds nothing');
+});
+
+test('technician-stock portal readings serve installation tests only when no customer portal lists the device', async () => {
+  const { __setTrackingCache, getDeviceTelemetry, __setTechnicianStockCache } = await import('../src/modules/tracking/tracking.service.js');
+  __setTrackingCache([{ imei: '350000000000045', gpsState: 'online', portalSource: 'Portal 1' }]);
+  __setTechnicianStockCache([
+    { imei: '350000000000045', gpsState: 'offline', portalSource: 'Technician stock' },
+    { imei: '350000000000052', gpsState: 'online', ignitionOn: true, portalSource: 'Technician stock' },
+  ]);
+  assert.equal(getDeviceTelemetry('350000000000045').portalSource, 'Portal 1');
+  const fallback = getDeviceTelemetry('350000000000052');
+  assert.equal(fallback.found, true);
+  assert.equal(fallback.portalSource, 'Technician stock');
+  assert.equal(getDeviceTelemetry('350000000000060').found, false);
+});

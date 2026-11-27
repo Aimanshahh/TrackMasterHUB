@@ -27,6 +27,7 @@ import {
   postAssignMicrophone,
   postMicrophone,
   postReleaseMicrophone,
+  postRefreshReview,
   postReview,
 } from './review.controller.js';
 import {
@@ -38,6 +39,8 @@ import {
   postMessagePreview,
   postMessageTemplate,
   postWhatsAppSend,
+  getStockPortalPreview,
+  postStockPortalSync,
 } from './desk.controller.js';
 
 export const operationsRouter = Router();
@@ -68,6 +71,7 @@ operationsRouter.patch('/technicians/:id/rates', requireRole('admin'), patchTech
 // Installation testing review: operations inspects what the technician submitted.
 operationsRouter.get('/reviews', deskOnly, getReviews);
 operationsRouter.post('/jobs/:id/review', deskOnly, postReview);
+operationsRouter.post('/jobs/:id/review/refresh', deskOnly, postRefreshReview);
 operationsRouter.patch('/jobs/:id/schedule', deskOnly, patchSchedule);
 
 // One-way microphone numbers (Standard and Premium packages).
@@ -88,6 +92,8 @@ operationsRouter.patch('/sims/:id', deskOnly, patchSim);
 // Search-first customer lookup and profile for the desk. No prices or security briefing.
 operationsRouter.get('/shezz/preview', deskOnly, getShezzPreview);
 operationsRouter.post('/shezz/sync', deskOnly, postShezzSync);
+operationsRouter.get('/stock-portal/preview', deskOnly, getStockPortalPreview);
+operationsRouter.post('/stock-portal/sync', deskOnly, postStockPortalSync);
 operationsRouter.get('/customers', deskOnly, getDeskCustomers);
 operationsRouter.get('/customers/:id', deskOnly, getDeskCustomer);
 

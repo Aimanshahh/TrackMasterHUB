@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import {
   fetchTestingReviews,
+  refreshInstallationReview,
   reviewInstallation,
   updateInstallationSchedule,
 } from '../../lib/api.js';
@@ -18,7 +19,7 @@ const TEST_ROWS = [
 function tone(status) {
   if (status === 'verified') return 'ok';
   if (status === 'failed') return 'bad';
-  if (status === 'requested') return 'warn';
+  if (status === 'requested' || status === 'not_supported') return 'warn';
   return 'plain';
 }
 
@@ -26,6 +27,7 @@ function label(status) {
   if (status === 'verified') return 'Verified';
   if (status === 'failed') return 'Failed';
   if (status === 'requested') return 'Requested';
+  if (status === 'not_supported') return 'Cannot fit';
   return 'Not done';
 }
 
@@ -77,6 +79,21 @@ export default function OperationsReviewsPage() {
       setNote('');
       await load();
       setFeedback({ tone: 'ok', text: decision === 'approve' ? 'Installation approved. The technician earning was created from their rate.' : 'Sent back to the technician.' });
+    } catch (error) {
+      setFeedback({ tone: 'error', text: error.message });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function refreshPortal() {
+    if (!selected) return;
+    setBusy('refresh');
+    setFeedback(null);
+    try {
+      await refreshInstallationReview(selected.id);
+      await load();
+      setFeedback({ tone: 'ok', text: 'Portal readings refreshed.' });
     } catch (error) {
       setFeedback({ tone: 'error', text: error.message });
     } finally {
@@ -188,7 +205,9 @@ export default function OperationsReviewsPage() {
                       <td><span className={`field-chip field-chip--${tone(selected.testing[key])}`}>{label(selected.testing[key])}</span></td>
                       <td className="field-table__muted">
                         {key === 'engineKill'
-                          ? selected.testing[key] === 'verified' ? 'Recorded by operations' : 'You record the kill and restore below'
+                          ? !selected.testing.engineKillApplicable ? 'Not in this package'
+                            : selected.testing[key] === 'not_supported' ? `Technician: cannot fit${selected.testing.engineKillNote ? ` — ${selected.testing.engineKillNote}` : ''}`
+                            : selected.testing[key] === 'verified' ? 'Recorded by operations' : 'Test with the technician, check the portal, then approve'
                           : 'Checked against the portal reading'}
                       </td>
                     </tr>
@@ -199,13 +218,15 @@ export default function OperationsReviewsPage() {
               {selected.telemetry ? (
                 <section className="field-telemetry">
                   <h3>Tracking portal</h3>
+                  <button type="button" className="btn btn--outline btn--small" disabled={busy === 'refresh'} onClick={refreshPortal}>
+                    {busy === 'refresh' ? 'Reading…' : 'Refresh from portal'}
+                  </button>
                   {selected.telemetry.found ? (
                     <dl>
                       <div><dt>Connection</dt><dd>{selected.telemetry.gpsState || 'unknown'}</dd></div>
                       <div><dt>Last report</dt><dd>{selected.telemetry.lastSeenAt ? formatDateTime(selected.telemetry.lastSeenAt) : 'never'}</dd></div>
                       <div><dt>Ignition</dt><dd>{selected.telemetry.ignitionOn === null ? 'not reported' : selected.telemetry.ignitionOn ? 'ON' : 'OFF'}</dd></div>
-                      <div><dt>Battery temp</dt><dd>{selected.telemetry.batteryTemperatureC === null ? 'not reported' : `${selected.telemetry.batteryTemperatureC} °C`}</dd></div>
-                      <div><dt>Battery power</dt><dd>{selected.telemetry.batteryConnected === null ? 'not reported' : selected.telemetry.batteryConnected ? 'connected' : 'disconnected'}</dd></div>
+                      <div><dt>Battery</dt><dd>{selected.telemetry.batteryConnected === null ? 'not reported' : selected.telemetry.batteryConnected ? 'connected' : 'disconnected'}</dd></div>
                       <div><dt>Position</dt><dd>{selected.telemetry.latitude !== null && selected.telemetry.longitude !== null ? `${selected.telemetry.latitude}, ${selected.telemetry.longitude}` : 'not reported'}</dd></div>
                     </dl>
                   ) : (
@@ -218,7 +239,11 @@ export default function OperationsReviewsPage() {
                 <section className="field-review">
                   <h3>Decision</h3>
 
-                  <div className="field-engine-kill">
+                  {selected.suggestedLogin ? (
+                    <p className="field-note">Customer app login created on approval: <strong>{selected.suggestedLogin}</strong></p>
+                  ) : null}
+
+                  <div className="field-engine-kill" hidden={!selected.testing.engineKillApplicable || selected.testing.engineKill === 'not_supported'}>
                     <label><input type="checkbox" checked={activated} onChange={(event) => setActivated(event.target.checked)} /> Engine kill activated</label>
                     <label><input type="checkbox" checked={restored} onChange={(event) => setRestored(event.target.checked)} /> Vehicle restored</label>
                     <p className="field-note">Only test the engine kill with the vehicle stationary. A test that was not restored blocks approval.</p>

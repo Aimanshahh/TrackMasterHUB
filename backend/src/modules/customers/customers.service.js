@@ -1,4 +1,4 @@
-import Customer from '../../models/Customer.js';
+import Customer, { phoneKeysOf } from '../../models/Customer.js';
 import { PACKAGE_KEYS } from '../../models/Package.js';
 import Invoice from '../../models/Invoice.js';
 import { errorCodes } from '../../config/errorCodes.js';
@@ -78,7 +78,56 @@ async function getCustomerById(id, { includeFinancials = true } = {}) {
   return customer.toApiJson({ includeFinancials });
 }
 
-async function createCustomer(input, ownerId) {
+/**
+ * Existing customers that share a phone number with the one being typed.
+ * Older records and bulk imports have no phone keys yet, so they are filled in
+ * here the first time they are needed.
+ */
+async function findDuplicateCustomers(phone, { excludeId } = {}) {
+  const keys = phoneKeysOf(phone);
+  if (keys.length === 0) return [];
+
+  const missing = await Customer.find({ phoneKeys: { $exists: false }, phone: { $nin: [null, ''] } }).select('phone').limit(5000);
+  for (const row of missing) {
+    await Customer.updateOne({ _id: row._id }, { $set: { phoneKeys: phoneKeysOf(row.phone) } });
+  }
+
+  const filter = { phoneKeys: { $in: keys } };
+  if (excludeId) filter._id = { $ne: excludeId };
+  return Customer.find(filter).sort({ createdAt: 1 }).limit(5).populate('owner', 'name');
+}
+
+/** What a user may see of a matching record: salespeople only get a link to their own. */
+function duplicateSummary(customer, viewer) {
+  const mine = customer.owner?._id?.toString() === viewer?.id;
+  const canOpen = viewer?.role !== 'salesperson' || mine;
+  return {
+    id: canOpen ? customer._id.toString() : null,
+    name: customer.name,
+    phone: customer.phone ?? '',
+    owner: customer.owner?.name ?? '',
+    mine,
+  };
+}
+
+async function checkDuplicateCustomers(phone, viewer, options) {
+  const rows = await findDuplicateCustomers(phone, options);
+  return rows.map((row) => duplicateSummary(row, viewer));
+}
+
+async function createCustomer(input, ownerId, viewer) {
+  if (!input.confirmDuplicate) {
+    const duplicates = await checkDuplicateCustomers(input.phone, viewer);
+    if (duplicates.length > 0) {
+      throw makeError(
+        errorCodes.CONFLICT,
+        `A customer with this phone number already exists: ${duplicates[0].name}. Open the existing record instead of adding a second one.`,
+        409,
+        { duplicates },
+      );
+    }
+  }
+
   const packagePrice = input.packagePrice === '' || input.packagePrice === undefined || input.packagePrice === null
     ? null
     : Number(input.packagePrice);
@@ -178,4 +227,4 @@ async function deleteCustomer(id) {
   return { deleted: true, id: String(id) };
 }
 
-export { listCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer, buildFilter };
+export { checkDuplicateCustomers, listCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer, buildFilter };

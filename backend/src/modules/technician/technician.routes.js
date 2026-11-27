@@ -3,6 +3,8 @@ import { requireAuth, requireRole } from '../../middleware/auth.js';
 import {
   earnings,
   engineKill,
+  engineKillUnsupported,
+  portalCheck,
   job,
   jobs,
   recordTest,
@@ -25,7 +27,9 @@ technicianRouter.get('/jobs', jobs);
 technicianRouter.get('/jobs/:id', job);
 technicianRouter.post('/jobs/:id/stock', selectDevice);
 technicianRouter.patch('/jobs/:id/tests', recordTest);
+technicianRouter.post('/jobs/:id/portal-check', portalCheck);
 technicianRouter.post('/jobs/:id/engine-kill-request', engineKill);
+technicianRouter.post('/jobs/:id/engine-kill-unsupported', engineKillUnsupported);
 technicianRouter.post('/jobs/:id/submit', submit);
 technicianRouter.get('/stock', stock);
 technicianRouter.get('/earnings', earnings);

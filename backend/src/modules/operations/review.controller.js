@@ -4,6 +4,7 @@ import {
   listMicrophones,
   listTestingQueue,
   microphoneTasks,
+  refreshReview,
   releaseMicrophone,
   reviewInstallation,
   updateSchedule,
@@ -19,6 +20,12 @@ async function getReviews(req, res, next) {
 async function postReview(req, res, next) {
   try {
     return res.json({ data: await reviewInstallation(req.params.id, req.body ?? {}, req.user) });
+  } catch (error) { next(error); }
+}
+
+async function postRefreshReview(req, res, next) {
+  try {
+    return res.json({ data: await refreshReview(req.params.id) });
   } catch (error) { next(error); }
 }
 
@@ -66,6 +73,7 @@ async function patchTechnicianRates(req, res, next) {
 
 export {
   getReviews,
+  postRefreshReview,
   postReview,
   patchSchedule,
   getMicrophones,

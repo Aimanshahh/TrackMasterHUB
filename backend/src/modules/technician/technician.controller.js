@@ -4,7 +4,9 @@ import {
   getStock,
   getSummary,
   listJobs,
+  markEngineKillUnsupported,
   requestEngineKillTest,
+  runPortalCheck,
   saveTest,
   selectStock,
   submitForReview,
@@ -46,6 +48,18 @@ async function engineKill(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function portalCheck(req, res, next) {
+  try {
+    return res.json({ data: await runPortalCheck(req.user, req.params.id) });
+  } catch (error) { next(error); }
+}
+
+async function engineKillUnsupported(req, res, next) {
+  try {
+    return res.json({ data: await markEngineKillUnsupported(req.user, req.params.id, req.body ?? {}) });
+  } catch (error) { next(error); }
+}
+
 async function submit(req, res, next) {
   try {
     return res.json({ data: await submitForReview(req.user, req.params.id) });
@@ -64,4 +78,4 @@ async function earnings(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { summary, jobs, job, selectDevice, recordTest, engineKill, submit, stock, earnings };
+export { summary, jobs, job, selectDevice, recordTest, engineKill, portalCheck, engineKillUnsupported, submit, stock, earnings };

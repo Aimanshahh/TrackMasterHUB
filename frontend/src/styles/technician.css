@@ -699,3 +699,17 @@
   .tech-page--detail { padding-bottom: 84px; }
   .tech-submit { bottom: 76px; }
 }
+
+/* Coming up: a tappable card per job, never a run-on line of text. */
+.tech-upcoming { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.tech-upcoming a { display: grid; gap: 4px; padding: 14px 16px; border-radius: 14px; background: #fff; border: 1px solid #e3e0d9; color: inherit; text-decoration: none; }
+.tech-upcoming__date { color: #6c7076; font-size: 13px; }
+.tech-upcoming__name { font-size: 16px; font-weight: 650; }
+.tech-upcoming__reg { justify-self: start; padding: 2px 8px; border-radius: 8px; background: #f1efe9; font-family: var(--font-mono); font-size: 12px; }
+
+.tech-checknow { width: 100%; min-height: 52px; border-radius: 999px; margin: 4px 0 12px; }
+.tech-seen { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 8px 0 0; padding: 0; }
+.tech-seen li { font-size: 0.85rem; padding: 6px 12px; border-radius: 999px; background: #f1f1ef; color: #666; }
+.tech-seen li::before { content: "○ "; }
+.tech-seen li.is-done { background: #e3f4e8; color: #17653a; }
+.tech-seen li.is-done::before { content: "✓ "; }
