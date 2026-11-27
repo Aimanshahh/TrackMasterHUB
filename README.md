@@ -237,6 +237,13 @@ The billing authority, built as a ledger rather than a card dashboard.
 
 ---
 
+**Package checklist (new sale form).** Each package lists what sets it apart (the
+engine kill type, one-way or two-way voice, SIM/WhatsApp alerts, the advanced locator
+with its second device). The salesperson ticks every item with the customer, and the
+sale is not sent to Operations until all are ticked; the server enforces this too.
+Geofence and alerts come with every package, so they are not listed. The ticked items
+are saved on the sale and shown to the technician as "Package includes".
+
 ### Technician portal (`/technician`)
 
 Phone-first: one column, a bottom tab bar, and no sidebar on small screens. The

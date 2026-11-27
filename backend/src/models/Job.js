@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { refreshCustomerCategory } from '../utils/customerCategory.js';
 import { makeReference } from '../utils/reference.js';
 import { PACKAGE_KEYS, packageCatalog } from './Package.js';
+import { confirmedItems } from '../utils/packageChecklist.js';
 import { packageHasEngineKill } from '../utils/customerLogin.js';
 import { CHECKLIST_KEYS, ENGINE_KILL_STATUSES, completionStatus, engineKillLabels } from '../utils/installation.js';
 
@@ -340,6 +341,12 @@ const jobSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    /** What the salesperson confirmed with the customer before the sale could be sent. */
+    packageChecklist: {
+      confirmed: { type: [String], default: [] },
+      confirmedAt: { type: Date },
+      confirmedByName: { type: String, trim: true, maxlength: 120, default: '' },
+    },
     deviceOwnership: {
       type: String,
       enum: ['company', 'customer'],
@@ -526,6 +533,11 @@ jobSchema.methods.toApiJson = function ({ includeFinancials = true } = {}) {
     } : {}),
     approvalStatus: this.approvalStatus ?? 'not_required',
     packageFeatures: this.packageFeatures ?? [],
+    packageChecklist: {
+      items: confirmedItems(this.packageKey, this.packageChecklist?.confirmed).map((item) => item.label),
+      confirmedAt: this.packageChecklist?.confirmedAt?.toISOString?.() ?? null,
+      confirmedByName: this.packageChecklist?.confirmedByName ?? '',
+    },
     deviceOwnership: this.deviceOwnership ?? 'company',
     approvalId: this.approval ? this.approval.toString() : null,
     scheduledAt: this.scheduledAt?.toISOString() ?? null,

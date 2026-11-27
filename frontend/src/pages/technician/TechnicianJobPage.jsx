@@ -183,6 +183,9 @@ export default function TechnicianJobPage() {
           <div><dt>Address</dt><dd>{job.installation?.address || 'Not recorded yet'}</dd></div>
           <div><dt>Status</dt><dd>{job.statusLabel}</dd></div>
         </dl>
+        {job.packageChecklist?.items?.length ? (
+          <p className="tech-ops-note"><strong>Package includes:</strong> {job.packageChecklist.items.join(' · ')}</p>
+        ) : null}
         {job.notes ? <p className="tech-ops-note"><strong>Operations note:</strong> {job.notes}</p> : null}
       </section>
 

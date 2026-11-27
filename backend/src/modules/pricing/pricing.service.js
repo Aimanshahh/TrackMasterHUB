@@ -1,4 +1,5 @@
 import Activity from '../../models/Activity.js';
+import { checklistFor } from '../../utils/packageChecklist.js';
 import Package, { PACKAGE_KEYS, packageCatalog } from '../../models/Package.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
@@ -15,6 +16,7 @@ function unconfigured(key) {
     summary: catalog.summary,
     features: [],
     configured: false,
+    checklist: checklistFor(key),
     updatedAt: null,
   };
 }
@@ -29,7 +31,7 @@ async function listPackages() {
   const byKey = new Map(docs.map((doc) => [doc.key, doc]));
 
   return {
-    data: PACKAGE_KEYS.map((key) => (byKey.has(key) ? byKey.get(key).toApiJson() : unconfigured(key))),
+    data: PACKAGE_KEYS.map((key) => (byKey.has(key) ? { ...byKey.get(key).toApiJson(), checklist: checklistFor(key) } : unconfigured(key))),
     meta: { currency: CURRENCY },
   };
 }

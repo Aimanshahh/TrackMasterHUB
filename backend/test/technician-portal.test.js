@@ -135,3 +135,19 @@ test('admin sales board leaves out legacy imported vehicles', { skip }, async ()
   const board = await getSalesBoard();
   assert.ok(!board.recent.some((row) => /OLD-1/.test(JSON.stringify(row))));
 });
+
+test('package checklist: a sale is refused until everything the package includes is confirmed', { skip }, async () => {
+  const ops = await import('../src/modules/operations/operations.service.js');
+  const { default: Package } = await import('../src/models/Package.js');
+  await Package.create({ key: 'premium', price: 30000 });
+  const base = {
+    customerId: ctx.customer._id.toString(), vehicleLabel: 'Prado', vehicleRegistration: 'CHK-1', station: 'Lahore',
+    packageKey: 'premium', quotedPrice: 30000,
+  };
+  const as = { id: ctx.sales._id.toString(), name: 'Test Sales', role: 'salesperson' };
+  await rejects(ops.createJob(base, as), /Alerts on SIM message and WhatsApp/);
+  await rejects(ops.createJob({ ...base, packageChecklist: ['engine_kill_app'] }, as), /second device/);
+  const done = await ops.createJob({ ...base, packageChecklist: ['engine_kill_app', 'alerts_sim_whatsapp', 'advanced_locator', 'voice_two_way'] }, as);
+  const saved = done.job ?? done;
+  assert.equal(saved.packageChecklist.items.length, 4);
+});

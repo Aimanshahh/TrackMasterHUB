@@ -10,6 +10,7 @@ import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
 import { createApprovalForJob } from '../approvals/approvals.service.js';
 import { notifyUser } from '../notifications/notifications.service.js';
+import { checklistFor, missingChecklist } from '../../utils/packageChecklist.js';
 import { getPackagePricing } from '../pricing/pricing.service.js';
 
 /** A station is flagged when it has fewer available devices than this. */
@@ -186,6 +187,16 @@ async function createJob(input, actor) {
     }
 
     approvalStatus = quotedPrice < listPrice ? 'pending' : 'not_required';
+
+    /* Nothing is processed until the salesperson has confirmed what the package
+       includes with the customer. */
+    const unticked = missingChecklist(packageKey, input.packageChecklist);
+    if (unticked.length) {
+      throw makeError(errorCodes.VALIDATION_ERROR, `Confirm with the customer before sending: ${unticked.join('; ')}.`);
+    }
+    if (packageKey === 'customize' && !(Array.isArray(input.packageFeatures) && input.packageFeatures.some((f) => String(f).trim()))) {
+      throw makeError(errorCodes.VALIDATION_ERROR, 'List the features the customer agreed to for the Customize package.');
+    }
   }
 
   const agentSource = input.agent?.source === 'agent' ? 'agent' : 'direct';
@@ -217,6 +228,9 @@ async function createJob(input, actor) {
     listPrice,
     quotedPrice,
     packageFeatures: Array.isArray(input.packageFeatures) ? input.packageFeatures.map(String).filter(Boolean).slice(0, 20) : [],
+    packageChecklist: requestType === 'new_installation'
+      ? { confirmed: checklistFor(packageKey).map((item) => item.key).filter((key) => (input.packageChecklist ?? []).includes(key)), confirmedAt: new Date(), confirmedByName: String(actor?.name ?? actor?.email ?? '').trim() }
+      : undefined,
     deviceOwnership: input.deviceOwnership === 'customer' ? 'customer' : 'company',
     approvalStatus,
     minimumPrice,

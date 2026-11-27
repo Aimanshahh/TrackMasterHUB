@@ -39,6 +39,7 @@ function newVehicle() {
     packageKey: '',
     quotedPrice: '',
     packageFeatures: '',
+    checklist: [],
     deviceOwnership: 'company',
     approvalReason: '',
   };
@@ -125,9 +126,15 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
 
   function choosePackage(id, pkg) {
     setVehicles((current) => current.map((vehicle) => (
-      vehicle.id === id ? { ...vehicle, packageKey: pkg.key, quotedPrice: pkg.price ?? '' } : vehicle
+      vehicle.id === id ? { ...vehicle, packageKey: pkg.key, quotedPrice: pkg.price ?? '', checklist: vehicle.packageKey === pkg.key ? vehicle.checklist : [] } : vehicle
     )));
   }
+
+  const toggleCheck = (id, key) => setVehicles((current) => current.map((vehicle) => {
+    if (vehicle.id !== id) return vehicle;
+    const has = vehicle.checklist.includes(key);
+    return { ...vehicle, checklist: has ? vehicle.checklist.filter((entry) => entry !== key) : [...vehicle.checklist, key] };
+  }));
 
   const addVehicle = () => setVehicles((current) => [...current, newVehicle()]);
   const removeVehicle = (id) => setVehicles((current) => (current.length > 1 ? current.filter((vehicle) => vehicle.id !== id) : current));
@@ -160,6 +167,15 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
         }
         if (!hasQuote) {
           setError(`${label}Enter the price you quoted the customer.`);
+          return;
+        }
+        const unticked = (pkg.checklist ?? []).filter((item) => !vehicle.checklist.includes(item.key));
+        if (unticked.length) {
+          setError(`${label}Confirm with the customer first: ${unticked.map((item) => item.label).join('; ')}.`);
+          return;
+        }
+        if (pkg.key === 'customize' && !vehicle.packageFeatures.trim()) {
+          setError(`${label}List the features the customer agreed to for the Customize package.`);
           return;
         }
         // The minimum price is a floor, not a suggestion: the backend refuses it.
@@ -240,6 +256,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
           notes: form.notes,
           packageKey: vehicle.packageKey,
           quotedPrice: quote,
+          packageChecklist: vehicle.checklist,
           packageFeatures: vehicle.packageFeatures.split('\n').map((feature) => feature.trim()).filter(Boolean),
           deviceOwnership: vehicle.deviceOwnership,
           approvalReason: state === 'below' ? vehicle.approvalReason : undefined,
@@ -380,7 +397,7 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
               ) : null}
 
               {vehicles.map((vehicle, index) => {
-                const { pkg, state } = quoteStateFor(vehicle, packages.rows);
+                const { pkg, state, floor, belowFloor } = quoteStateFor(vehicle, packages.rows);
                 return (
                   <fieldset className="vehicle-block" key={vehicle.id}>
                     <legend className="vehicle-block__title">
@@ -444,6 +461,17 @@ export default function IntakeDrawer({ open, onClose, onSaved }) {
                           />
                         </div>
                       </label>
+                  {(pkg?.checklist ?? []).length ? (
+                    <fieldset className="pkg-check field--full">
+                      <legend className="field__label">Confirm with the customer <i>All required</i></legend>
+                      {pkg.checklist.map((item) => (
+                        <label className="pkg-check__row" key={item.key}>
+                          <input type="checkbox" checked={vehicle.checklist.includes(item.key)} onChange={() => toggleCheck(vehicle.id, item.key)} disabled={saving} />
+                          <span>{item.label}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : null}
                   {pkg?.key === 'customize' ? (
                     <label className="field field--full">
                       <span className="field__label">Additional features</span>

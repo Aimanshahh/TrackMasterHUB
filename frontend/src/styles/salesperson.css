@@ -1530,3 +1530,8 @@
 .sp-target[data-met="true"] .sp-target__bar i { background: linear-gradient(90deg, #3aa769, #1f8a52); }
 .sp-target p { margin: 0; color: #5d6268; font-size: 13px; }
 .target-editor { display: grid; gap: 10px; margin-top: 14px; max-width: 360px; }
+
+.pkg-check { border: 1px solid var(--line, #e2e2de); border-radius: 18px; padding: 12px 14px; margin: 0; display: grid; gap: 4px; }
+.pkg-check legend { padding: 0 6px; }
+.pkg-check__row { display: flex; gap: 12px; align-items: center; min-height: 48px; font-size: 0.95rem; cursor: pointer; }
+.pkg-check__row input { width: 24px; height: 24px; flex: none; accent-color: #1f7a4d; }
