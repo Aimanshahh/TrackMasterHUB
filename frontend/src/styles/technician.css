@@ -713,3 +713,13 @@
 .tech-seen li::before { content: "○ "; }
 .tech-seen li.is-done { background: #e3f4e8; color: #17653a; }
 .tech-seen li.is-done::before { content: "✓ "; }
+
+.tech-panel { display: grid; gap: 0.75rem; padding: 1rem; border: 1px solid var(--border, #d9dde3); border-radius: 12px; background: var(--surface, #fff); }
+.tech-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.tech-panel__head h2 { margin: 0; font-size: 1.05rem; }
+.tech-panel__actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.tech-facts { display: grid; gap: 0.4rem; margin: 0; }
+.tech-facts div { display: flex; justify-content: space-between; gap: 1rem; }
+.tech-facts dt { color: var(--muted, #667085); }
+.tech-facts dd { margin: 0; text-align: right; font-weight: 600; }
+.tech-subhead { margin: 0.5rem 0 0; font-size: 0.95rem; }

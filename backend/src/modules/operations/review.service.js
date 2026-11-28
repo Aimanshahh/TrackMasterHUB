@@ -146,6 +146,10 @@ async function reviewInstallation(id, input, actor) {
     });
     await job.save();
 
+    /* Sent back for correction: the pair is reserved to this job again, not out in the field. */
+    if (job.deviceImei) await Device.updateOne({ imei: job.deviceImei, job: job._id }, { $set: { status: 'assigned' }, $unset: { installedAt: 1 } });
+    if (job.simNumber) await Sim.updateOne({ number: job.simNumber, job: job._id }, { $set: { status: 'assigned' }, $unset: { installedAt: 1 } });
+
     if (job.technician?.user) {
       await notifyUser({
         userId: job.technician.user,

@@ -4,6 +4,7 @@ import { packageCatalog } from '../../models/Package.js';
 import { engineKillLabels } from '../../utils/installation.js';
 import { makeError } from '../../middleware/errors.js';
 import { errorCodes } from '../../config/errorCodes.js';
+import DeviceRemoval from '../../models/DeviceRemoval.js';
 import TimelineEvent from '../../models/TimelineEvent.js';
 import { coreVrn, deviceRoleLabels, splitVrn } from '../../utils/vrn.js';
 import { ensureTrackingLoaded, getSyncStatus, normalizePlate, statusFor, syncTracking } from '../tracking/tracking.service.js';
@@ -39,6 +40,16 @@ function devicesOf(job) {
   return [{ role, roleLabel: deviceRoleLabels[role] ?? 'Tracker', imei: job.deviceImei ?? '', simNumber: job.simNumber ?? '', network: job.network ?? '' }];
 }
 
+/** Is the device on the vehicle now, waiting for approval, or already taken off? */
+function installStateOf(job) {
+  if (job.deviceRemoval?.removal) return 'removed';
+  return job.status === 'completed' ? 'installed' : 'awaiting_approval';
+}
+
+const removalOf = (job) => (job.deviceRemoval?.removal
+  ? { imei: job.deviceRemoval.imei ?? '', at: job.deviceRemoval.at?.toISOString?.() ?? null, byName: job.deviceRemoval.byName ?? '' }
+  : null);
+
 const TRACKING_RANK = { active: 0, inactive: 1, unknown: 2, not_tracked: 3 };
 
 /** One vehicle, possibly two devices: report the best status among them. */
@@ -70,18 +81,22 @@ function portalLabel(value) {
 async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
   await ensureTrackingLoaded();
 
-  const filter = { requestType: 'new_installation', status: 'completed' };
+  /* Listed once the technician has submitted the installation (the device has left stock), even before Operations approves. */
+  const filter = {
+    requestType: 'new_installation',
+    $and: [{ $or: [{ status: 'completed' }, { status: 'in_progress', 'testing.submittedAt': { $exists: true }, 'testing.review.status': 'pending' }] }],
+  };
 
   if (q) {
     const regex = new RegExp(escapeRegex(String(q).trim()), 'i');
-    filter.$or = [
+    filter.$and.push({ $or: [
       { 'vehicle.registration': regex },
       { 'vehicle.label': regex },
       { customerName: regex },
       { phone: regex },
       { deviceImei: regex },
       { simNumber: regex },
-    ];
+    ] });
   }
 
   const jobs = await Job.find(filter)
@@ -129,6 +144,8 @@ async function listVehicles({ q, status, page = 1, limit = 25 } = {}) {
         station: job.vehicle?.station ?? '',
       },
       engineKill: { status: job.installation?.engineKill?.status ?? 'not_set', label: engineKillLabels[job.installation?.engineKill?.status ?? 'not_set'] },
+      installState: installStateOf(job),
+      removal: removalOf(job),
       deviceImei: job.deviceImei ?? '',
       simNumber: job.simNumber ?? '',
       network: job.network ?? '',
@@ -228,6 +245,7 @@ async function getVehicleProfile(id, lookup = '') {
     .sort((a, b) => new Date(b.at) - new Date(a.at));
 
   const customerJob = current ?? jobs[0];
+  const removals = await DeviceRemoval.find({ job: { $in: installs.map((j) => j._id) } }).sort({ removedAt: -1 });
 
   // Past actions from the legacy sheet (Redo, Removal, package) for this vehicle. They have no date, and no price is shown here.
   const legacyRows = await TimelineEvent.find({
@@ -257,6 +275,8 @@ async function getVehicleProfile(id, lookup = '') {
         station: current.vehicle?.station ?? '',
       },
       customer: { id: customerJob.customer?.toString() ?? '', name: customerJob.customerName ?? '', phone: customerJob.phone ?? '' },
+      installState: installStateOf(current),
+      removal: removalOf(current),
       devices: deviceList,
       device: { imei: current.deviceImei ?? '', simNumber: current.simNumber ?? '', model: current.installation?.deviceModel ?? '', placement: current.installation?.placement ?? '' },
       engineKill: current.toApiJson().engineKill,
@@ -270,6 +290,7 @@ async function getVehicleProfile(id, lookup = '') {
       inspectionNotes: current.vehicle?.inspectionNotes ?? '',
       lastInspectedAt: current.vehicle?.lastInspectedAt?.toISOString?.() ?? null,
       inspectedBy: current.vehicle?.inspectedBy ?? '',
+      removals: removals.map((row) => row.toApiJson()),
       installations: installs.map((j) => j.toApiJson()),
       serviceJobs: jobs.filter((j) => j.requestType !== 'new_installation').map((j) => j.toApiJson()),
       certificates: certs.map((c) => c.toApiJson()),

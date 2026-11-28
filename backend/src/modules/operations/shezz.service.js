@@ -4,6 +4,7 @@ import { makeError } from '../../middleware/errors.js';
 import Sim from '../../models/Sim.js';
 import Device from '../../models/Device.js';
 import Technician from '../../models/Technician.js';
+import { bindPortalSim } from './simBinding.js';
 import { matchTechnician, normalizeName } from '../../utils/technicianMatch.js';
 
 const FETCH_LIMIT = 2000;
@@ -117,7 +118,7 @@ export async function applyHandovers(rows, { mappings = {} } = {}, actor, source
   const technicians = await Technician.find({ active: true });
   const byId = new Map(technicians.map((t) => [t._id.toString(), t]));
 
-  const summary = { created: 0, reassigned: 0, unchanged: 0, fitted: 0, invalid: 0, skippedNames: [] };
+  const summary = { created: 0, reassigned: 0, unchanged: 0, fitted: 0, invalid: 0, skippedNames: [], simBound: 0, simNotes: [] };
 
   for (const group of groupByRecipient(latestPerImei(rows))) {
     let technician = null;
@@ -140,10 +141,10 @@ export async function applyHandovers(rows, { mappings = {} } = {}, actor, source
       if (!validImei(imei)) { summary.invalid += 1; continue; }
 
       const source = [row.invoiceNumber && `Shezz invoice ${row.invoiceNumber}`, row.boxCode && `box ${row.boxCode}`].filter(Boolean).join(', ');
-      const device = await Device.findOne({ imei });
+      let device = await Device.findOne({ imei });
 
       if (!device) {
-        await Device.create({
+        device = await Device.create({
           imei,
           model: row.productName || undefined,
           station: technician.station || undefined,
@@ -165,6 +166,13 @@ export async function applyHandovers(rows, { mappings = {} } = {}, actor, source
           await Sim.updateOne({ number: device.simNumber, job: { $in: [null, undefined] } }, { $set: { technician: technician._id, status: 'assigned' } });
         }
         summary.reassigned += 1;
+      }
+
+      /* The SIM the portal has for this device, bound only where that is safe. */
+      if (row.sim && !device.job) {
+        const result = await bindPortalSim(device, technician, row.sim);
+        if (result.outcome === 'bound') summary.simBound += 1;
+        else if (result.detail) summary.simNotes.push(`${imei}: ${result.detail}`);
       }
     }
 

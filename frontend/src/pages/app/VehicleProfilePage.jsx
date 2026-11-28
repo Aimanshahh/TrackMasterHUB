@@ -47,7 +47,7 @@ export default function VehicleProfilePage() {
   if (state.status === 'loading') return <p className="data-state" role="status">Loading vehicle…</p>;
   if (state.status === 'error') return <p className="app-notice app-notice--error" role="alert">{state.error} <Link to={`${base}/vehicles`}>Back to vehicles</Link></p>;
 
-  const { vehicle, customer, device, engineKill, engineKillHistory, legacyTimeline = [], tracking, installations, serviceJobs, certificates } = state.data;
+  const { vehicle, customer, device, engineKill, engineKillHistory, legacyTimeline = [], tracking, installations, serviceJobs, certificates, installState, removal, removals = [] } = state.data;
   const [trackLabel, trackTone] = TRACK[tracking?.status] ?? TRACK.unknown;
 
   return (
@@ -83,6 +83,7 @@ export default function VehicleProfilePage() {
         <section className="panel">
           <div className="panel__head"><h3 className="panel__title">Device &amp; SIM</h3></div>
           <div className="panel__body vp-facts">
+            <Fact label="State">{installState === 'removed' ? `Device removed${removal?.at ? ` on ${formatDateTime(removal.at)}` : ''}${removal?.byName ? ` by ${removal.byName}` : ''}` : installState === 'awaiting_approval' ? 'Installed, awaiting Operations approval' : 'Installed'}</Fact>
             <Fact label="IMEI">{device.imei}</Fact>
             <Fact label="SIM number">{device.simNumber}</Fact>
             <Fact label="Model">{device.model}</Fact>
@@ -116,6 +117,17 @@ export default function VehicleProfilePage() {
           </div>
         </section>
       </div>
+
+      {removals.length ? (
+        <>
+          <h3 className="vp__h">Device removals</h3>
+          <ul className="vp-ek-history">
+            {removals.map((row) => (
+              <li key={row.id}><span>IMEI {row.imei}{row.simNumber ? ` · SIM ${row.simNumber}` : ''}</span><time dateTime={row.removedAt}>{formatDateTime(row.removedAt)} · {row.technicianName}</time></li>
+            ))}
+          </ul>
+        </>
+      ) : null}
 
       <h3 className="vp__h">Installation records</h3>
       {installations.map((job) => (

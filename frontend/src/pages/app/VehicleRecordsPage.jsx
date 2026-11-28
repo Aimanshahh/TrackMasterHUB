@@ -325,6 +325,8 @@ export default function VehicleRecordsPage() {
                         <>
                           <span className="ledger__strong">{row.deviceImei || 'No IMEI'}</span>
                           <span className="ledger__sub">{[row.simNumber || 'No SIM', row.network].filter(Boolean).join(' · ')}</span>
+                          {row.installState === 'removed' ? <span className="ledger__sub"><strong>Device removed</strong>{row.removal?.at ? ` ${new Date(row.removal.at).toLocaleDateString('en-GB')}` : ''}{row.removal?.byName ? ` by ${row.removal.byName}` : ''}</span> : null}
+                          {row.installState === 'awaiting_approval' ? <span className="ledger__sub">Awaiting Operations approval</span> : null}
                         </>
                       )}
                     </td>

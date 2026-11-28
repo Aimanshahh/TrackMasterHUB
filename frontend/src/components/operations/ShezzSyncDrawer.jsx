@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { fetchShezzPreview, fetchStockPortalPreview, runShezzSync, runStockPortalSync } from '../../lib/api.js';
+import { fetchShezzPreview, runShezzSync } from '../../lib/api.js';
 
 const HOW_TEXT = { exact: 'Matched', alias: 'Matched (remembered)', suggested: 'Check this match' };
 
@@ -11,7 +11,6 @@ const HOW_TEXT = { exact: 'Matched', alias: 'Matched (remembered)', suggested: '
  */
 const SOURCES = {
   shezz: { name: 'Shezz Traders', load: fetchShezzPreview, run: runShezzSync, intro: 'Devices handed to technicians on Shezz, matched to the technicians created here.', column: 'Name on Shezz', empty: 'Shezz Traders has not handed any devices to technicians yet.' },
-  portal: { name: 'the tracking portal', load: fetchStockPortalPreview, run: runStockPortalSync, intro: 'Who holds each device on the tracking portal: the technician accounts under the technician stock user, matched to the technicians created here.', column: 'Group on the portal', empty: 'The technician stock account on the tracking portal lists no devices yet.' },
 };
 
 export default function ShezzSyncDrawer({ onClose, onDone, source = 'shezz' }) {
@@ -84,8 +83,10 @@ export default function ShezzSyncDrawer({ onClose, onDone, source = 'shezz' }) {
                 <li><strong>{result.created}</strong> new devices added</li>
                 <li><strong>{result.reassigned}</strong> moved to a different technician</li>
                 <li><strong>{result.unchanged}</strong> already correct</li>
+                {result.simBound ? <li><strong>{result.simBound}</strong> SIM numbers paired with their device (not marked configured)</li> : null}
                 {result.fitted ? <li><strong>{result.fitted}</strong> left alone because they are fitted to a job</li> : null}
                 {result.invalid ? <li><strong>{result.invalid}</strong> skipped, IMEI not valid</li> : null}
+                {(result.simNotes ?? []).map((note) => <li key={note}>{note}</li>)}
                 {result.skippedNames.length ? <li>Not imported (no technician chosen): {result.skippedNames.join(', ')}</li> : null}
               </ul>
             </div>
@@ -95,19 +96,8 @@ export default function ShezzSyncDrawer({ onClose, onDone, source = 'shezz' }) {
             groups.length === 0 ? (
               <>
                 <p className="panel__note">
-                  {source === 'portal' && state.data?.source?.shape?.totalDevices
-                    ? `The portal lists ${state.data.source.shape.totalDevices} devices, but none say which technician holds them (${state.data.source.shape.ownersFound} tied to an account, the rest in no named group).`
-                    : from.empty}
+                    {from.empty}
                 </p>
-                {source === 'portal' && state.data?.source?.shape ? (
-                  <div className="panel__note">
-                    <strong>What the portal sends (field names only):</strong>
-                    <p>Groups: {state.data.source.shape.groups.map((group) => `${group.title} (${group.devices})`).join(', ') || 'none'}</p>
-                    <p>Device fields: {state.data.source.shape.deviceFields.join(', ') || '—'}</p>
-                    <p>Device data fields: {state.data.source.shape.deviceDataFields.join(', ') || '—'}</p>
-                    <p>Send this to the developer so the technician can be read from the right field.</p>
-                  </div>
-                ) : null}
               </>
             ) : (
               <>

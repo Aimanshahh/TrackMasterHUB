@@ -75,8 +75,14 @@ test('portal tests: ignition and battery need both states, location needs a posi
   await rejects(svc.requestEngineKillTest(actor(), id, {}), /does not include an engine kill/);
   await svc.submitForReview(actor(), id);
 
+  /* Submitting takes the device out of the technician's stock and into Vehicles Inventory. */
+  const { default: DeviceModel } = await import('../src/models/Device.js');
+  assert.equal((await DeviceModel.findOne({ imei: '350000000009999' })).status, 'installed');
+  assert.equal((await svc.getStock(actor())).counts.devicesAvailable, 0);
+
   const approved = await review.reviewInstallation(id, { decision: 'approve' }, opsActor);
   assert.equal(approved.job.status, 'completed');
+  assert.equal((await DeviceModel.findOne({ imei: '350000000009999' })).status, 'installed');
   const customer = await Customer.findById(ctx.customer._id);
   assert.equal(customer.appLogin, 'vrn-567@trackmaster.pk');
 });

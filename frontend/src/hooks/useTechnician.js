@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchTechnicianEarnings,
   fetchTechnicianJob,
+  fetchTechnicianInstallations,
   fetchTechnicianJobs,
+  fetchTechnicianRemovals,
   fetchTechnicianStock,
   fetchTechnicianSummary,
 } from '../lib/api.js';
@@ -80,6 +82,14 @@ export function useTechnicianJob(id) {
 
 export function useTechnicianStock() {
   return useResource((signal) => fetchTechnicianStock({ signal }));
+}
+
+export function useTechnicianInstallations() {
+  return useResource((signal) => fetchTechnicianInstallations({ signal }));
+}
+
+export function useTechnicianRemovals() {
+  return useResource((signal) => fetchTechnicianRemovals({ signal }));
 }
 
 export function useTechnicianEarnings() {

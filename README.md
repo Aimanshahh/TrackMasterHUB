@@ -558,6 +558,11 @@ Every response carries `X-Request-Id`.
 | POST   | `/api/operations/whatsapp/send`   | admin, operations — adds a timeline event |
 | GET    | `/api/operations/shezz/preview`   | admin, operations — what a fetch would do |
 | POST   | `/api/operations/shezz/sync`      | admin, operations          |
+| GET    | `/api/operations/stock-portal/report` | admin, operations — read-only check of each technician's portal account against the Hub |
+| POST   | `/api/operations/stock-portal/bind-sim` | admin, operations — bind the portal's SIM to one device (never overwrites, never marks configured) |
+| GET    | `/api/technician/installations`   | technician — installations this technician submitted |
+| GET    | `/api/technician/removals/vehicles?q=` | technician — vehicles currently carrying a device |
+| GET/POST | `/api/technician/removals`      | technician — removal history / confirm a removal (device returns to the remover's stock, once) |
 | GET    | `/api/customers/:id/history`      | session — timeline and legacy history |
 | *      | `/api/vehicles`, `/api/calls`, `/api/certificates`, `/api/imports`, `/api/messages` | see each module's routes |
 | POST   | `/api/webhooks/robocall?token=`   | robocall provider          |
@@ -789,3 +794,12 @@ provider's real payload.
   when more remain.
 - Vehicle status comes from the tracking sync. If the tracking server cannot be
   reached the UI shows the last known state rather than inventing one.
+
+
+## Technician stock, installation and removal
+
+- Devices come from Shezz Traders only. The tracking portal is used to check them, never to import them.
+- Fetching from the portal (per technician account): account name and login, device IMEI, SIM number, portal device id, device name, active flag and last-seen time. Hub-only data: SIM pairing, configured flag, technician stock, installations, removals.
+- A device leaves a technician's stock when the technician submits the installation and appears in Vehicles Inventory (awaiting Operations approval until approved).
+- A removal is one confirmation by the technician: the device and its SIM return to the remover's stock, the vehicle shows the device as removed, and the record sits in a separate removal history. One removal per installation, enforced by a unique index, so a repeat cannot add the device twice. The SIM pairing and the configured flag are left as they were.
+- Binding a SIM never marks a device configured.

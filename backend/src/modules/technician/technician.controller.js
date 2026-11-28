@@ -78,4 +78,19 @@ async function earnings(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export { summary, jobs, job, selectDevice, recordTest, engineKill, portalCheck, engineKillUnsupported, submit, stock, earnings };
+import { confirmRemoval, listInstallations, listRemovals, searchInstalledVehicles } from './removal.service.js';
+
+async function removalVehicles(req, res, next) {
+  try { return res.json({ data: await searchInstalledVehicles(req.user, req.query.q) }); } catch (error) { next(error); }
+}
+async function removalConfirm(req, res, next) {
+  try { return res.status(201).json({ data: await confirmRemoval(req.user, req.body ?? {}) }); } catch (error) { next(error); }
+}
+async function removalList(req, res, next) {
+  try { return res.json({ data: await listRemovals(req.user) }); } catch (error) { next(error); }
+}
+async function installationList(req, res, next) {
+  try { return res.json({ data: await listInstallations(req.user) }); } catch (error) { next(error); }
+}
+
+export { removalVehicles, removalConfirm, removalList, installationList, summary, jobs, job, selectDevice, recordTest, engineKill, portalCheck, engineKillUnsupported, submit, stock, earnings };

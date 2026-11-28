@@ -233,6 +233,13 @@ const jobSchema = new mongoose.Schema(
       }, { _id: false })],
       default: [],
     },
+    /** Set once the device fitted on this job has been taken off the vehicle (see DeviceRemoval). */
+    deviceRemoval: {
+      removal: { type: mongoose.Schema.Types.ObjectId, ref: 'DeviceRemoval' },
+      imei: { type: String, trim: true },
+      at: { type: Date },
+      byName: { type: String, trim: true },
+    },
     /** Set for vehicles brought in by the bulk import; they never went through the install workflow. */
     legacy: {
       imported: { type: Boolean, default: false },

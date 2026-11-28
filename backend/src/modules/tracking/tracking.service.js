@@ -138,6 +138,10 @@ export function toDevice(item) {
     plate: normalizePlate(item.name),
     imei,
     uniqueId,
+    /* The SIM the portal has on record for this device, when it has one. */
+    simNumber: String(item.sim_number ?? deviceData.sim_number ?? '').trim(),
+    /* Whether the portal considers the device active. */
+    active: readBoolean(item.active, deviceData.active),
     portalSource: item.portalSource ?? 'Unassigned',
     amcExpiryDate,
     gpsState: String(item.online ?? '').trim().toLowerCase(),
@@ -187,13 +191,18 @@ const OWNER_PATHS = [
 
 const dig = (item, path) => path.reduce((value, key) => (value === null || value === undefined ? undefined : value[key]), item);
 
-/** Whose account a device sits under, when the portal says so; '' when it does not. */
-export function ownerOf(item) {
+/** The login (email) of the account a device sits under, as the portal sends it; '' when it does not say. */
+export function ownerLoginOf(item) {
   for (const path of OWNER_PATHS) {
     const value = dig(item, path);
-    if (typeof value === 'string' && value.trim()) return nameFromLogin(value);
+    if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
+}
+
+/** Whose account a device sits under, read as a name; '' when the portal does not say. */
+export function ownerOf(item) {
+  return nameFromLogin(ownerLoginOf(item));
 }
 
 const isUngrouped = (title) => !title || /^ungrouped$/i.test(String(title).trim());
@@ -220,11 +229,13 @@ async function syncTechnicianStock() {
     const buckets = new Map();
     let total = 0;
     let ownersFound = 0;
-    const put = (title, device) => {
+    const put = (title, device, login = '') => {
       total += 1;
       const key = title.toLowerCase();
-      if (!buckets.has(key)) buckets.set(key, { id: key || 'ungrouped', title, items: [], devices: [] });
-      buckets.get(key).devices.push(device);
+      if (!buckets.has(key)) buckets.set(key, { id: key || 'ungrouped', title, login, items: [], devices: [] });
+      const bucket = buckets.get(key);
+      if (!bucket.login && login) bucket.login = login;
+      bucket.devices.push({ ...device, ownerLogin: login });
     };
     for (const group of flattenGroups(payload)) {
       for (const item of group.items) {
@@ -232,14 +243,14 @@ async function syncTechnicianStock() {
         if (!device.imei && !device.uniqueId) continue;
         const owner = ownerOf(item);
         if (owner) ownersFound += 1;
-        put(owner || (isUngrouped(group.title) ? '' : group.title), device);
+        put(owner || (isUngrouped(group.title) ? '' : group.title), device, ownerLoginOf(item));
       }
     }
     for (const item of flattenDevices(payload.filter((group) => !Array.isArray(group?.items)))) {
       const device = toDevice({ ...item, portalSource: portal.source });
       const owner = ownerOf(item);
       if (owner) ownersFound += 1;
-      put(owner, device);
+      put(owner, device, ownerLoginOf(item));
     }
     const groups = [...buckets.values()];
     state.stockShape = shapeOf(payload, groups, ownersFound, total);
@@ -265,7 +276,7 @@ export function getTechnicianStockGroups() {
     syncedAt: state.stockSync.syncedAt?.toISOString() ?? null,
     error: state.stockSync.error,
     shape: state.stockShape ?? null,
-    groups: state.stockGroups.map((group) => ({ id: group.id, title: group.title, devices: group.devices })),
+    groups: state.stockGroups.map((group) => ({ id: group.id, title: group.title, login: group.login ?? '', devices: group.devices })),
   };
 }
 

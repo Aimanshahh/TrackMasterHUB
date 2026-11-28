@@ -1,5 +1,5 @@
 import { applyShezzSync, previewShezzSync } from './shezz.service.js';
-import { applyStockPortal, previewStockPortal } from './stockPortal.service.js';
+import { bindSimFromPortal, portalReport } from './stockPortal.service.js';
 import { getCustomerProfile, searchCustomers } from './customers.service.js';
 import { createTemplate, listTemplates, previewMessage, sendTemplateMessage } from './whatsapp.service.js';
 
@@ -51,14 +51,14 @@ export async function postShezzSync(req, res, next) {
   } catch (error) { next(error); }
 }
 
-export async function getStockPortalPreview(req, res, next) {
+export async function getStockPortalReport(req, res, next) {
   try {
-    return res.json({ data: await previewStockPortal() });
+    return res.json({ data: await portalReport() });
   } catch (error) { next(error); }
 }
 
-export async function postStockPortalSync(req, res, next) {
+export async function postBindPortalSim(req, res, next) {
   try {
-    return res.json({ data: await applyStockPortal(req.body ?? {}, req.user) });
+    return res.json({ data: await bindSimFromPortal(String(req.body?.imei ?? '').trim()) });
   } catch (error) { next(error); }
 }
