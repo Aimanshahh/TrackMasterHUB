@@ -477,6 +477,10 @@ async function submitForReview(user, id) {
   });
   await job.save();
 
+  /* Submitting is the confirmation: the fitted device and SIM leave the technician's stock now. */
+  await Device.updateOne({ imei: job.deviceImei, job: job._id }, { $set: { status: 'installed', installedAt: now } });
+  await Sim.updateOne({ number: job.simNumber, job: job._id }, { $set: { status: 'installed', installedAt: now } });
+
   const operations = await User.find({ role: 'operations', active: true }).select('_id');
   await Promise.all(operations.map((person) => notifyUser({
     userId: person._id,

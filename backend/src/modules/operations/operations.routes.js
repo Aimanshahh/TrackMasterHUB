@@ -42,8 +42,8 @@ import {
   postMessagePreview,
   postMessageTemplate,
   postWhatsAppSend,
-  getStockPortalPreview,
-  postStockPortalSync,
+  getStockPortalReport,
+  postBindPortalSim,
 } from './desk.controller.js';
 
 export const operationsRouter = Router();
@@ -98,8 +98,8 @@ operationsRouter.patch('/sims/:id', deskOnly, patchSim);
 // Search-first customer lookup and profile for the desk. No prices or security briefing.
 operationsRouter.get('/shezz/preview', deskOnly, getShezzPreview);
 operationsRouter.post('/shezz/sync', deskOnly, postShezzSync);
-operationsRouter.get('/stock-portal/preview', deskOnly, getStockPortalPreview);
-operationsRouter.post('/stock-portal/sync', deskOnly, postStockPortalSync);
+operationsRouter.get('/stock-portal/report', deskOnly, getStockPortalReport);
+operationsRouter.post('/stock-portal/bind-sim', deskOnly, postBindPortalSim);
 operationsRouter.get('/customers', deskOnly, getDeskCustomers);
 operationsRouter.get('/customers/:id', deskOnly, getDeskCustomer);
 

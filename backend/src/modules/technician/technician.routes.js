@@ -2,6 +2,10 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 import {
   earnings,
+  installationList,
+  removalConfirm,
+  removalList,
+  removalVehicles,
   engineKill,
   engineKillUnsupported,
   portalCheck,
@@ -33,3 +37,7 @@ technicianRouter.post('/jobs/:id/engine-kill-unsupported', engineKillUnsupported
 technicianRouter.post('/jobs/:id/submit', submit);
 technicianRouter.get('/stock', stock);
 technicianRouter.get('/earnings', earnings);
+technicianRouter.get('/installations', installationList);
+technicianRouter.get('/removals/vehicles', removalVehicles);
+technicianRouter.get('/removals', removalList);
+technicianRouter.post('/removals', removalConfirm);

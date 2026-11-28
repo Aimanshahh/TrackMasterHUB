@@ -185,12 +185,8 @@ export function runShezzSync(mappings) {
   return sendJson('/api/operations/shezz/sync', 'POST', { mappings });
 }
 
-export function fetchStockPortalPreview() {
-  return apiRequest('/api/operations/stock-portal/preview');
-}
-
-export function runStockPortalSync(mappings) {
-  return sendJson('/api/operations/stock-portal/sync', 'POST', { mappings });
+export function fetchStockPortalReport() {
+  return apiRequest('/api/operations/stock-portal/report');
 }
 
 /* ---------------- Authentication ---------------- */
@@ -677,6 +673,26 @@ export function submitInstallationForReview(id) {
 
 export function fetchTechnicianStock({ signal } = {}) {
   return apiRequest('/api/technician/stock', { signal });
+}
+
+export function fetchTechnicianInstallations({ signal } = {}) {
+  return apiRequest('/api/technician/installations', { signal });
+}
+
+export function fetchTechnicianRemovals({ signal } = {}) {
+  return apiRequest('/api/technician/removals', { signal });
+}
+
+export function searchRemovalVehicles(q, { signal } = {}) {
+  return apiRequest(withQuery('/api/technician/removals/vehicles', { q }), { signal });
+}
+
+export function confirmDeviceRemoval(input) {
+  return sendJson('/api/technician/removals', 'POST', input);
+}
+
+export function bindPortalSim(imei) {
+  return sendJson('/api/operations/stock-portal/bind-sim', 'POST', { imei });
 }
 
 export function fetchTechnicianEarnings({ signal } = {}) {
