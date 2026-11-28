@@ -185,10 +185,6 @@ export function runShezzSync(mappings) {
   return sendJson('/api/operations/shezz/sync', 'POST', { mappings });
 }
 
-export function fetchStockPortalReport() {
-  return apiRequest('/api/operations/stock-portal/report');
-}
-
 /* ---------------- Authentication ---------------- */
 
 export function fetchAuthStatus({ signal } = {}) {

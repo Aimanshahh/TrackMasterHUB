@@ -41,3 +41,19 @@ test('a SIM paired with another device is a conflict, and no SIM means nothing h
   assert.equal((await bind(other, tech, '')).outcome, 'none');
   assert.equal((await Device.findOne({ imei: '350000000005554' })).simNumber || '', '');
 });
+
+test('bind from the portal reads the SIM the portal holds for that IMEI and refuses when it has none', { skip }, async () => {
+  const tracking = await import('../src/modules/tracking/tracking.service.js');
+  const { bindSimFromPortal } = await import('../src/modules/operations/stockPortal.service.js');
+  await Device.create({ imei: '350000000006661', technician: tech._id, status: 'assigned' });
+  await Device.create({ imei: '350000000006662', technician: tech._id, status: 'assigned' });
+  tracking.__setTechnicianStockCache([
+    { imei: '350000000006661', simNumber: '03006660001', lastSeenAt: new Date().toISOString() },
+    { imei: '350000000006662', simNumber: '', lastSeenAt: new Date().toISOString() },
+  ]);
+  const out = await bindSimFromPortal('350000000006661');
+  assert.equal(out.outcome, 'bound');
+  assert.equal((await Device.findOne({ imei: '350000000006661' })).configured, false);
+  await assert.rejects(bindSimFromPortal('350000000006662'), (e) => /no SIM number/.test(e.message));
+  await assert.rejects(bindSimFromPortal('350000000006669'), (e) => /does not list/.test(e.message));
+});

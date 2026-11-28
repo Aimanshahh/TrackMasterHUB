@@ -924,7 +924,7 @@ async function listDevices({ status, q, configured, page = 1, limit = 25 } = {})
       json.technician = row.technician?._id ? { id: row.technician._id.toString(), name: row.technician.name } : null;
       /* Matched to the tracking portal by IMEI, so Operations sees which devices are already live there. */
       const reading = getDeviceTelemetry(row.imei);
-      json.portal = { found: reading.found, lastSeenAt: reading.lastSeenAt ?? null };
+      json.portal = { found: reading.found, lastSeenAt: reading.lastSeenAt ?? null, simNumber: reading.simNumber ?? '' };
       return json;
     }),
     meta: { total, page: safePage, limit: safeLimit, pages: Math.ceil(total / safeLimit) },

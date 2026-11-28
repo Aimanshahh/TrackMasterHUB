@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { STOCK_STATUS_OPTIONS } from '../../app/operations.js';
 import { useDevices, useKnownStations, useSims, useTechnicians } from '../../hooks/useOperations.js';
-import { createDeviceRecord, createSimRecord, pairDeviceRecord, setDeviceConfiguredRecord, unpairDeviceRecord, updateDeviceRecord, updateSimRecord } from '../../lib/api.js';
+import { bindPortalSim, createDeviceRecord, createSimRecord, pairDeviceRecord, setDeviceConfiguredRecord, unpairDeviceRecord, updateDeviceRecord, updateSimRecord } from '../../lib/api.js';
 import { StockStatus } from './OpsStatus.jsx';
 import StationField from './StationField.jsx';
 
@@ -240,6 +240,17 @@ export default function InventoryPanel() {
     devices.refresh();
   }
 
+  const [bindError, setBindError] = useState('');
+  async function bindFromPortal(device) {
+    setBindError('');
+    try {
+      await bindPortalSim(device.imei);
+      devices.refresh();
+    } catch (error) {
+      setBindError(`${device.imei}: ${error.message}`);
+    }
+  }
+
   async function unpair(device) {
     await unpairDeviceRecord(device.id);
     devices.refresh();
@@ -288,6 +299,7 @@ export default function InventoryPanel() {
         ) : null}
       </div>
 
+      {bindError ? <p className="app-notice app-notice--error" role="alert">{bindError}</p> : null}
       {active.error ? <p className="app-notice app-notice--error" role="alert">Stock could not be loaded: {active.error}</p> : null}
       {active.status === 'loading' ? <p className="data-state" role="status">Loading stock…</p> : null}
 
@@ -303,19 +315,30 @@ export default function InventoryPanel() {
         <div className="ops-table__scroll">
           {tab === 'devices' ? (
             <div className="ops-table ops-table--stock ops-table--devices">
-              <div className="ops-table__head"><span>Device</span><span>Status</span><span>With</span><span>SIM pair</span><span>Configuration</span><span aria-hidden="true" /></div>
+              <div className="ops-table__head"><span>Device</span><span>Held by</span><span>SIM pair</span><span>Portal</span><span>Configuration</span><span>Actions</span></div>
               {devices.rows.map((device) => (
                 <div className="ops-table__row" key={device.id}>
                   <span className="ops-cell-stack">
                     <span className="ops-mono">{device.imei}</span>
                     <small className="ops-cell-muted">{[device.model, device.station].filter(Boolean).join(' · ') || '—'}</small>
                   </span>
-                  <span><StockStatus status={device.status} /></span>
-                  <span className="ops-cell-muted">{device.job ? 'Fitted to a job' : device.technician?.name || 'Station stock'}</span>
-                  <span className="ops-mono">{device.simNumber || <span className="ops-cell-muted">Not paired</span>}</span>
+                  <span className="ops-cell-stack">
+                    <StockStatus status={device.status} />
+                    <small className="ops-cell-muted">{device.job ? 'Fitted to a job' : device.technician?.name || 'Station stock'}</small>
+                  </span>
+                  <span className="ops-cell-stack">
+                    <span className="ops-mono">{device.simNumber || <span className="ops-cell-muted">Not paired</span>}</span>
+                    {!device.simNumber && device.portal?.simNumber ? (
+                      <button type="button" className="ops-link" onClick={() => bindFromPortal(device)} title={`The portal has SIM ${device.portal.simNumber} against this IMEI`}>
+                        Bind {device.portal.simNumber}
+                      </button>
+                    ) : null}
+                  </span>
+                  <span className="ops-cell-stack">
+                    <span className="ops-status" data-tone={device.portal?.found ? 'done' : 'muted'}>{device.portal?.found ? 'On portal' : 'Not on portal'}</span>
+                  </span>
                   <span className="ops-cell-stack">
                     <span className="ops-status" data-tone={device.configured ? 'done' : 'muted'}>{device.configured ? 'Configured' : 'Unconfigured'}</span>
-                    <small className="ops-cell-muted">{device.portal?.found ? 'On portal' : 'Not on portal'}</small>
                   </span>
                   <span className="ops-row-action">
                     {device.simNumber ? (

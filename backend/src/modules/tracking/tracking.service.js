@@ -545,6 +545,7 @@ export function getDeviceTelemetry(imei) {
     configured: isTrackingConfigured(),
     syncedAt: state.syncedAt?.toISOString() ?? null,
     gpsState: device.gpsState ?? '',
+    simNumber: device.simNumber ?? '',
     lastSeenAt: device.lastSeenAt ?? null,
     objectStatus: device.objectStatus ?? '',
     ignitionOn: device.ignitionOn ?? null,
