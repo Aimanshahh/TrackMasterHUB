@@ -58,8 +58,10 @@ export default function TechnicianStockPage() {
                   <div>
                     <p className="tech-stock__id">{device.imei}</p>
                     <p className="tech-stock__meta">{device.model || 'Model not recorded'}</p>
+                    <p className="tech-stock__meta">{device.simNumber ? `SIM ${device.simNumber}` : 'No SIM paired yet'}</p>
                   </div>
                   <div className="tech-stock__right">
+                    <span className={`tech-pill tech-pill--${device.configured ? 'ok' : 'warn'}`}>{device.configured ? 'Configured' : 'Unconfigured'}</span>
                     <span className={`tech-pill tech-pill--${device.status === 'installed' ? 'ok' : device.status === 'assigned' ? 'warn' : 'plain'}`}>
                       {device.statusLabel}
                     </span>
@@ -81,6 +83,7 @@ export default function TechnicianStockPage() {
                 <div>
                   <p className="tech-stock__id">{sim.number}</p>
                   <p className="tech-stock__meta">{sim.operator || 'Operator not recorded'}</p>
+                  <p className="tech-stock__meta">{sim.pairedImei ? `Paired with ${sim.pairedImei}` : 'Not paired'}</p>
                 </div>
                 <div className="tech-stock__right">
                   <span className={`tech-pill tech-pill--${sim.status === 'installed' ? 'ok' : sim.status === 'assigned' ? 'warn' : 'plain'}`}>

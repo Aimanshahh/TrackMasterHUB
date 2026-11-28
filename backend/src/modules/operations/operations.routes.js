@@ -9,6 +9,9 @@ import {
   getTechnicianStock,
   getTechnicians,
   patchDevice,
+  postPairDevice,
+  postUnpairDevice,
+  patchDeviceConfigured,
   patchJob,
   patchEngineKill,
   patchSim,
@@ -84,6 +87,9 @@ operationsRouter.get('/microphone-tasks', deskOnly, getMicrophoneTasks);
 operationsRouter.get('/devices', deskOnly, getDevices);
 operationsRouter.post('/devices', deskOnly, postDevice);
 operationsRouter.patch('/devices/:id', deskOnly, patchDevice);
+operationsRouter.post('/devices/:id/pair', deskOnly, postPairDevice);
+operationsRouter.post('/devices/:id/unpair', deskOnly, postUnpairDevice);
+operationsRouter.patch('/devices/:id/configured', deskOnly, patchDeviceConfigured);
 
 operationsRouter.get('/sims', deskOnly, getSims);
 operationsRouter.post('/sims', deskOnly, postSim);

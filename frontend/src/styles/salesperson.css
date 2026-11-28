@@ -39,7 +39,8 @@
   inset: auto 0 0 0;
   z-index: 45;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   background: rgb(255 255 255 / 97%);
   border-top: 1px solid #e2dfd8;
@@ -52,7 +53,7 @@
   gap: 4px;
   padding: 7px 2px 6px;
   color: #7b7f85;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: .01em;
   text-decoration: none;

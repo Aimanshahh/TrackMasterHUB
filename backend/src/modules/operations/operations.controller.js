@@ -11,6 +11,9 @@ import {
   listSims,
   listTechnicians,
   updateDevice,
+  pairDevice,
+  unpairDevice,
+  setDeviceConfigured,
   updateJob,
   updateEngineKill,
   updateSim,
@@ -88,8 +91,8 @@ async function patchTechnician(req, res, next) {
 /* Devices */
 async function getDevices(req, res, next) {
   try {
-    const { status, q, page, limit } = req.query;
-    return res.json(await listDevices({ status, q, page, limit }));
+    const { status, q, page, limit, configured } = req.query;
+    return res.json(await listDevices({ status, q, configured, page, limit }));
   } catch (error) { next(error); }
 }
 
@@ -97,6 +100,24 @@ async function postDevice(req, res, next) {
   try {
     const device = await createDevice(req.body ?? {}, req.user);
     return res.status(201).json({ data: { device } });
+  } catch (error) { next(error); }
+}
+
+async function postPairDevice(req, res, next) {
+  try {
+    return res.json({ data: { device: await pairDevice(req.params.id, req.body ?? {}, req.user) } });
+  } catch (error) { next(error); }
+}
+
+async function postUnpairDevice(req, res, next) {
+  try {
+    return res.json({ data: { device: await unpairDevice(req.params.id, req.user) } });
+  } catch (error) { next(error); }
+}
+
+async function patchDeviceConfigured(req, res, next) {
+  try {
+    return res.json({ data: { device: await setDeviceConfigured(req.params.id, req.body ?? {}, req.user) } });
   } catch (error) { next(error); }
 }
 
@@ -143,6 +164,9 @@ export {
   getDevices,
   postDevice,
   patchDevice,
+  postPairDevice,
+  postUnpairDevice,
+  patchDeviceConfigured,
   getSims,
   postSim,
   patchSim,

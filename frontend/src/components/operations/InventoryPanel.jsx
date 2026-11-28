@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { STOCK_STATUS_OPTIONS } from '../../app/operations.js';
 import { useDevices, useKnownStations, useSims, useTechnicians } from '../../hooks/useOperations.js';
-import { createDeviceRecord, createSimRecord, updateDeviceRecord, updateSimRecord } from '../../lib/api.js';
+import { createDeviceRecord, createSimRecord, pairDeviceRecord, setDeviceConfiguredRecord, unpairDeviceRecord, updateDeviceRecord, updateSimRecord } from '../../lib/api.js';
 import { StockStatus } from './OpsStatus.jsx';
 import StationField from './StationField.jsx';
 
@@ -158,13 +158,73 @@ function AssignStockDrawer({ kind, item, onClose, onDone }) {
   );
 }
 
+function PairDrawer({ device, onClose, onDone }) {
+  const sims = useSims({ status: '', limit: 200 });
+  const [simNumber, setSimNumber] = useState(device.simNumber ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  /* Free SIMs only: not fitted to a job and not paired with another device. */
+  const options = sims.rows.filter((sim) => !sim.job && (!sim.deviceImei || sim.deviceImei === device.imei)
+    && (!device.technician || !sim.technician || sim.technician.id === device.technician.id)
+    && ['in_stock', 'assigned', 'returned'].includes(sim.status));
+
+  async function save(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await pairDeviceRecord(device.id, simNumber);
+      onDone();
+      onClose();
+    } catch (error_) {
+      setError(error_.message ?? 'The pair could not be saved.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="drawer-root" role="presentation">
+      <button type="button" className="drawer-backdrop" onClick={onClose} aria-label="Close pairing form" />
+      <section className="drawer" role="dialog" aria-modal="true" aria-labelledby="pair-title">
+        <header className="drawer__head">
+          <div>
+            <p className="drawer__eyebrow">Device · {device.imei}</p>
+            <h2 className="drawer__title" id="pair-title">{device.simNumber ? 'Change the SIM' : 'Pair with a SIM'}</h2>
+            <p className="drawer__subtitle">{device.technician ? `With ${device.technician.name}; the SIM moves to the same technician.` : 'Both stay together from now on.'} A new pair is Unconfigured until you check it.</p>
+          </div>
+          <button type="button" className="drawer__close" onClick={onClose} aria-label="Close">×</button>
+        </header>
+        <form className="drawer__form" onSubmit={save}>
+          <label className="field">
+            <span className="field__label">SIM number</span>
+            <select className="input" required value={simNumber} onChange={(event) => setSimNumber(event.target.value)}>
+              <option value="">Choose a SIM</option>
+              {options.map((sim) => <option key={sim.id} value={sim.number}>{sim.number}{sim.operator ? ` · ${sim.operator}` : ''}{sim.technician ? ` · ${sim.technician.name}` : ''}</option>)}
+            </select>
+            {sims.status === 'ready' && options.length === 0 ? <span className="field__hint">No free SIMs. Add SIM stock first, or unpair one from another device.</span> : null}
+          </label>
+          {error ? <p className="form-alert" role="alert">{error}</p> : null}
+          <footer className="drawer__foot">
+            <button type="button" className="btn btn--outline" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" className="btn btn--primary" disabled={saving || !simNumber}>{saving ? 'Saving…' : 'Save pair'}</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 export default function InventoryPanel() {
   const [tab, setTab] = useState('devices');
-  const [status, setStatus] = useState('in_stock');
+  const [status, setStatus] = useState('');
+  const [configured, setConfigured] = useState('');
+  const [pairing, setPairing] = useState(null);
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [assigning, setAssigning] = useState(null);
-  const devices = useDevices({ status, search, limit: 50 });
+  const devices = useDevices({ status, search, configured, limit: 50 });
   const sims = useSims({ status, search, limit: 50 });
   const stations = useKnownStations([devices.rows, sims.rows]);
   const active = tab === 'devices' ? devices : sims;
@@ -173,6 +233,16 @@ export default function InventoryPanel() {
     if (kind === 'devices') await updateDeviceRecord(id, { status: nextStatus });
     else await updateSimRecord(id, { status: nextStatus });
     active.refresh();
+  }
+
+  async function toggleConfigured(device) {
+    await setDeviceConfiguredRecord(device.id, !device.configured);
+    devices.refresh();
+  }
+
+  async function unpair(device) {
+    await unpairDeviceRecord(device.id);
+    devices.refresh();
   }
 
   const emptyLabel = status === 'out_of_service'
@@ -207,6 +277,15 @@ export default function InventoryPanel() {
             {STOCK_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
+        {tab === 'devices' ? (
+          <label><span>Configuration</span>
+            <select aria-label="Filter devices by configuration" value={configured} onChange={(event) => setConfigured(event.target.value)}>
+              <option value="">All</option>
+              <option value="yes">Configured</option>
+              <option value="no">Unconfigured</option>
+            </select>
+          </label>
+        ) : null}
       </div>
 
       {active.error ? <p className="app-notice app-notice--error" role="alert">Stock could not be loaded: {active.error}</p> : null}
@@ -224,18 +303,28 @@ export default function InventoryPanel() {
         <div className="ops-table__scroll">
           {tab === 'devices' ? (
             <div className="ops-table ops-table--stock ops-table--devices">
-              <div className="ops-table__head"><span>IMEI</span><span>Model</span><span>Station</span><span>Status</span><span>With</span><span>Portal</span><span aria-hidden="true" /></div>
+              <div className="ops-table__head"><span>Device</span><span>Status</span><span>With</span><span>SIM pair</span><span>Configuration</span><span aria-hidden="true" /></div>
               {devices.rows.map((device) => (
                 <div className="ops-table__row" key={device.id}>
-                  <span className="ops-mono">{device.imei}</span>
-                  <span>{device.model || <span className="ops-cell-muted">—</span>}</span>
-                  <span className="ops-cell-muted">{device.station || '—'}</span>
+                  <span className="ops-cell-stack">
+                    <span className="ops-mono">{device.imei}</span>
+                    <small className="ops-cell-muted">{[device.model, device.station].filter(Boolean).join(' · ') || '—'}</small>
+                  </span>
                   <span><StockStatus status={device.status} /></span>
                   <span className="ops-cell-muted">{device.job ? 'Fitted to a job' : device.technician?.name || 'Station stock'}</span>
-                  <span className="ops-cell-muted">{device.portal?.found ? (device.portal.lastSeenAt ? `On portal · ${formatDay(device.portal.lastSeenAt)}` : 'On portal') : 'Not on portal'}</span>
+                  <span className="ops-mono">{device.simNumber || <span className="ops-cell-muted">Not paired</span>}</span>
+                  <span className="ops-cell-stack">
+                    <span className="ops-status" data-tone={device.configured ? 'done' : 'muted'}>{device.configured ? 'Configured' : 'Unconfigured'}</span>
+                    <small className="ops-cell-muted">{device.portal?.found ? 'On portal' : 'Not on portal'}</small>
+                  </span>
                   <span className="ops-row-action">
+                    {device.simNumber ? (
+                      <button type="button" className="ops-link" onClick={() => toggleConfigured(device)}>{device.configured ? 'Mark unconfigured' : 'Mark configured'}</button>
+                    ) : null}
                     {device.job ? null : (
                       <>
+                        <button type="button" className="ops-link" onClick={() => setPairing(device)}>{device.simNumber ? 'Change SIM' : 'Pair SIM'}</button>
+                        {device.simNumber ? <button type="button" className="ops-link" onClick={() => unpair(device)}>Unpair</button> : null}
                         <button type="button" className="ops-link" onClick={() => setAssigning({ kind: 'devices', item: device })}>
                           {device.technician ? 'Reassign' : 'Assign'}
                         </button>
@@ -277,6 +366,7 @@ export default function InventoryPanel() {
 
       {addOpen ? <AddStockDrawer kind={tab} stations={stations} onClose={() => setAddOpen(false)} onCreated={active.refresh} /> : null}
 
+      {pairing ? <PairDrawer device={pairing} onClose={() => setPairing(null)} onDone={devices.refresh} /> : null}
       {assigning ? (
         <AssignStockDrawer
           kind={assigning.kind}

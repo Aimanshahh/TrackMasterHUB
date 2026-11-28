@@ -351,6 +351,18 @@ export function updateDeviceRecord(id, input) {
   return sendJson(`/api/operations/devices/${encodeURIComponent(id)}`, 'PATCH', input);
 }
 
+export function pairDeviceRecord(id, simNumber) {
+  return sendJson(`/api/operations/devices/${encodeURIComponent(id)}/pair`, 'POST', { simNumber });
+}
+
+export function unpairDeviceRecord(id) {
+  return sendJson(`/api/operations/devices/${encodeURIComponent(id)}/unpair`, 'POST', {});
+}
+
+export function setDeviceConfiguredRecord(id, configured) {
+  return sendJson(`/api/operations/devices/${encodeURIComponent(id)}/configured`, 'PATCH', { configured });
+}
+
 export function fetchSims(params = {}, { signal } = {}) {
   return apiRequest(withQuery('/api/operations/sims', params), { signal });
 }

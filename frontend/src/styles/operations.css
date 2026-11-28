@@ -29,7 +29,8 @@
 .ops-table__scroll { overflow-x: auto; }
 .ops-table { min-width: 900px; background: #fff; }
 .ops-table--stock { min-width: 780px; }
-.ops-table--devices { min-width: 920px; }
+.ops-table--devices { min-width: 940px; }
+.ops-table--devices .ops-row-action { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: flex-end; text-align: right; }
 .ops-table--technicians { min-width: 1020px; }
 .ops-table__head, .ops-table__row { display: grid; gap: 14px; padding: 11px 19px; }
 .ops-table__head { background: #f7f6f3; color: #73777c; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid #eceae5; }
@@ -43,7 +44,7 @@ button.ops-table__row:focus-visible { outline: 2px solid #d7131b; outline-offset
 .ops-table--jobs .ops-table__head, .ops-table--jobs .ops-table__row { grid-template-columns: minmax(150px, 1.05fr) minmax(200px, 1.55fr) minmax(110px, .9fr) minmax(130px, 1fr) minmax(120px, .95fr) minmax(120px, .95fr); }
 .ops-table--complaints .ops-table__head, .ops-table--complaints .ops-table__row { grid-template-columns: minmax(128px, .95fr) minmax(150px, 1.15fr) minmax(180px, 1.5fr) minmax(80px, .6fr) minmax(120px, .85fr) minmax(150px, 1fr) minmax(120px, .9fr); }
 .ops-table--stock .ops-table__head, .ops-table--stock .ops-table__row { grid-template-columns: minmax(140px, 1.1fr) minmax(140px, 1.1fr) minmax(120px, .9fr) minmax(100px, .75fr) minmax(120px, .9fr) minmax(70px, .5fr); }
-.ops-table--devices .ops-table__head, .ops-table--devices .ops-table__row { grid-template-columns: minmax(140px, 1.1fr) minmax(110px, .9fr) minmax(110px, .8fr) minmax(100px, .75fr) minmax(120px, .9fr) minmax(130px, 1fr) minmax(70px, .5fr); }
+.ops-table--devices .ops-table__head, .ops-table--devices .ops-table__row { grid-template-columns: minmax(170px, 1.3fr) minmax(100px, .7fr) minmax(120px, .9fr) minmax(130px, .9fr) minmax(130px, .9fr) minmax(210px, 1.5fr); }
 .ops-table--technicians .ops-table__head, .ops-table--technicians .ops-table__row { grid-template-columns: minmax(150px, 1.3fr) minmax(110px, .85fr) minmax(120px, .95fr) minmax(95px, .7fr) minmax(80px, .6fr) minmax(80px, .6fr) minmax(95px, .7fr) minmax(75px, .55fr); }
 .ops-table__row .ops-cell-stack { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ops-cell-muted { color: #6f747b; }

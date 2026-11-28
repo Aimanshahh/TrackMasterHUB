@@ -53,6 +53,12 @@ export default function TechnicianJobPage() {
     setPlace(job.testing?.location?.physicalLocation ?? '');
   }, [job?.deviceImei, job?.simNumber, job?.id]);
 
+  const pairedDevice = (data?.stock?.devices ?? []).find((device) => device.imei === imei.trim());
+
+  useEffect(() => {
+    if (pairedDevice?.simNumber) setSimNumber(pairedDevice.simNumber);
+  }, [pairedDevice?.simNumber]);
+
   const closed = job ? ['completed', 'cancelled'].includes(job.status) : false;
   const submitted = Boolean(job?.testing?.submittedAt) && job?.testing?.review?.status === 'pending';
 
@@ -232,6 +238,12 @@ export default function TechnicianJobPage() {
               {(data?.stock?.sims ?? []).map((sim) => <option key={sim.id} value={sim.number} />)}
             </datalist>
           </label>
+          {pairedDevice ? (
+            <p className="tech-note">
+              {pairedDevice.simNumber ? `Paired with SIM ${pairedDevice.simNumber}. ` : 'Operations has not paired a SIM with this device yet. '}
+              <strong>{pairedDevice.configured ? 'Configured by Operations.' : 'Not configured yet — Operations has not checked this pair.'}</strong>
+            </p>
+          ) : null}
           <button type="submit" className="btn btn--primary btn--small" disabled={closed || busy === 'stock'}>
             {busy === 'stock' ? 'Checking…' : 'Confirm device & SIM'}
           </button>
