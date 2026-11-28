@@ -900,9 +900,11 @@ async function updateTechnician(id, input) {
 
 /* -------------------------------- Devices -------------------------------- */
 
-async function listDevices({ status, q, page = 1, limit = 25 } = {}) {
+async function listDevices({ status, q, configured, page = 1, limit = 25 } = {}) {
   const filter = {};
   if (status) filter.status = status;
+  if (configured === 'yes') filter.configured = true;
+  if (configured === 'no') filter.configured = { $ne: true };
 
   if (q) {
     const regex = new RegExp(escapeRegex(q.trim()), 'i');
@@ -985,6 +987,14 @@ async function updateDevice(id, input) {
 
   await device.save();
 
+  /* A paired SIM stays with its device. */
+  if (input.technicianId !== undefined && device.simNumber && !device.job) {
+    await Sim.updateOne(
+      { number: device.simNumber, job: { $in: [null, undefined] } },
+      { $set: { technician: device.technician ?? null, status: device.technician ? 'assigned' : 'in_stock' } },
+    );
+  }
+
   if (previousStation && (previousStation !== device.station || device.status === 'out_of_service' || input.technicianId)) {
     await checkStationStock(previousStation);
   }
@@ -994,6 +1004,93 @@ async function updateDevice(id, input) {
     await checkTechnicianStock(technicianId);
   }
 
+  return device.toApiJson();
+}
+
+
+/* ------------------------------ Device and SIM pairs ----------------------------- */
+
+const USABLE_PAIR_STATUSES = ['in_stock', 'returned'];
+const sameId = (a, b) => String(a ?? '') === String(b ?? '');
+
+/**
+ * Operations pairs a device with a SIM while both are still in stock, even when they
+ * are already with a technician. A new pair is unconfigured until Operations checks it.
+ */
+async function pairDevice(id, input, actor) {
+  const device = await Device.findById(id);
+  if (!device) throw makeError(errorCodes.NOT_FOUND, 'No device matches that id.');
+  if (device.job) throw makeError(errorCodes.VALIDATION_ERROR, 'This device is fitted to a job. Update the job to change its SIM.');
+
+  const number = String(input?.simNumber ?? '').trim();
+  const sim = await Sim.findOne({ number });
+  if (!sim) throw makeError(errorCodes.VALIDATION_ERROR, 'That SIM number is not in stock. Add the SIM first.');
+  if (sim.job) throw makeError(errorCodes.CONFLICT, 'That SIM is fitted to a job.', 409);
+  if (sim.deviceImei && sim.deviceImei !== device.imei) {
+    throw makeError(errorCodes.CONFLICT, `That SIM is already paired with device ${sim.deviceImei}. Unpair it there first.`, 409);
+  }
+  if (device.technician && sim.technician && !sameId(device.technician, sim.technician)) {
+    throw makeError(errorCodes.CONFLICT, 'The device and the SIM are with different technicians. Move one to the other technician first.', 409);
+  }
+
+  if (device.simNumber && device.simNumber !== number) {
+    await Sim.updateOne({ number: device.simNumber, job: { $in: [null, undefined] } }, { $set: { deviceImei: '' } });
+  }
+
+  const holder = device.technician ?? sim.technician ?? null;
+  const now = new Date();
+  device.simNumber = number;
+  device.configured = false;
+  device.configuredAt = undefined;
+  device.configuredByName = '';
+  sim.deviceImei = device.imei;
+  if (holder) {
+    device.technician = holder;
+    sim.technician = holder;
+    if (USABLE_PAIR_STATUSES.includes(device.status)) device.status = 'assigned';
+    if (USABLE_PAIR_STATUSES.includes(sim.status)) sim.status = 'assigned';
+    device.assignedAt = device.assignedAt ?? now;
+    sim.assignedAt = sim.assignedAt ?? now;
+  }
+  await device.save();
+  await sim.save();
+
+  await recordActivity({ actor, type: 'job.status_changed', label: `Device paired · ${device.imei}`, description: `${actor?.name ?? 'Operations'} paired device ${device.imei} with SIM ${number}.` });
+  return device.toApiJson();
+}
+
+async function unpairDevice(id, actor) {
+  const device = await Device.findById(id);
+  if (!device) throw makeError(errorCodes.NOT_FOUND, 'No device matches that id.');
+  if (device.job) throw makeError(errorCodes.VALIDATION_ERROR, 'This device is fitted to a job. Update the job to change its SIM.');
+  if (!device.simNumber) throw makeError(errorCodes.VALIDATION_ERROR, 'This device has no SIM paired.');
+
+  const previous = device.simNumber;
+  await Sim.updateOne({ number: previous, job: { $in: [null, undefined] } }, { $set: { deviceImei: '' } });
+  device.simNumber = '';
+  device.configured = false;
+  device.configuredAt = undefined;
+  device.configuredByName = '';
+  await device.save();
+
+  await recordActivity({ actor, type: 'job.status_changed', label: `Device unpaired · ${device.imei}`, description: `${actor?.name ?? 'Operations'} unpaired device ${device.imei} from SIM ${previous}.` });
+  return device.toApiJson();
+}
+
+/** The check: a pair Operations has verified moves to Configured; anything else stays Unconfigured. */
+async function setDeviceConfigured(id, input, actor) {
+  const device = await Device.findById(id);
+  if (!device) throw makeError(errorCodes.NOT_FOUND, 'No device matches that id.');
+  const configured = Boolean(input?.configured);
+  if (configured && !device.simNumber) {
+    throw makeError(errorCodes.VALIDATION_ERROR, 'Pair the device with a SIM before marking it configured.');
+  }
+  device.configured = configured;
+  device.configuredAt = configured ? new Date() : undefined;
+  device.configuredByName = configured ? String(actor?.name ?? actor?.email ?? '').trim() : '';
+  await device.save();
+
+  await recordActivity({ actor, type: 'job.status_changed', label: `Device ${configured ? 'configured' : 'set to unconfigured'} · ${device.imei}`, description: `${actor?.name ?? 'Operations'} marked device ${device.imei} (SIM ${device.simNumber || '—'}) as ${configured ? 'configured' : 'unconfigured'}.` });
   return device.toApiJson();
 }
 
@@ -1063,6 +1160,10 @@ async function updateSim(id, input) {
   if (input.notes !== undefined) sim.notes = input.notes.trim();
   if (input.status === 'out_of_service' || input.status === 'in_stock') sim.status = input.status;
 
+  if (input.technicianId !== undefined && sim.deviceImei) {
+    throw makeError(errorCodes.VALIDATION_ERROR, `This SIM is paired with device ${sim.deviceImei}. Move the device and the SIM moves with it, or unpair them first.`);
+  }
+
   if (input.technicianId !== undefined) {
     if (!input.technicianId) {
       sim.technician = null;
@@ -1093,6 +1194,9 @@ export {
   createTechnician,
   updateTechnician,
   listDevices,
+  pairDevice,
+  unpairDevice,
+  setDeviceConfigured,
   createDevice,
   updateDevice,
   listSims,

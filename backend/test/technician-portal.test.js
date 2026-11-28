@@ -183,3 +183,57 @@ test('inventory: each device carries whether the tracking portal lists its IMEI'
   const byImei = Object.fromEntries(data.map((row) => [row.imei, row.portal.found]));
   assert.deepEqual(byImei, { '350000000001111': true, '350000000002222': false });
 });
+
+test('pairs: Operations binds a device to a SIM, checks it, and the technician then uses that pair', { skip }, async () => {
+  const ops = await import('../src/modules/operations/operations.service.js');
+  const { default: Device } = await import('../src/models/Device.js');
+  const { default: Sim } = await import('../src/models/Sim.js');
+  await Device.deleteMany({}); await Sim.deleteMany({});
+  const a = await Device.create({ imei: '350000000007001', station: 'Lahore', status: 'assigned', technician: tech._id });
+  await Device.create({ imei: '350000000007002', station: 'Lahore', status: 'in_stock' });
+  await Sim.create({ number: '03007000001', station: 'Lahore', status: 'in_stock' });
+  await Sim.create({ number: '03007000002', station: 'Lahore', status: 'in_stock' });
+  const actorOps = { id: ctx.admin._id.toString(), name: 'Ops Person' };
+
+  await rejects(ops.setDeviceConfigured(a._id.toString(), { configured: true }, actorOps), /Pair the device/);
+  await rejects(ops.pairDevice(a._id.toString(), { simNumber: '0300nope' }, actorOps), /not in stock/);
+
+  const paired = await ops.pairDevice(a._id.toString(), { simNumber: '03007000001' }, actorOps);
+  assert.equal(paired.simNumber, '03007000001');
+  assert.equal(paired.configured, false, 'a new pair is unconfigured');
+  const sim1 = await Sim.findOne({ number: '03007000001' });
+  assert.equal(sim1.technician.toString(), tech._id.toString(), 'the SIM goes to the same technician as the device');
+  assert.equal(sim1.deviceImei, '350000000007001');
+
+  /* A second device cannot take a SIM that is already paired. */
+  const b = await Device.findOne({ imei: '350000000007002' });
+  await rejects(ops.pairDevice(b._id.toString(), { simNumber: '03007000001' }, actorOps), /already paired/);
+
+  assert.equal((await ops.setDeviceConfigured(a._id.toString(), { configured: true }, actorOps)).configured, true);
+  const configured = await ops.listDevices({ configured: 'yes' });
+  const unconfigured = await ops.listDevices({ configured: 'no' });
+  assert.deepEqual(configured.data.map((row) => row.imei), ['350000000007001']);
+  assert.deepEqual(unconfigured.data.map((row) => row.imei), ['350000000007002']);
+
+  /* Re-pairing resets the check. */
+  await ops.pairDevice(a._id.toString(), { simNumber: '03007000002' }, actorOps);
+  assert.equal((await Device.findById(a._id)).configured, false);
+  assert.equal((await Sim.findOne({ number: '03007000001' })).deviceImei, '');
+
+  /* The technician gets the SIM from the pair, and a different SIM is refused. */
+  const job = await Job.create({
+    customer: ctx.customer._id, customerName: 'Basheer Ahmed', requestType: 'new_installation',
+    vehicle: { label: 'Car', registration: 'PAIR-1', station: 'Lahore' }, status: 'assigned', packageKey: 'basic',
+    technician: tech._id, createdBy: ctx.sales._id, quotedPrice: 20000,
+  });
+  await rejects(svc.selectStock(actor(), job._id.toString(), { imei: '350000000007001', simNumber: '03007000001' }), /paired with SIM 03007000002/);
+  const out = await svc.selectStock(actor(), job._id.toString(), { imei: '350000000007001' });
+  assert.equal(out.job.simNumber, '03007000002');
+
+  const stock = await svc.getStock(actor());
+  assert.equal(stock.devices.find((row) => row.imei === '350000000007001').simNumber, '03007000002');
+  assert.equal(stock.devices.find((row) => row.imei === '350000000007001').configured, false);
+
+  /* Unpairing a device that is not fitted frees the SIM. */
+  await ops.unpairDevice(b._id.toString(), actorOps).catch((error) => assert.match(error.message, /no SIM paired/));
+});

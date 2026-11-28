@@ -250,8 +250,11 @@ account → Technician) and links each to a record. A sale goes to Operations, w
 technician; the technician selects a device and SIM from their own stock (Operations sees the
 IMEI on the job), installs, and the portal confirms geolocation, ignition and battery disconnect
 by IMEI. The technician submits; Operations checks the tests and approves. The admin can set a
-new password for any account from the Users page. The Inventory page shows, per device, whether
-the tracking portal lists its IMEI.
+new password for any account from the Users page. Operations pairs each device with a SIM in
+Inventory (even when it is already with a technician); the pair is Unconfigured until Operations
+checks it and marks it Configured. The technician sees both the paired SIM and that status, and
+the SIM fills in automatically when they select the device. The Inventory page also shows, per
+device, whether the tracking portal lists its IMEI.
 
 ### Technician portal (`/technician`)
 
@@ -487,6 +490,8 @@ Every response carries `X-Request-Id`.
 | GET    | `/api/customers/check-duplicate`  | session                    |
 | PATCH  | `/api/users/:id/target`           | admin                      |
 | PATCH  | `/api/users/:id/password`         | admin                      |
+| POST   | `/api/operations/devices/:id/pair`, `/unpair` | admin, operations |
+| PATCH  | `/api/operations/devices/:id/configured` | admin, operations |
 | POST   | `/api/technician/jobs/:id/submit` | technician, own record     |
 | GET    | `/api/technician/stock`           | technician                 |
 | GET    | `/api/technician/earnings`        | technician                 |

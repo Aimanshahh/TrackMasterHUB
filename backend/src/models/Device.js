@@ -58,6 +58,10 @@ const deviceSchema = new mongoose.Schema(
       maxlength: 40,
       default: '',
     },
+    /** Operations has checked that this device and its SIM are set up and working together. */
+    configured: { type: Boolean, default: false },
+    configuredAt: { type: Date },
+    configuredByName: { type: String, trim: true, maxlength: 120, default: '' },
     assignedAt: {
       type: Date,
     },
@@ -88,6 +92,9 @@ deviceSchema.methods.toApiJson = function () {
     technician: this.technician,
     job: this.job?.toString(),
     simNumber: this.simNumber ?? '',
+    configured: Boolean(this.configured),
+    configuredAt: this.configuredAt?.toISOString?.() ?? null,
+    configuredByName: this.configuredByName ?? '',
     assignedAt: this.assignedAt?.toISOString?.() ?? null,
     installedAt: this.installedAt?.toISOString?.() ?? null,
     notes: this.notes ?? '',

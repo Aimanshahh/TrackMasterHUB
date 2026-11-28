@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import { errorCodes } from '../../config/errorCodes.js';
 import { makeError } from '../../middleware/errors.js';
+import Sim from '../../models/Sim.js';
 import Device from '../../models/Device.js';
 import Technician from '../../models/Technician.js';
 import { matchTechnician, normalizeName } from '../../utils/technicianMatch.js';
@@ -160,6 +161,9 @@ export async function applyHandovers(rows, { mappings = {} } = {}, actor, source
         device.technician = technician._id;
         device.status = 'assigned';
         await device.save();
+        if (device.simNumber) {
+          await Sim.updateOne({ number: device.simNumber, job: { $in: [null, undefined] } }, { $set: { technician: technician._id, status: 'assigned' } });
+        }
         summary.reassigned += 1;
       }
     }

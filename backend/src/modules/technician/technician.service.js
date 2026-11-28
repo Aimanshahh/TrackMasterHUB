@@ -197,9 +197,8 @@ async function selectStock(user, id, input) {
   }
 
   const imei = String(input?.imei ?? '').trim();
-  const simNumber = String(input?.simNumber ?? '').trim();
+  const rawSim = String(input?.simNumber ?? '').trim();
   if (!imei) throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the IMEI of the device you are fitting.');
-  if (!simNumber) throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the SIM number fitted with the device.');
 
   const ownDevices = await Device.find({ technician: technician._id });
   const device = ownDevices.find((row) => row.imei === imei);
@@ -211,6 +210,12 @@ async function selectStock(user, id, input) {
   }
   if (!USABLE_DEVICE_STATUSES.includes(device.status)) {
     throw makeError(errorCodes.CONFLICT, `That device is marked ${device.status.replace('_', ' ')} and cannot be installed.`, 409);
+  }
+  /* Operations pairs each device with its SIM; the pair decides the SIM. */
+  const simNumber = rawSim || device.simNumber || '';
+  if (!simNumber) throw makeError(errorCodes.VALIDATION_ERROR, 'Enter the SIM number fitted with the device.');
+  if (device.simNumber && simNumber !== device.simNumber) {
+    throw makeError(errorCodes.VALIDATION_ERROR, `That device is paired with SIM ${device.simNumber}. Use that SIM, or ask Operations to change the pair.`);
   }
   if (device.job && device.job.toString() !== job._id.toString()) {
     throw makeError(errorCodes.CONFLICT, 'That device is reserved for another installation.', 409);
@@ -501,6 +506,8 @@ async function getStock(user) {
       status: device.status,
       statusLabel: device.toApiJson().statusLabel,
       job: device.job?.toString() ?? null,
+      simNumber: device.simNumber ?? '',
+      configured: Boolean(device.configured),
       installedAt: device.installedAt?.toISOString() ?? null,
     })),
     sims: sims.map((sim) => ({
@@ -510,6 +517,7 @@ async function getStock(user) {
       status: sim.status,
       statusLabel: sim.toApiJson().statusLabel,
       job: sim.job?.toString() ?? null,
+      pairedImei: sim.deviceImei ?? '',
       installedAt: sim.installedAt?.toISOString() ?? null,
     })),
     counts: {

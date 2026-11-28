@@ -146,9 +146,9 @@ export function useTechnicians({ search = '', activeOnly = false } = {}) {
   return usePagedResource(fetchTechnicians, { q, active: activeOnly ? 'true' : '' });
 }
 
-export function useDevices({ status = '', search = '', page = 1, limit = 25 } = {}) {
+export function useDevices({ status = '', search = '', configured = '', page = 1, limit = 25 } = {}) {
   const q = useDebouncedValue(search);
-  return usePagedResource(fetchDevices, { status, q, page, limit });
+  return usePagedResource(fetchDevices, { status, q, configured, page, limit });
 }
 
 export function useSims({ status = '', search = '', page = 1, limit = 25 } = {}) {
